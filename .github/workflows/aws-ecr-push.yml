@@ -64,6 +64,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
 
+    # Note: SSL and RabbitMQ certificates should be handled separately
+    # These certificates should be stored securely in AWS Secrets Manager or S3
+    # and mounted to the container at runtime, not included in the Docker image
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}

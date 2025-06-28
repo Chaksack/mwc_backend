@@ -23,6 +23,10 @@ WORKDIR /app
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
 
+# Create directories for certificates
+RUN mkdir -p /app/certs/ssl
+RUN mkdir -p /app/certs/rabbitmq
+
 # Copy the binary from builder
 COPY --from=builder /app/main .
 
@@ -35,8 +39,8 @@ COPY --from=builder /app/views ./views
 # Copy any config files if needed
 # COPY --from=builder /app/config ./config
 
-# Expose the application port
-EXPOSE 8080
+# Expose the application port (match the PORT in .env)
+EXPOSE 8081
 
 # Command to run the application
 CMD ["./main"]

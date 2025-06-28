@@ -12,8 +12,10 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	DatabaseURL  string `mapstructure:"DATABASE_URL"`
-	RabbitMQURL  string `mapstructure:"RABBITMQ_URL"`
+	DatabaseURL      string `mapstructure:"DATABASE_URL"`
+	RabbitMQURL      string `mapstructure:"RABBITMQ_URL"`
+	RabbitMQUseTLS   bool   `mapstructure:"RABBITMQ_USE_TLS"`
+	RabbitMQCertPath string `mapstructure:"RABBITMQ_CERT_PATH"`
 	JWTSecret    string `mapstructure:"JWT_SECRET"`
 	SMTPHost     string `mapstructure:"SMTP_HOST"`
 	SMTPPort     int    `mapstructure:"SMTP_PORT"`
@@ -32,6 +34,10 @@ type Config struct {
 	// WebSocket configuration
 	WebSocketEnabled bool   `mapstructure:"WEBSOCKET_ENABLED"`
 	WebSocketPath    string `mapstructure:"WEBSOCKET_PATH"`
+	// HTTPS configuration
+	SSLEnabled  bool   `mapstructure:"SSL_ENABLED"`
+	SSLCertFile string `mapstructure:"SSL_CERT_FILE"`
+	SSLKeyFile  string `mapstructure:"SSL_KEY_FILE"`
 	// I18n configuration
 	DefaultLanguage string   `mapstructure:"DEFAULT_LANGUAGE"`
 	SupportedLanguages []string `mapstructure:"SUPPORTED_LANGUAGES"`
@@ -70,6 +76,16 @@ func LoadConfig() (*Config, error) {
 		if config.RabbitMQURL == "" {
 			return nil, fmt.Errorf("RABBITMQ_URL is not set")
 		}
+	}
+
+	// RabbitMQ TLS Configuration
+	rabbitMQUseTLSStr := os.Getenv("RABBITMQ_USE_TLS")
+	if rabbitMQUseTLSStr != "" {
+		config.RabbitMQUseTLS = rabbitMQUseTLSStr == "true" || rabbitMQUseTLSStr == "1"
+	}
+
+	if config.RabbitMQCertPath == "" {
+		config.RabbitMQCertPath = os.Getenv("RABBITMQ_CERT_PATH")
 	}
 	if config.JWTSecret == "" {
 		config.JWTSecret = os.Getenv("JWT_SECRET")
@@ -167,6 +183,29 @@ func LoadConfig() (*Config, error) {
 		config.WebSocketPath = os.Getenv("WEBSOCKET_PATH")
 		if config.WebSocketPath == "" {
 			config.WebSocketPath = "/ws" // Default WebSocket path
+		}
+	}
+
+	// HTTPS Configuration
+	sslEnabledStr := os.Getenv("SSL_ENABLED")
+	if sslEnabledStr != "" {
+		config.SSLEnabled = sslEnabledStr == "true" || sslEnabledStr == "1"
+	} else {
+		config.SSLEnabled = false // Default to disabled
+	}
+	if config.SSLCertFile == "" {
+		config.SSLCertFile = os.Getenv("SSL_CERT_FILE")
+	}
+	if config.SSLKeyFile == "" {
+		config.SSLKeyFile = os.Getenv("SSL_KEY_FILE")
+	}
+
+	// Validate SSL configuration if enabled
+	if config.SSLEnabled {
+		if config.SSLCertFile == "" || config.SSLKeyFile == "" {
+			log.Println("Warning: SSL is enabled but certificate or key file path is missing. HTTPS will not work correctly.")
+		} else {
+			log.Println("SSL is enabled. Server will use HTTPS.")
 		}
 	}
 

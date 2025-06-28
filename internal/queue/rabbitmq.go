@@ -2,9 +2,14 @@ package queue
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	// "encoding/json" // Not directly used in this file anymore, but good to keep if payloads are complex
 	"fmt"
+	"io/ioutil"
 	"log"
+	"path/filepath"
+	"strings"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -29,14 +34,34 @@ type RabbitMQService struct {
 }
 
 // NewRabbitMQService creates a new RabbitMQ service.
-func NewRabbitMQService(url string) (*RabbitMQService, error) {
+func NewRabbitMQService(url string, useTLS bool, certPath string) (*RabbitMQService, error) {
 	if url == "" {
 		log.Println("RabbitMQ URL is empty, RabbitMQ service will be a no-op.")
 		return &RabbitMQService{}, nil // Return a no-op service if URL is not configured
 	}
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+
+	var conn *amqp.Connection
+	var err error
+
+	if useTLS && strings.HasPrefix(url, "amqps://") {
+		// Configure TLS for Amazon MQ
+		tlsConfig, err := createTLSConfig(certPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TLS config: %w", err)
+		}
+
+		conn, err = amqp.DialTLS(url, tlsConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to Amazon MQ with TLS: %w", err)
+		}
+		log.Println("Connected to Amazon MQ using TLS")
+	} else {
+		// Standard connection for local RabbitMQ
+		conn, err = amqp.Dial(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+		}
+		log.Println("Connected to RabbitMQ without TLS")
 	}
 
 	ch, err := conn.Channel()
@@ -46,6 +71,51 @@ func NewRabbitMQService(url string) (*RabbitMQService, error) {
 	}
 
 	return &RabbitMQService{conn: conn, channel: ch}, nil
+}
+
+// createTLSConfig creates a TLS configuration for Amazon MQ
+func createTLSConfig(certPath string) (*tls.Config, error) {
+	// If no cert path is provided, use system CA certs
+	if certPath == "" {
+		return &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}, nil
+	}
+
+	// Load CA certificate
+	caCert, err := ioutil.ReadFile(filepath.Join(certPath, "ca.pem"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+	}
+
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(caCert); !ok {
+		return nil, fmt.Errorf("failed to append CA certificate")
+	}
+
+	// Check if client certificate is available
+	certFile := filepath.Join(certPath, "client.pem")
+	keyFile := filepath.Join(certPath, "client-key.pem")
+
+	var certificates []tls.Certificate
+
+	// Load client certificate and key if they exist
+	if _, err := ioutil.ReadFile(certFile); err == nil {
+		if _, err := ioutil.ReadFile(keyFile); err == nil {
+			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load client certificate and key: %w", err)
+			}
+			certificates = append(certificates, cert)
+			log.Println("Client certificate and key loaded for mutual TLS")
+		}
+	}
+
+	return &tls.Config{
+		RootCAs:      rootCAs,
+		Certificates: certificates,
+		MinVersion:   tls.VersionTLS12,
+	}, nil
 }
 
 // IsInitialized checks if the RabbitMQ connection and channel are established.

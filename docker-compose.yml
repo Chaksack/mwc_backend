@@ -8,11 +8,30 @@ services:
     container_name: mwc_backend
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8081"
+      - "443:443"  # For HTTPS
     environment:
-      - PORT=8080
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/mwc_backend?sslmode=disable
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      # Basic configuration
+      - PORT=8081
+
+      # AWS RDS PostgreSQL configuration
+      - DATABASE_URL=postgres://postgres:yourpassword@your-rds-instance.rds.amazonaws.com:5432/mwcdb?sslmode=require
+
+      # Amazon MQ configuration
+      - RABBITMQ_URL=amqps://username:password@your-amazonmq-broker.mq.us-east-1.amazonaws.com:5671/
+      - RABBITMQ_USE_TLS=true
+      - RABBITMQ_CERT_PATH=/app/certs/rabbitmq
+
+      # HTTPS configuration for WSS
+      - SSL_ENABLED=true
+      - SSL_CERT_FILE=/app/certs/ssl/certificate.pem
+      - SSL_KEY_FILE=/app/certs/ssl/private-key.pem
+
+      # WebSocket configuration
+      - WEBSOCKET_ENABLED=true
+      - WEBSOCKET_PATH=/ws
+
+      # Other configuration
       - SMTP_HOST=smtp.example.com
       - SMTP_PORT=587
       - SMTP_USER=user
@@ -23,33 +42,15 @@ services:
       - STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
       - STRIPE_MONTHLY_PRICE_ID=price_monthly
       - STRIPE_ANNUAL_PRICE_ID=price_annual
-    depends_on:
-      - postgres
-      - rabbitmq
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: mwc_postgres
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=mwc_backend
-    ports:
-      - "5432:5432"
+      - DEFAULT_LANGUAGE=en
+      - SUPPORTED_LANGUAGES=en,es,fr
+      - DEFAULT_ADMIN_EMAIL=admin@example.com
+      - DEFAULT_ADMIN_PASSWORD=Admin123!
+      - DEFAULT_ADMIN_FIRST_NAME=Admin
+      - DEFAULT_ADMIN_LAST_NAME=User
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Mount SSL certificates
+      - ./certs/ssl:/app/certs/ssl
+      # Mount RabbitMQ certificates
+      - ./certs/rabbitmq:/app/certs/rabbitmq
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: mwc_rabbitmq
-    restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-
-volumes:
-  postgres_data:
-  rabbitmq_data:
