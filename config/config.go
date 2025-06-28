@@ -35,6 +35,11 @@ type Config struct {
 	// I18n configuration
 	DefaultLanguage string   `mapstructure:"DEFAULT_LANGUAGE"`
 	SupportedLanguages []string `mapstructure:"SUPPORTED_LANGUAGES"`
+	// Default admin user configuration
+	DefaultAdminEmail     string `mapstructure:"DEFAULT_ADMIN_EMAIL"`
+	DefaultAdminPassword  string `mapstructure:"DEFAULT_ADMIN_PASSWORD"`
+	DefaultAdminFirstName string `mapstructure:"DEFAULT_ADMIN_FIRST_NAME"`
+	DefaultAdminLastName  string `mapstructure:"DEFAULT_ADMIN_LAST_NAME"`
 }
 
 // LoadConfig reads configuration from file or environment variables.
@@ -177,6 +182,34 @@ func LoadConfig() (*Config, error) {
 		config.SupportedLanguages = strings.Split(supportedLangsStr, ",")
 	} else if len(config.SupportedLanguages) == 0 {
 		config.SupportedLanguages = []string{"en"} // Default to English only
+	}
+
+	// Default Admin User Configuration
+	if config.DefaultAdminEmail == "" {
+		config.DefaultAdminEmail = os.Getenv("DEFAULT_ADMIN_EMAIL")
+		if config.DefaultAdminEmail == "" {
+			config.DefaultAdminEmail = "admin@example.com" // Default admin email
+			log.Println("Warning: DEFAULT_ADMIN_EMAIL not set. Using default value:", config.DefaultAdminEmail)
+		}
+	}
+	if config.DefaultAdminPassword == "" {
+		config.DefaultAdminPassword = os.Getenv("DEFAULT_ADMIN_PASSWORD")
+		if config.DefaultAdminPassword == "" {
+			config.DefaultAdminPassword = "Admin123!" // Default admin password
+			log.Println("Warning: DEFAULT_ADMIN_PASSWORD not set. Using default value. Please change this in production!")
+		}
+	}
+	if config.DefaultAdminFirstName == "" {
+		config.DefaultAdminFirstName = os.Getenv("DEFAULT_ADMIN_FIRST_NAME")
+		if config.DefaultAdminFirstName == "" {
+			config.DefaultAdminFirstName = "Admin" // Default admin first name
+		}
+	}
+	if config.DefaultAdminLastName == "" {
+		config.DefaultAdminLastName = os.Getenv("DEFAULT_ADMIN_LAST_NAME")
+		if config.DefaultAdminLastName == "" {
+			config.DefaultAdminLastName = "User" // Default admin last name
+		}
 	}
 
 	return &config, nil

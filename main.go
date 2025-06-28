@@ -7,6 +7,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 	"log"
 	"mwc_backend/config"
 	"mwc_backend/internal/api"
@@ -16,6 +18,57 @@ import (
 	"mwc_backend/internal/store"
 	"os"
 )
+
+// createDefaultAdminIfNeeded checks if an admin user exists and creates one if not
+func createDefaultAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
+	// Check if any admin user exists
+	var adminCount int64
+	if err := db.Model(&models.User{}).Where("role = ?", models.AdminRole).Count(&adminCount).Error; err != nil {
+		return err
+	}
+
+	// If admin user already exists, return
+	if adminCount > 0 {
+		log.Println("Admin user already exists, skipping default admin creation")
+		return nil
+	}
+
+	// Hash the default admin password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(cfg.DefaultAdminPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// Create the default admin user
+	adminUser := models.User{
+		Email:        cfg.DefaultAdminEmail,
+		PasswordHash: string(hashedPassword),
+		FirstName:    cfg.DefaultAdminFirstName,
+		LastName:     cfg.DefaultAdminLastName,
+		Role:         models.AdminRole,
+		IsActive:     true,
+	}
+
+	// Start a transaction
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Create the admin user
+	if err := tx.Create(&adminUser).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	log.Printf("Default admin user created with email: %s", cfg.DefaultAdminEmail)
+	return nil
+}
 
 func main() {
 	// Load .env file (optional, for local development)
@@ -44,6 +97,12 @@ func main() {
 	}
 	log.Println("Database migration completed.")
 
+	// Create default admin user if no admin exists
+	err = createDefaultAdminIfNeeded(db, cfg)
+	if err != nil {
+		log.Fatalf("Failed to create default admin user: %v", err)
+	}
+
 	// Initialize RabbitMQ
 	rabbitMQService, err := queue.NewRabbitMQService(cfg.RabbitMQURL)
 	if err != nil {
@@ -70,7 +129,7 @@ func main() {
 	})
 
 	// Middleware
-	app.Use(recover.New()) // Recovers from panics anywhere in the stack
+	app.Use(recover.New())            // Recovers from panics anywhere in the stack
 	app.Use(logger.New(logger.Config{ // Logs HTTP requests
 		Format: "[${time}] ${status} - ${latency} ${method} ${path} ${ip}\n",
 	}))
