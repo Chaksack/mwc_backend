@@ -5,6 +5,7 @@ import (
 	"log" // Added log for warnings
 	"os"
 	"strconv" // Added for SMTPPort parsing
+	"strings" // Added for splitting supported languages
 
 	"github.com/spf13/viper"
 )
@@ -21,6 +22,19 @@ type Config struct {
 	EmailFrom    string `mapstructure:"EMAIL_FROM"`
 	// Add other configurations as needed, e.g., JWT_EXPIRATION_HOURS
 	JwtExpirationHours int `mapstructure:"JWT_EXPIRATION_HOURS"`
+	// Stripe configuration
+	StripeSecretKey      string `mapstructure:"STRIPE_SECRET_KEY"`
+	StripePublishableKey string `mapstructure:"STRIPE_PUBLISHABLE_KEY"`
+	StripeWebhookSecret  string `mapstructure:"STRIPE_WEBHOOK_SECRET"`
+	// Subscription prices
+	StripeMonthlyPriceID string `mapstructure:"STRIPE_MONTHLY_PRICE_ID"`
+	StripeAnnualPriceID  string `mapstructure:"STRIPE_ANNUAL_PRICE_ID"`
+	// WebSocket configuration
+	WebSocketEnabled bool   `mapstructure:"WEBSOCKET_ENABLED"`
+	WebSocketPath    string `mapstructure:"WEBSOCKET_PATH"`
+	// I18n configuration
+	DefaultLanguage string   `mapstructure:"DEFAULT_LANGUAGE"`
+	SupportedLanguages []string `mapstructure:"SUPPORTED_LANGUAGES"`
 }
 
 // LoadConfig reads configuration from file or environment variables.
@@ -103,6 +117,66 @@ func LoadConfig() (*Config, error) {
 			config.JwtExpirationHours = 72 // Default to 72 hours
 			log.Printf("Warning: JWT_EXPIRATION_HOURS not set. Defaulting to %d hours.", config.JwtExpirationHours)
 		}
+	}
+
+	// Stripe Configuration
+	if config.StripeSecretKey == "" {
+		config.StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
+		if config.StripeSecretKey == "" {
+			log.Println("Warning: STRIPE_SECRET_KEY is not set. Payment functionality will be disabled.")
+		}
+	}
+	if config.StripePublishableKey == "" {
+		config.StripePublishableKey = os.Getenv("STRIPE_PUBLISHABLE_KEY")
+		if config.StripePublishableKey == "" {
+			log.Println("Warning: STRIPE_PUBLISHABLE_KEY is not set. Payment functionality will be disabled.")
+		}
+	}
+	if config.StripeWebhookSecret == "" {
+		config.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
+		if config.StripeWebhookSecret == "" {
+			log.Println("Warning: STRIPE_WEBHOOK_SECRET is not set. Stripe webhook verification will be disabled.")
+		}
+	}
+	if config.StripeMonthlyPriceID == "" {
+		config.StripeMonthlyPriceID = os.Getenv("STRIPE_MONTHLY_PRICE_ID")
+		if config.StripeMonthlyPriceID == "" {
+			log.Println("Warning: STRIPE_MONTHLY_PRICE_ID is not set. Monthly subscription plan will be unavailable.")
+		}
+	}
+	if config.StripeAnnualPriceID == "" {
+		config.StripeAnnualPriceID = os.Getenv("STRIPE_ANNUAL_PRICE_ID")
+		if config.StripeAnnualPriceID == "" {
+			log.Println("Warning: STRIPE_ANNUAL_PRICE_ID is not set. Annual subscription plan will be unavailable.")
+		}
+	}
+
+	// WebSocket Configuration
+	webSocketEnabledStr := os.Getenv("WEBSOCKET_ENABLED")
+	if webSocketEnabledStr != "" {
+		config.WebSocketEnabled = webSocketEnabledStr == "true" || webSocketEnabledStr == "1"
+	} else {
+		config.WebSocketEnabled = false // Default to disabled
+	}
+	if config.WebSocketPath == "" {
+		config.WebSocketPath = os.Getenv("WEBSOCKET_PATH")
+		if config.WebSocketPath == "" {
+			config.WebSocketPath = "/ws" // Default WebSocket path
+		}
+	}
+
+	// I18n Configuration
+	if config.DefaultLanguage == "" {
+		config.DefaultLanguage = os.Getenv("DEFAULT_LANGUAGE")
+		if config.DefaultLanguage == "" {
+			config.DefaultLanguage = "en" // Default to English
+		}
+	}
+	supportedLangsStr := os.Getenv("SUPPORTED_LANGUAGES")
+	if supportedLangsStr != "" {
+		config.SupportedLanguages = strings.Split(supportedLangsStr, ",")
+	} else if len(config.SupportedLanguages) == 0 {
+		config.SupportedLanguages = []string{"en"} // Default to English only
 	}
 
 	return &config, nil

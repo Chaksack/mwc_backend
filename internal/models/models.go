@@ -9,12 +9,38 @@ import (
 // UserRole defines the type for user roles
 type UserRole string
 
+// SubscriptionPlan defines the type for subscription plans
+type SubscriptionPlan string
+
+// SubscriptionStatus defines the type for subscription status
+type SubscriptionStatus string
+
+// ReviewStatus defines the type for review status
+type ReviewStatus string
+
 const (
 	AdminRole          UserRole = "admin"
 	InstitutionRole    UserRole = "institution"
 	EducatorRole       UserRole = "educator"
 	TrainingCenterRole UserRole = "training_center"
 	ParentRole         UserRole = "parent"
+)
+
+const (
+	MonthlyPlan SubscriptionPlan = "monthly"
+	AnnualPlan  SubscriptionPlan = "annual"
+)
+
+const (
+	SubscriptionActive   SubscriptionStatus = "active"
+	SubscriptionInactive SubscriptionStatus = "inactive"
+	SubscriptionCanceled SubscriptionStatus = "canceled"
+)
+
+const (
+	ReviewPending  ReviewStatus = "pending"
+	ReviewApproved ReviewStatus = "approved"
+	ReviewRejected ReviewStatus = "rejected"
 )
 
 // User represents a user in the system
@@ -141,6 +167,83 @@ type ActionLog struct {
 	UserAgent   string
 }
 
+// Event represents an event posted by a school or training center
+type Event struct {
+	gorm.Model
+	CreatorID       uint               `gorm:"not null;index"` // User who created the event
+	Creator         User               `gorm:"foreignKey:CreatorID"`
+	InstitutionID   uint               `gorm:"not null;index"` // Institution that hosts the event
+	Institution     InstitutionProfile `gorm:"foreignKey:InstitutionID"`
+	Title           string             `gorm:"not null"`
+	Description     string             `gorm:"type:text"`
+	StartDate       time.Time          `gorm:"not null"`
+	EndDate         time.Time          `gorm:"not null"`
+	Location        string
+	VirtualEvent    bool      `gorm:"default:false"`
+	VirtualEventURL string    // URL for virtual events
+	EventType       string    // e.g., "Workshop", "Open House", "Conference"
+	Audience        string    // e.g., "Parents", "Educators", "All"
+	PublishedAt     time.Time `gorm:"index"`
+	IsPublished     bool      `gorm:"default:false"`
+	IsFeatured      bool      `gorm:"default:false"`
+	MaxAttendees    int       // Maximum number of attendees, 0 for unlimited
+	// I18n support
+	LocalizedTitles       map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Title", "es": "Título"}
+	LocalizedDescriptions map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Description", "es": "Descripción"}
+}
+
+// BlogPost represents a blog post or article
+type BlogPost struct {
+	gorm.Model
+	AuthorID    uint   `gorm:"not null;index"` // User who wrote the post
+	Author      User   `gorm:"foreignKey:AuthorID"`
+	Title       string `gorm:"not null"`
+	Slug        string `gorm:"uniqueIndex;not null"` // URL-friendly version of the title
+	Content     string `gorm:"type:text;not null"`
+	Excerpt     string `gorm:"type:text"`
+	PublishedAt *time.Time `gorm:"index"`
+	IsPublished bool       `gorm:"default:false"`
+	IsFeatured  bool       `gorm:"default:false"`
+	ViewCount   int        `gorm:"default:0"`
+	Category    string     `gorm:"index"`
+	Tags        []string   `gorm:"type:text[]"`
+	// I18n support
+	LocalizedTitles    map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Title", "es": "Título"}
+	LocalizedContents  map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Content", "es": "Contenido"}
+	LocalizedExcerpts  map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Excerpt", "es": "Extracto"}
+}
+
+// Subscription represents a premium subscription
+type Subscription struct {
+	gorm.Model
+	UserID             uint               `gorm:"not null;index"` // User who has the subscription
+	User               User               `gorm:"foreignKey:UserID"`
+	Plan               SubscriptionPlan   `gorm:"type:varchar(20);not null"`
+	Status             SubscriptionStatus `gorm:"type:varchar(20);not null"`
+	StartDate          time.Time          `gorm:"not null"`
+	EndDate            time.Time          `gorm:"not null"`
+	AutoRenew          bool               `gorm:"default:true"`
+	StripeCustomerID   string             `gorm:"index"`
+	StripeSubscriptionID string           `gorm:"index"`
+	CancelledAt        *time.Time
+	CancellationReason string
+}
+
+// Review represents a review of a school
+type Review struct {
+	gorm.Model
+	SchoolID       uint         `gorm:"not null;index"` // School being reviewed
+	School         School       `gorm:"foreignKey:SchoolID"`
+	ReviewerID     uint         `gorm:"not null;index"` // User who wrote the review
+	Reviewer       User         `gorm:"foreignKey:ReviewerID"`
+	Rating         int          `gorm:"not null"` // 1-5 stars
+	Comment        string       `gorm:"type:text"`
+	Status         ReviewStatus `gorm:"type:varchar(20);not null;default:'pending'"`
+	ModeratedBy    *uint        // Admin who moderated the review
+	ModeratedAt    *time.Time
+	ModeratorNotes string `gorm:"type:text"` // Notes from the moderator
+}
+
 // AutoMigrate runs GORM's auto migration.
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
@@ -153,5 +256,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&JobApplication{},
 		&Message{},
 		&ActionLog{},
+		&Event{},
+		&BlogPost{},
+		&Subscription{},
+		&Review{},
 	)
 }

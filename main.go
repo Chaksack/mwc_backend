@@ -83,6 +83,10 @@ func main() {
 	// Setup API routes
 	api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)
 
+	// Setup Swagger documentation
+	api.SetupSwagger(app)
+	log.Println("Swagger documentation available at /swagger/index.html")
+
 	// Start server
 	port := os.Getenv("PORT")
 	log.Printf("Server starting on port %s", port)
