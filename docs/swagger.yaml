@@ -1,0 +1,3479 @@
+definitions:
+  handlers.CancelRequest:
+    properties:
+      reason:
+        type: string
+    type: object
+  handlers.CreateBlogPostRequest:
+    properties:
+      category:
+        type: string
+      content:
+        type: string
+      excerpt:
+        type: string
+      is_featured:
+        type: boolean
+      is_published:
+        type: boolean
+      localizations:
+        additionalProperties:
+          additionalProperties:
+            type: string
+          type: object
+        description: Map of language code to localized fields
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    required:
+    - category
+    - content
+    - title
+    type: object
+  handlers.CreateEventRequest:
+    properties:
+      audience:
+        type: string
+      description:
+        type: string
+      end_date:
+        type: string
+      event_type:
+        type: string
+      is_published:
+        type: boolean
+      localizations:
+        additionalProperties:
+          type: string
+        description: Map of language code to localized title/description
+        type: object
+      location:
+        type: string
+      max_attendees:
+        type: integer
+      start_date:
+        type: string
+      title:
+        type: string
+      virtual_event:
+        type: boolean
+      virtual_event_url:
+        type: string
+    required:
+    - audience
+    - description
+    - end_date
+    - event_type
+    - start_date
+    - title
+    type: object
+  handlers.CreateReviewRequest:
+    properties:
+      comment:
+        maxLength: 1000
+        minLength: 10
+        type: string
+      rating:
+        maximum: 5
+        minimum: 1
+        type: integer
+      school_id:
+        type: integer
+    required:
+    - comment
+    - rating
+    - school_id
+    type: object
+  handlers.EducatorProfileRequest:
+    properties:
+      bio:
+        type: string
+      experience:
+        type: string
+      qualifications:
+        type: string
+    type: object
+  handlers.FeatureRequest:
+    description: Request to update the featured status of an event
+    properties:
+      featured:
+        type: boolean
+    type: object
+  handlers.InstitutionProfileRequest:
+    properties:
+      institution_name:
+        type: string
+      verification_docs:
+        description: URL or path
+        type: string
+    required:
+    - institution_name
+    type: object
+  handlers.JobApplicationRequest:
+    properties:
+      cover_letter:
+        type: string
+      resume_url:
+        description: Optional, but if provided, must be URL
+        type: string
+    type: object
+  handlers.JobRequest:
+    properties:
+      description:
+        type: string
+      employment_type:
+        type: string
+      expires_at:
+        description: e.g., "2024-12-31T23:59:59Z"
+        type: string
+      location:
+        type: string
+      salary_range:
+        type: string
+      title:
+        type: string
+    required:
+    - description
+    - title
+    type: object
+  handlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.MessageRequest:
+    properties:
+      content:
+        type: string
+    required:
+    - content
+    type: object
+  handlers.ModerateReviewRequest:
+    properties:
+      notes:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.ReviewStatus'
+        enum:
+        - approved
+        - rejected
+    required:
+    - status
+    type: object
+  handlers.ParentProfileRequest:
+    properties:
+      phone_number:
+        type: string
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      institution_name:
+        description: Role-specific fields
+        type: string
+      last_name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/models.UserRole'
+        description: Added admin for potential setup
+        enum:
+        - institution
+        - educator
+        - parent
+        - training_center
+        - admin
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - role
+    type: object
+  handlers.SchoolUploadData:
+    properties:
+      address:
+        type: string
+      city:
+        type: string
+      contact_email:
+        type: string
+      contact_phone:
+        type: string
+      country_code:
+        type: string
+      name:
+        type: string
+      state:
+        type: string
+      website:
+        type: string
+      zip_code:
+        type: string
+    required:
+    - country_code
+    - name
+    type: object
+  handlers.UnreadMessagePayload:
+    properties:
+      message_id:
+        type: integer
+      recipient_id:
+        type: integer
+      sender_id:
+        type: integer
+    type: object
+  handlers.UserRoleUpdateRequest:
+    properties:
+      role:
+        allOf:
+        - $ref: '#/definitions/models.UserRole'
+        enum:
+        - institution
+        - educator
+        - parent
+        - training_center
+        - admin
+    required:
+    - role
+    type: object
+  handlers.UserStatusUpdateRequest:
+    properties:
+      is_active:
+        type: boolean
+    type: object
+  models.EducatorProfile:
+    description: Educator profile information
+    properties:
+      applications:
+        items:
+          $ref: '#/definitions/models.JobApplication'
+        type: array
+      bio:
+        type: string
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      experience:
+        type: string
+      id:
+        example: 1
+        type: integer
+      qualifications:
+        type: string
+      savedSchools:
+        items:
+          $ref: '#/definitions/models.School'
+        type: array
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Eager load user details
+      userID:
+        type: integer
+    type: object
+  models.InstitutionProfile:
+    description: Institution or Training Center profile information
+    properties:
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      id:
+        example: 1
+        type: integer
+      institutionName:
+        type: string
+      isVerified:
+        type: boolean
+      jobs:
+        items:
+          $ref: '#/definitions/models.Job'
+        type: array
+      school:
+        $ref: '#/definitions/models.School'
+      schoolID:
+        description: A school can be mapped to only one institution/training center
+        type: integer
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Eager load user details if needed
+      userID:
+        description: Foreign key to User table
+        type: integer
+      verificationDocs:
+        description: Path to verification documents
+        type: string
+    type: object
+  models.Job:
+    description: Job posting information
+    properties:
+      applications:
+        items:
+          $ref: '#/definitions/models.JobApplication'
+        type: array
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      description:
+        type: string
+      employmentType:
+        description: e.g., Full-time, Part-time
+        type: string
+      expiresAt:
+        type: string
+      id:
+        example: 1
+        type: integer
+      institutionProfile:
+        allOf:
+        - $ref: '#/definitions/models.InstitutionProfile'
+        description: Eager load institution profile
+      institutionProfileID:
+        description: Links to InstitutionProfile
+        type: integer
+      isActive:
+        type: boolean
+      location:
+        type: string
+      postedAt:
+        type: string
+      salaryRange:
+        type: string
+      title:
+        type: string
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+    type: object
+  models.JobApplication:
+    description: Job application information
+    properties:
+      appliedAt:
+        type: string
+      coverLetter:
+        type: string
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      educator:
+        $ref: '#/definitions/models.EducatorProfile'
+      educatorProfileID:
+        description: Links to EducatorProfile
+        type: integer
+      id:
+        example: 1
+        type: integer
+      job:
+        $ref: '#/definitions/models.Job'
+      jobID:
+        type: integer
+      resumeURL:
+        type: string
+      status:
+        description: e.g., pending, viewed, shortlisted, rejected
+        type: string
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+    type: object
+  models.Message:
+    description: Message information
+    properties:
+      content:
+        type: string
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      id:
+        example: 1
+        type: integer
+      isRead:
+        description: Index for faster querying of unread messages
+        type: boolean
+      readAt:
+        type: string
+      recipient:
+        $ref: '#/definitions/models.User'
+      recipientID:
+        type: integer
+      sender:
+        $ref: '#/definitions/models.User'
+      senderID:
+        type: integer
+      sentAt:
+        type: string
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+    type: object
+  models.ParentProfile:
+    description: Parent profile information
+    properties:
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      id:
+        example: 1
+        type: integer
+      savedSchools:
+        items:
+          $ref: '#/definitions/models.School'
+        type: array
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Eager load user details
+      userID:
+        type: integer
+    type: object
+  models.ReviewStatus:
+    enum:
+    - pending
+    - approved
+    - rejected
+    type: string
+    x-enum-varnames:
+    - ReviewPending
+    - ReviewApproved
+    - ReviewRejected
+  models.School:
+    description: School information
+    properties:
+      address:
+        type: string
+      city:
+        type: string
+      contactEmail:
+        type: string
+      contactPhone:
+        type: string
+      countryCode:
+        description: For searching by country
+        type: string
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      createdByUserID:
+        description: Pointer to allow NULL if uploaded by admin initially
+        type: integer
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      id:
+        example: 1
+        type: integer
+      name:
+        type: string
+      state:
+        type: string
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      uploadedByAdmin:
+        description: True if uploaded by admin batch
+        type: boolean
+      user:
+        $ref: '#/definitions/models.User'
+      website:
+        type: string
+      zipCode:
+        type: string
+    type: object
+  models.User:
+    description: User information
+    properties:
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      deleted_at:
+        example: "2023-01-01T00:00:00Z"
+        format: date-time
+        type: string
+      educatorProfile:
+        allOf:
+        - $ref: '#/definitions/models.EducatorProfile'
+        description: For Educator
+      email:
+        type: string
+      firstName:
+        type: string
+      id:
+        example: 1
+        type: integer
+      institutionProfile:
+        allOf:
+        - $ref: '#/definitions/models.InstitutionProfile'
+        description: Relationships (depending on role)
+      isActive:
+        type: boolean
+      lastLogin:
+        type: string
+      lastName:
+        type: string
+      parentProfile:
+        allOf:
+        - $ref: '#/definitions/models.ParentProfile'
+        description: For Parent
+      passwordHash:
+        description: Store hashed passwords only
+        type: string
+      role:
+        $ref: '#/definitions/models.UserRole'
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+    type: object
+  models.UserRole:
+    enum:
+    - admin
+    - institution
+    - educator
+    - training_center
+    - parent
+    type: string
+    x-enum-varnames:
+    - AdminRole
+    - InstitutionRole
+    - EducatorRole
+    - TrainingCenterRole
+    - ParentRole
+info:
+  contact: {}
+paths:
+  /api/v1/admin/action-logs:
+    get:
+      description: Retrieves a list of action logs with pagination and filtering
+      parameters:
+      - default: 1
+        description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter logs by user ID
+        in: query
+        name: user_id
+        type: integer
+      - description: Filter logs by action type
+        in: query
+        name: action_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of action logs with pagination metadata
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get action logs
+      tags:
+      - admin
+      - logs
+  /api/v1/admin/blog:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new blog post (admin only)
+      parameters:
+      - description: Blog post information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBlogPostRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Blog post created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can create blog posts
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new blog post
+      tags:
+      - blog
+      - admin
+  /api/v1/admin/blog/{post_id}:
+    delete:
+      description: Deletes an existing blog post (admin only)
+      parameters:
+      - description: Blog post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Blog post deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can delete blog posts
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Blog post not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a blog post
+      tags:
+      - blog
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing blog post (admin only)
+      parameters:
+      - description: Blog post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Updated blog post information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBlogPostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Blog post updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can update blog posts
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Blog post not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a blog post
+      tags:
+      - blog
+      - admin
+  /api/v1/admin/events/{event_id}/feature:
+    put:
+      consumes:
+      - application/json
+      description: Marks an event as featured or removes featured status (admin only)
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      - description: Feature request with featured status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.FeatureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event featured status updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid event ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - only admins can feature events
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Event not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Feature or unfeature an event
+      tags:
+      - admin
+      - events
+  /api/v1/admin/reviews/{review_id}/moderate:
+    put:
+      consumes:
+      - application/json
+      description: Allows an admin to approve or reject a pending review.
+      parameters:
+      - description: Review ID
+        in: path
+        name: review_id
+        required: true
+        type: integer
+      - description: Moderation details (status and optional notes)
+        in: body
+        name: moderation
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ModerateReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Review moderated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid review ID/request body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - only administrators can moderate reviews
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Review not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Moderate a review
+      tags:
+      - admin
+      - reviews
+  /api/v1/admin/reviews/pending:
+    get:
+      description: Retrieves all reviews that are currently in 'pending' status, awaiting
+        admin moderation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of pending reviews
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - only administrators can view pending reviews
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get pending reviews
+      tags:
+      - admin
+      - reviews
+  /api/v1/admin/schools:
+    get:
+      description: Retrieves a list of schools filtered by country code with pagination
+      parameters:
+      - description: Country code (e.g., US, UK)
+        in: query
+        name: country_code
+        required: true
+        type: string
+      - default: 1
+        description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of schools with pagination metadata
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request - missing country_code
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get schools by country
+      tags:
+      - admin
+      - schools
+  /api/v1/admin/schools/{id}:
+    delete:
+      description: Deletes a school by its ID
+      parameters:
+      - description: School ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: School not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict - school linked to institutions
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a school
+      tags:
+      - admin
+      - schools
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing school's information
+      parameters:
+      - description: School ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated school information
+        in: body
+        name: school
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SchoolUploadData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School updated successfully
+          schema:
+            $ref: '#/definitions/models.School'
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: School not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update school information
+      tags:
+      - admin
+      - schools
+  /api/v1/admin/schools/batch-upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple schools from a JSON file
+      parameters:
+      - description: JSON file containing school data
+        in: formData
+        name: schools_file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Schools uploaded successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Batch upload schools
+      tags:
+      - admin
+      - schools
+  /api/v1/admin/users:
+    get:
+      description: Retrieves a list of all users with pagination
+      parameters:
+      - default: 1
+        description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of users with pagination metadata
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all users
+      tags:
+      - admin
+      - users
+  /api/v1/admin/users/{id}:
+    delete:
+      description: Soft deletes a user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request, invalid user ID, or admin trying to delete themselves
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - admin
+      - users
+  /api/v1/admin/users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Changes a user's role (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User role update information
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UserRoleUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User role updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request, invalid user ID, or admin trying to change own
+            role
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user role
+      tags:
+      - admin
+      - users
+  /api/v1/admin/users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Activates or deactivates a user account
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User status update information
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UserStatusUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User status updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request, invalid user ID, or admin trying to change own
+            status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user active status
+      tags:
+      - admin
+      - users
+  /api/v1/blog:
+    get:
+      description: Retrieves all published blog posts with optional filtering
+      parameters:
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Filter by tag
+        in: query
+        name: tag
+        type: string
+      - description: Language for localized content
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of blog posts
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all published blog posts
+      tags:
+      - blog
+  /api/v1/blog/{slug}:
+    get:
+      description: Retrieves a specific blog post by its slug
+      parameters:
+      - description: Blog post slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Language for localized content
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Blog post details
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Blog post not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a specific blog post
+      tags:
+      - blog
+  /api/v1/blog/categories:
+    get:
+      description: Retrieves all distinct categories from published blog posts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of blog categories
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all blog categories
+      tags:
+      - blog
+  /api/v1/blog/featured:
+    get:
+      description: Retrieves all featured and published blog posts
+      parameters:
+      - description: Language for localized content
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of featured blog posts
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get featured blog posts
+      tags:
+      - blog
+  /api/v1/blog/tags:
+    get:
+      description: Retrieves all unique tags from published blog posts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of blog tags
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all blog tags
+      tags:
+      - blog
+  /api/v1/educator/jobs/{job_id}/apply:
+    post:
+      consumes:
+      - application/json
+      description: Submit an application for a job posting
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      - description: Job application details
+        in: body
+        name: application
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.JobApplicationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Application submitted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid job ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Educator profile or job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Already applied for this job
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Apply for a job
+      tags:
+      - educator
+      - jobs
+  /api/v1/educator/jobs/applied:
+    get:
+      description: Retrieves all job applications submitted by the educator
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of job applications with job details
+          schema:
+            items:
+              $ref: '#/definitions/models.JobApplication'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Educator profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get applied jobs
+      tags:
+      - educator
+      - jobs
+  /api/v1/educator/profile:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new educator profile or updates an existing one
+      parameters:
+      - description: Educator profile information
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.EducatorProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile created or updated successfully
+          schema:
+            $ref: '#/definitions/models.EducatorProfile'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create or update educator profile
+      tags:
+      - educator
+      - profile
+  /api/v1/educator/schools/save/{school_id}:
+    delete:
+      description: Removes a school from the educator's saved schools list
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School removed successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Educator profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a saved school
+      tags:
+      - educator
+      - schools
+    post:
+      description: Adds a school to the educator's saved schools list
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School saved successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Educator profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: School already saved
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Save a school
+      tags:
+      - educator
+      - schools
+  /api/v1/educator/schools/saved:
+    get:
+      description: Retrieves the list of schools saved by the educator
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of saved schools
+          schema:
+            items:
+              $ref: '#/definitions/models.School'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Educator profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get saved schools
+      tags:
+      - educator
+      - schools
+  /api/v1/educator/schools/search:
+    get:
+      description: Search for schools with various filters and pagination
+      parameters:
+      - description: Filter by school name
+        in: query
+        name: name
+        type: string
+      - description: Filter by city
+        in: query
+        name: city
+        type: string
+      - description: Filter by country code
+        in: query
+        name: country_code
+        type: string
+      - default: 1
+        description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of schools with pagination metadata
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Search for schools
+      tags:
+      - educator
+      - schools
+  /api/v1/events:
+    get:
+      description: Retrieves a list of all published events with optional filtering
+      parameters:
+      - description: Filter by event type
+        in: query
+        name: event_type
+        type: string
+      - description: Filter by target audience
+        in: query
+        name: audience
+        type: string
+      - description: Filter by start date (RFC3339 format)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter by end date (RFC3339 format)
+        in: query
+        name: end_date
+        type: string
+      - default: en
+        description: Language for localized content
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of events
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all published events
+      tags:
+      - events
+  /api/v1/events/{event_id}:
+    get:
+      description: Retrieves detailed information about a specific event
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      - default: en
+        description: Language for localized content
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event details
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid event ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Event not found or not published
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get event details
+      tags:
+      - events
+  /api/v1/events/featured:
+    get:
+      description: Retrieves all featured and published events
+      parameters:
+      - default: en
+        description: Language for localized content
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of featured events
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get featured events
+      tags:
+      - events
+  /api/v1/institution/events:
+    get:
+      description: Retrieves all events created by the current institution
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of institution events
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get institution events
+      tags:
+      - institution
+      - events
+    post:
+      consumes:
+      - application/json
+      description: Creates a new event for an institution or training center
+      parameters:
+      - description: Event information
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Event created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - only institutions and training centers can create
+            events
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new event
+      tags:
+      - institution
+      - events
+  /api/v1/institution/events/{event_id}:
+    delete:
+      description: Deletes an existing event
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid event ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - can only delete own events
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Event not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete an event
+      tags:
+      - institution
+      - events
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing event's information
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      - description: Updated event information
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid event ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - can only update own events
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Event not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update an event
+      tags:
+      - institution
+      - events
+  /api/v1/institution/jobs:
+    get:
+      description: Retrieves all job postings created by the institution
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of jobs posted by the institution
+          schema:
+            items:
+              $ref: '#/definitions/models.Job'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Institution profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get institution's jobs
+      tags:
+      - institution
+      - jobs
+    post:
+      consumes:
+      - application/json
+      description: Creates a new job posting for an institution
+      parameters:
+      - description: Job information
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.JobRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Job posted successfully
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Institution profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Post a job opening
+      tags:
+      - institution
+      - jobs
+  /api/v1/institution/jobs/{job_id}:
+    delete:
+      description: Deletes an existing job posting
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid job ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - can only delete own jobs
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a job posting
+      tags:
+      - institution
+      - jobs
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing job posting
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      - description: Updated job information
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.JobRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job updated successfully
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: Bad request or invalid job ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - can only update own jobs
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a job posting
+      tags:
+      - institution
+      - jobs
+  /api/v1/institution/jobs/{job_id}/applicants:
+    get:
+      description: Retrieves all applicants for a specific job posting
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of job applications with applicant details
+          schema:
+            items:
+              $ref: '#/definitions/models.JobApplication'
+            type: array
+        "400":
+          description: Bad request or invalid job ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - can only view applicants for own jobs
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get job applicants
+      tags:
+      - institution
+      - jobs
+  /api/v1/institution/profile:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new institution profile or updates an existing one
+      parameters:
+      - description: Institution profile information
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.InstitutionProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile created or updated successfully
+          schema:
+            $ref: '#/definitions/models.InstitutionProfile'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create or update institution profile
+      tags:
+      - institution
+      - profile
+  /api/v1/institution/schools:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new school entry for an institution when not found in
+        admin list
+      parameters:
+      - description: School information
+        in: body
+        name: school
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SchoolUploadData'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: School created successfully
+          schema:
+            $ref: '#/definitions/models.School'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Institution profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Institution already has a school
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new school
+      tags:
+      - institution
+      - schools
+  /api/v1/institution/schools/select/{school_id}:
+    put:
+      description: Associates an institution with an existing school from the admin-uploaded
+        list
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School selected successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Institution profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Institution already has a school or school already taken
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Select a school
+      tags:
+      - institution
+      - schools
+  /api/v1/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a user and return a JWT token
+      parameters:
+      - description: User login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful with token
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: User account is inactive
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User login
+      tags:
+      - auth
+  /api/v1/parent/messages:
+    get:
+      description: Retrieves all messages sent to or by the current user
+      parameters:
+      - default: false
+        description: Filter to show only unread messages
+        in: query
+        name: unread_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of messages
+          schema:
+            items:
+              $ref: '#/definitions/models.Message'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user messages
+      tags:
+      - parent
+      - messages
+  /api/v1/parent/messages/{message_id}/read:
+    post:
+      description: Marks a specific message as read by the recipient
+      parameters:
+      - description: Message ID
+        in: path
+        name: message_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Message marked as read successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid message ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - can only mark messages addressed to you
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Message not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mark message as read
+      tags:
+      - parent
+      - messages
+  /api/v1/parent/messages/send/{recipient_id}:
+    post:
+      consumes:
+      - application/json
+      description: Sends a message to an institution or educator
+      parameters:
+      - description: Recipient User ID
+        in: path
+        name: recipient_id
+        required: true
+        type: integer
+      - description: Message content
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.MessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Message sent successfully
+          schema:
+            $ref: '#/definitions/models.Message'
+        "400":
+          description: Bad request or invalid recipient ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Recipient not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Send a message
+      tags:
+      - parent
+      - messages
+  /api/v1/parent/profile:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new parent profile or updates an existing one
+      parameters:
+      - description: Parent profile information
+        in: body
+        name: profile
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ParentProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile created or updated successfully
+          schema:
+            $ref: '#/definitions/models.ParentProfile'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create or update parent profile
+      tags:
+      - parent
+      - profile
+  /api/v1/parent/schools/save/{school_id}:
+    delete:
+      description: Removes a school from the parent's saved schools list
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School removed successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Parent profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a saved school
+      tags:
+      - parent
+      - schools
+    post:
+      description: Adds a school to the parent's saved schools list
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School saved successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Parent profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: School already saved
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Save a school
+      tags:
+      - parent
+      - schools
+  /api/v1/parent/schools/saved:
+    get:
+      description: Retrieves the list of schools saved by the parent
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of saved schools
+          schema:
+            items:
+              $ref: '#/definitions/models.School'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Parent profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get saved schools
+      tags:
+      - parent
+      - schools
+  /api/v1/parent/schools/search:
+    get:
+      description: Search for schools with various filters and pagination
+      parameters:
+      - description: Filter by school name
+        in: query
+        name: name
+        type: string
+      - description: Filter by city
+        in: query
+        name: city
+        type: string
+      - description: Filter by country code
+        in: query
+        name: country_code
+        type: string
+      - default: 1
+        description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of schools with pagination metadata
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Search for schools
+      tags:
+      - parent
+      - schools
+  /api/v1/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with the specified role
+      parameters:
+      - description: User registration information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Email already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+  /api/v1/reviews:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new review for a school (parents and educators only).
+        The review will be pending approval by an admin.
+      parameters:
+      - description: Review information
+        in: body
+        name: review
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Review created successfully and pending approval
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - only parents and educators can create reviews
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: School not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: User has already reviewed this school
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new review
+      tags:
+      - reviews
+  /api/v1/reviews/{review_id}:
+    delete:
+      description: Allows an authenticated user to delete their own review.
+      parameters:
+      - description: Review ID
+        in: path
+        name: review_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Review deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid review ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - user can only delete their own reviews
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Review not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a review
+      tags:
+      - reviews
+    put:
+      consumes:
+      - application/json
+      description: Allows an authenticated user to update their own review. The updated
+        review will be reset to pending status.
+      parameters:
+      - description: Review ID
+        in: path
+        name: review_id
+        required: true
+        type: integer
+      - description: Updated review information
+        in: body
+        name: review
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Review updated successfully and pending approval
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid review ID/request body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden - user can only update their own reviews
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Review not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a review
+      tags:
+      - reviews
+  /api/v1/reviews/me:
+    get:
+      description: Retrieves all reviews submitted by the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of reviews by the current user
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user's reviews
+      tags:
+      - reviews
+      - users
+  /api/v1/schools/{school_id}/reviews:
+    get:
+      description: Retrieves all approved reviews for a specific school, along with
+        the average rating and total review count.
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of reviews with average rating
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: School not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get school reviews
+      tags:
+      - reviews
+      - schools
+  /api/v1/subscription/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels the current user's active subscription
+      parameters:
+      - description: Cancellation reason
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/handlers.CancelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription canceled successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: No active subscription found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cancel user subscription
+      tags:
+      - subscription
+  /api/v1/subscription/checkout:
+    post:
+      consumes:
+      - application/json
+      description: Creates a Stripe checkout session for a user to subscribe to a
+        plan
+      parameters:
+      - description: Subscription plan (monthly or annual)
+        enum:
+        - monthly
+        - annual
+        in: query
+        name: plan
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Checkout session created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: User already has an active subscription
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a checkout session for subscription
+      tags:
+      - subscription
+  /api/v1/subscription/status:
+    get:
+      description: Retrieves the current user's subscription details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription details
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: No subscription found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user subscription
+      tags:
+      - subscription
+  /webhooks/notify-unread-message:
+    post:
+      consumes:
+      - application/json
+      description: Receives a payload from the message queue system to process and
+        send email notifications for unread messages. This endpoint is intended for
+        internal system use and should be secured.
+      parameters:
+      - description: Details of the unread message to be processed for notification
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UnreadMessagePayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Notification processed successfully (email sent or message
+            already read)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid payload
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized access (if webhook security is implemented)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error (e.g., database error, email sending
+            failure)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Webhook for Unread Message Notification
+      tags:
+      - webhooks
+      - notifications
+  /webhooks/stripe:
+    post:
+      consumes:
+      - application/json
+      description: Processes webhook events from Stripe for subscription management
+      parameters:
+      - description: Stripe signature for webhook verification
+        in: header
+        name: Stripe-Signature
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook event processed successfully
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Handle Stripe webhook events
+      tags:
+      - webhooks
+  /ws:
+    get:
+      description: Upgrades HTTP connection to WebSocket protocol for real-time communication
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "426":
+          description: Upgrade Required - Client must request WebSocket upgrade
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: WebSocket connection upgrade
+      tags:
+      - websocket
+swagger: "2.0"

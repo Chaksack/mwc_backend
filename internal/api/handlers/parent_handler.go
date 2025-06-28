@@ -82,6 +82,19 @@ type UnreadMessagePayload struct {
 	SenderID    uint `json:"sender_id"`
 }
 
+// CreateOrUpdateParentProfile creates or updates a parent's profile
+// @Summary Create or update parent profile
+// @Description Creates a new parent profile or updates an existing one
+// @Tags parent,profile
+// @Accept json
+// @Produce json
+// @Param profile body ParentProfileRequest true "Parent profile information"
+// @Success 200 {object} models.ParentProfile "Profile created or updated successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/profile [post]
 func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	req := new(ParentProfileRequest)
@@ -121,11 +134,38 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 }
 
 // SearchSchools for parents (can reuse EducatorHandler.SearchSchools or GetPublicSchools)
+// @Summary Search for schools
+// @Description Search for schools with various filters and pagination
+// @Tags parent,schools
+// @Produce json
+// @Param name query string false "Filter by school name"
+// @Param city query string false "Filter by city"
+// @Param country_code query string false "Filter by country code"
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{} "List of schools with pagination metadata"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/schools/search [get]
 func (h *ParentHandler) SearchSchools(c *fiber.Ctx) error {
 	return GetPublicSchools(h.db)(c)
 }
 
 // SaveSchool for parents
+// @Summary Save a school
+// @Description Adds a school to the parent's saved schools list
+// @Tags parent,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]string "School saved successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Parent profile or school not found"
+// @Failure 409 {object} map[string]string "School already saved"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/schools/save/{school_id} [post]
 func (h *ParentHandler) SaveSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -159,6 +199,18 @@ func (h *ParentHandler) SaveSchool(c *fiber.Ctx) error {
 }
 
 // DeleteSavedSchool for parents
+// @Summary Delete a saved school
+// @Description Removes a school from the parent's saved schools list
+// @Tags parent,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]string "School removed successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Parent profile or school not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/schools/save/{school_id} [delete]
 func (h *ParentHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -184,6 +236,16 @@ func (h *ParentHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 }
 
 // GetSavedSchools for parents
+// @Summary Get saved schools
+// @Description Retrieves the list of schools saved by the parent
+// @Tags parent,schools
+// @Produce json
+// @Success 200 {array} models.School "List of saved schools"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Parent profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/schools/saved [get]
 func (h *ParentHandler) GetSavedSchools(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	var parentProfile models.ParentProfile
@@ -194,6 +256,20 @@ func (h *ParentHandler) GetSavedSchools(c *fiber.Ctx) error {
 }
 
 // SendMessage handles sending a message from one parent to another.
+// @Summary Send a message
+// @Description Sends a message to an institution or educator
+// @Tags parent,messages
+// @Accept json
+// @Produce json
+// @Param recipient_id path int true "Recipient User ID"
+// @Param message body MessageRequest true "Message content"
+// @Success 201 {object} models.Message "Message sent successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid recipient ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Recipient not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/messages/send/{recipient_id} [post]
 func (h *ParentHandler) SendMessage(c *fiber.Ctx) error {
 	senderID, _ := c.Locals("user_id").(uint)
 	recipientIDStr := c.Params("recipient_id")
@@ -269,6 +345,16 @@ func (h *ParentHandler) SendMessage(c *fiber.Ctx) error {
 }
 
 // GetMessages retrieves messages for the logged-in parent.
+// @Summary Get user messages
+// @Description Retrieves all messages sent to or by the current user
+// @Tags parent,messages
+// @Produce json
+// @Param unread_only query boolean false "Filter to show only unread messages" default(false)
+// @Success 200 {array} models.Message "List of messages"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/messages [get]
 func (h *ParentHandler) GetMessages(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	// Pagination
@@ -301,6 +387,19 @@ func (h *ParentHandler) GetMessages(c *fiber.Ctx) error {
 }
 
 // MarkMessageAsRead marks a specific message as read.
+// @Summary Mark message as read
+// @Description Marks a specific message as read by the recipient
+// @Tags parent,messages
+// @Produce json
+// @Param message_id path int true "Message ID"
+// @Success 200 {object} map[string]string "Message marked as read successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid message ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only mark messages addressed to you"
+// @Failure 404 {object} map[string]string "Message not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/parent/messages/{message_id}/read [post]
 func (h *ParentHandler) MarkMessageAsRead(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	messageIDStr := c.Params("message_id")

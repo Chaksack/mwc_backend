@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"mwc_backend/config"
 	"mwc_backend/internal/models"
@@ -229,6 +228,14 @@ func (h *WebSocketHandler) BroadcastNotification(notificationType string, payloa
 }
 
 // WebSocketUpgradeMiddleware is a middleware that upgrades HTTP connections to WebSocket
+// @Summary WebSocket connection upgrade
+// @Description Upgrades HTTP connection to WebSocket protocol for real-time communication
+// @Tags websocket
+// @Success 101 {string} string "Switching Protocols"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 426 {object} map[string]string "Upgrade Required - Client must request WebSocket upgrade"
+// @Security BearerAuth
+// @Router /ws [get]
 func WebSocketUpgradeMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// IsWebSocketUpgrade returns true if the client requested upgrade to the WebSocket protocol

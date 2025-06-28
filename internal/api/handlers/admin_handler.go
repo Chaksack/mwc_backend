@@ -38,6 +38,18 @@ type SchoolUploadData struct {
 }
 
 // BatchUploadSchools handles batch uploading of schools from a JSON file.
+// @Summary Batch upload schools
+// @Description Upload multiple schools from a JSON file
+// @Tags admin,schools
+// @Accept multipart/form-data
+// @Produce json
+// @Param schools_file formData file true "JSON file containing school data"
+// @Success 200 {object} map[string]interface{} "Schools uploaded successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/schools/batch-upload [post]
 func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	adminUserID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -136,6 +148,20 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 }
 
 // UpdateSchool updates an existing school.
+// @Summary Update school information
+// @Description Updates an existing school's information
+// @Tags admin,schools
+// @Accept json
+// @Produce json
+// @Param id path int true "School ID"
+// @Param school body SchoolUploadData true "Updated school information"
+// @Success 200 {object} models.School "School updated successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "School not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/schools/{id} [put]
 func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("id")
@@ -180,6 +206,19 @@ func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 }
 
 // GetSchoolsByCountry retrieves schools filtered by country code.
+// @Summary Get schools by country
+// @Description Retrieves a list of schools filtered by country code with pagination
+// @Tags admin,schools
+// @Produce json
+// @Param country_code query string true "Country code (e.g., US, UK)"
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{} "List of schools with pagination metadata"
+// @Failure 400 {object} map[string]string "Bad request - missing country_code"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/schools [get]
 func (h *AdminHandler) GetSchoolsByCountry(c *fiber.Ctx) error {
 	countryCode := c.Query("country_code")
 	if countryCode == "" {
@@ -213,6 +252,19 @@ func (h *AdminHandler) GetSchoolsByCountry(c *fiber.Ctx) error {
 }
 
 // DeleteSchool deletes a school by ID.
+// @Summary Delete a school
+// @Description Deletes a school by its ID
+// @Tags admin,schools
+// @Produce json
+// @Param id path int true "School ID"
+// @Success 200 {object} map[string]string "School deleted successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "School not found"
+// @Failure 409 {object} map[string]string "Conflict - school linked to institutions"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/schools/{id} [delete]
 func (h *AdminHandler) DeleteSchool(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("id")
@@ -246,6 +298,17 @@ func (h *AdminHandler) DeleteSchool(c *fiber.Ctx) error {
 }
 
 // GetAllUsers retrieves all users (admin only).
+// @Summary Get all users
+// @Description Retrieves a list of all users with pagination
+// @Tags admin,users
+// @Produce json
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{} "List of users with pagination metadata"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/users [get]
 func (h *AdminHandler) GetAllUsers(c *fiber.Ctx) error {
 	var users []models.User
 	// Preload profiles for more detailed user info if needed, e.g., h.db.Preload("InstitutionProfile").Find(&users)
@@ -278,6 +341,20 @@ type UserStatusUpdateRequest struct {
 }
 
 // UpdateUserStatus allows admin to activate/deactivate a user.
+// @Summary Update user active status
+// @Description Activates or deactivates a user account
+// @Tags admin,users
+// @Accept json
+// @Produce json
+// @Param id path int true "User ID"
+// @Param status body UserStatusUpdateRequest true "User status update information"
+// @Success 200 {object} map[string]interface{} "User status updated successfully"
+// @Failure 400 {object} map[string]string "Bad request, invalid user ID, or admin trying to change own status"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "User not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/users/{id}/status [put]
 func (h *AdminHandler) UpdateUserStatus(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	targetUserIDStr := c.Params("id")
@@ -324,6 +401,20 @@ type UserRoleUpdateRequest struct {
 }
 
 // UpdateUserRole allows admin to change a user's role.
+// @Summary Update user role
+// @Description Changes a user's role (admin only)
+// @Tags admin,users
+// @Accept json
+// @Produce json
+// @Param id path int true "User ID"
+// @Param role body UserRoleUpdateRequest true "User role update information"
+// @Success 200 {object} map[string]interface{} "User role updated successfully"
+// @Failure 400 {object} map[string]string "Bad request, invalid user ID, or admin trying to change own role"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "User not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/users/{id}/role [put]
 func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	targetUserIDStr := c.Params("id")
@@ -365,6 +456,18 @@ func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 }
 
 // DeleteUser allows admin to delete a user (soft delete).
+// @Summary Delete a user
+// @Description Soft deletes a user account (admin only)
+// @Tags admin,users
+// @Produce json
+// @Param id path int true "User ID"
+// @Success 200 {object} map[string]string "User deleted successfully"
+// @Failure 400 {object} map[string]string "Bad request, invalid user ID, or admin trying to delete themselves"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "User not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/users/{id} [delete]
 func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	targetUserIDStr := c.Params("id")
@@ -396,6 +499,19 @@ func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 }
 
 // GetActionLogs retrieves action logs (admin only).
+// @Summary Get action logs
+// @Description Retrieves a list of action logs with pagination and filtering
+// @Tags admin,logs
+// @Produce json
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(20)
+// @Param user_id query int false "Filter logs by user ID"
+// @Param action_type query string false "Filter logs by action type"
+// @Success 200 {object} map[string]interface{} "List of action logs with pagination metadata"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/action-logs [get]
 func (h *AdminHandler) GetActionLogs(c *fiber.Ctx) error {
 	var logs []models.ActionLog
 	// Add pagination and filtering as needed

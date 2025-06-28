@@ -41,7 +41,27 @@ type CreateEventRequest struct {
 	Localizations   map[string]string `json:"localizations"` // Map of language code to localized title/description
 }
 
+// FeatureRequest is used to update the featured status of an event
+// @Description Request to update the featured status of an event
+// @Schema handlers.FeatureRequest
+type FeatureRequest struct {
+	Featured bool `json:"featured"`
+}
+
 // CreateEvent creates a new event
+// @Summary Create a new event
+// @Description Creates a new event for an institution or training center
+// @Tags institution,events
+// @Accept json
+// @Produce json
+// @Param event body CreateEventRequest true "Event information"
+// @Success 201 {object} map[string]interface{} "Event created successfully"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - only institutions and training centers can create events"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/events [post]
 func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -169,6 +189,18 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 }
 
 // GetEvents gets all published events
+// @Summary Get all published events
+// @Description Retrieves a list of all published events with optional filtering
+// @Tags events
+// @Produce json
+// @Param event_type query string false "Filter by event type"
+// @Param audience query string false "Filter by target audience"
+// @Param start_date query string false "Filter by start date (RFC3339 format)"
+// @Param end_date query string false "Filter by end date (RFC3339 format)"
+// @Param language query string false "Language for localized content" default(en)
+// @Success 200 {object} map[string]interface{} "List of events"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/events [get]
 func (h *EventHandler) GetEvents(c *fiber.Ctx) error {
 	// Parse query parameters
 	eventType := c.Query("event_type")
@@ -251,6 +283,17 @@ func (h *EventHandler) GetEvents(c *fiber.Ctx) error {
 }
 
 // GetEvent gets a specific event by ID
+// @Summary Get event details
+// @Description Retrieves detailed information about a specific event
+// @Tags events
+// @Produce json
+// @Param event_id path int true "Event ID"
+// @Param language query string false "Language for localized content" default(en)
+// @Success 200 {object} map[string]interface{} "Event details"
+// @Failure 400 {object} map[string]string "Bad request or invalid event ID"
+// @Failure 404 {object} map[string]string "Event not found or not published"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/events/{event_id} [get]
 func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 	eventID, err := c.ParamsInt("event_id")
 	if err != nil {
@@ -311,6 +354,15 @@ func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 }
 
 // GetInstitutionEvents gets all events for the current institution
+// @Summary Get institution events
+// @Description Retrieves all events created by the current institution
+// @Tags institution,events
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List of institution events"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/events [get]
 func (h *EventHandler) GetInstitutionEvents(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -357,6 +409,21 @@ func (h *EventHandler) GetInstitutionEvents(c *fiber.Ctx) error {
 }
 
 // UpdateEvent updates an event
+// @Summary Update an event
+// @Description Updates an existing event's information
+// @Tags institution,events
+// @Accept json
+// @Produce json
+// @Param event_id path int true "Event ID"
+// @Param event body CreateEventRequest true "Updated event information"
+// @Success 200 {object} map[string]interface{} "Event updated successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid event ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only update own events"
+// @Failure 404 {object} map[string]string "Event not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/events/{event_id} [put]
 func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -478,6 +545,19 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 }
 
 // DeleteEvent deletes an event
+// @Summary Delete an event
+// @Description Deletes an existing event
+// @Tags institution,events
+// @Produce json
+// @Param event_id path int true "Event ID"
+// @Success 200 {object} map[string]string "Event deleted successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid event ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only delete own events"
+// @Failure 404 {object} map[string]string "Event not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/events/{event_id} [delete]
 func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -517,6 +597,21 @@ func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 }
 
 // FeatureEvent marks an event as featured (admin only)
+// @Summary Feature or unfeature an event
+// @Description Marks an event as featured or removes featured status (admin only)
+// @Tags admin,events
+// @Accept json
+// @Produce json
+// @Param event_id path int true "Event ID"
+// @Param request body FeatureRequest true "Feature request with featured status"
+// @Success 200 {object} map[string]interface{} "Event featured status updated successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid event ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - only admins can feature events"
+// @Failure 404 {object} map[string]string "Event not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/events/{event_id}/feature [put]
 func (h *EventHandler) FeatureEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -535,9 +630,6 @@ func (h *EventHandler) FeatureEvent(c *fiber.Ctx) error {
 	}
 
 	// Parse request
-	type FeatureRequest struct {
-		Featured bool `json:"featured"`
-	}
 	var req FeatureRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
@@ -576,6 +668,14 @@ func (h *EventHandler) FeatureEvent(c *fiber.Ctx) error {
 }
 
 // GetFeaturedEvents gets all featured events
+// @Summary Get featured events
+// @Description Retrieves all featured and published events
+// @Tags events
+// @Produce json
+// @Param language query string false "Language for localized content" default(en)
+// @Success 200 {object} map[string]interface{} "List of featured events"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/events/featured [get]
 func (h *EventHandler) GetFeaturedEvents(c *fiber.Ctx) error {
 	language := c.Query("language", h.cfg.DefaultLanguage)
 

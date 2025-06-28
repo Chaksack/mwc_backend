@@ -9,15 +9,17 @@ import (
 	"mwc_backend/internal/models"
 )
 
-// Imports from other handlers (json, fmt, log, models, email, fiber, gorm) are assumed.
-
-// HandleUnreadMessageNotification is the webhook endpoint that would be called by
-// a separate RabbitMQ consumer worker when a message from ActualUnreadEmailQueue is processed.
-// This endpoint itself is NOT the consumer. It's what a consumer would trigger.
-// For a real deployment, the consumer logic (consuming from ActualUnreadEmailQueue) would run persistently.
-// This webhook endpoint needs to be secured against unauthorized access.
-// Methods: IP whitelisting, secret token in header, mTLS.
-// "Prevent cross browser" for webhooks means it shouldn't be callable from a user's browser directly.
+// @Summary Webhook for Unread Message Notification
+// @Description Receives a payload from the message queue system to process and send email notifications for unread messages. This endpoint is intended for internal system use and should be secured.
+// @Tags webhooks,notifications
+// @Accept json
+// @Produce json
+// @Param payload body UnreadMessagePayload true "Details of the unread message to be processed for notification"
+// @Success 200 {object} map[string]string "Notification processed successfully (email sent or message already read)"
+// @Failure 400 {object} map[string]string "Bad request or invalid payload"
+// @Failure 401 {object} map[string]string "Unauthorized access (if webhook security is implemented)"
+// @Failure 500 {object} map[string]string "Internal server error (e.g., database error, email sending failure)"
+// @Router /webhooks/notify-unread-message [post]
 func HandleUnreadMessageNotification(db *gorm.DB, emailService email.EmailService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// TODO: Implement robust webhook security. Example: Check a secret header.

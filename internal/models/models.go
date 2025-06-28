@@ -6,6 +6,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// GormModel is a struct that includes common fields for all models
+// @Description GORM model with common fields
+// @Schema models.GormModel
+type GormModel struct {
+	ID        uint           `json:"id" gorm:"primarykey" example:"1"`
+	CreatedAt time.Time      `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	UpdatedAt time.Time      `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string" format:"date-time" example:"2023-01-01T00:00:00Z"`
+}
+
 // UserRole defines the type for user roles
 type UserRole string
 
@@ -44,8 +54,10 @@ const (
 )
 
 // User represents a user in the system
+// @Description User information
+// @Schema models.User
 type User struct {
-	gorm.Model
+	GormModel // Use GormModel for Swagger documentation
 	Email        string `gorm:"uniqueIndex;not null"`
 	PasswordHash string `gorm:"not null"` // Store hashed passwords only
 	FirstName    string
@@ -61,8 +73,10 @@ type User struct {
 }
 
 // School represents a school
+// @Description School information
+// @Schema models.School
 type School struct {
-	gorm.Model
+	GormModel // Use GormModel for Swagger documentation
 	Name            string `gorm:"not null"`
 	Address         string
 	City            string
@@ -78,8 +92,10 @@ type School struct {
 }
 
 // InstitutionProfile for Institution and Training Center users
+// @Description Institution or Training Center profile information
+// @Schema models.InstitutionProfile
 type InstitutionProfile struct {
-	gorm.Model
+	GormModel // Use GormModel for Swagger documentation
 	UserID           uint   `gorm:"uniqueIndex;not null"` // Foreign key to User table
 	User             User   // Eager load user details if needed
 	InstitutionName  string `gorm:"not null"`
@@ -91,8 +107,10 @@ type InstitutionProfile struct {
 }
 
 // EducatorProfile for Educator users
+// @Description Educator profile information
+// @Schema models.EducatorProfile
 type EducatorProfile struct {
-	gorm.Model
+	GormModel // Use GormModel for Swagger documentation
 	UserID         uint `gorm:"uniqueIndex;not null"`
 	User           User // Eager load user details
 	Bio            string
@@ -103,8 +121,10 @@ type EducatorProfile struct {
 }
 
 // ParentProfile for Parent users
+// @Description Parent profile information
+// @Schema models.ParentProfile
 type ParentProfile struct {
-	gorm.Model
+	GormModel // Use GormModel for Swagger documentation
 	UserID       uint      `gorm:"uniqueIndex;not null"`
 	User         User      // Eager load user details
 	SavedSchools []*School `gorm:"many2many:parent_saved_schools;"`
@@ -112,8 +132,10 @@ type ParentProfile struct {
 }
 
 // Job posted by an Institution or Training Center
+// @Description Job posting information
+// @Schema models.Job
 type Job struct {
-	gorm.Model
+	GormModel // Use GormModel for Swagger documentation
 	InstitutionProfileID uint               `gorm:"not null"` // Links to InstitutionProfile
 	InstitutionProfile   InstitutionProfile // Eager load institution profile
 	Title                string             `gorm:"not null"`
@@ -128,8 +150,10 @@ type Job struct {
 }
 
 // JobApplication by an Educator
+// @Description Job application information
+// @Schema models.JobApplication
 type JobApplication struct {
-	gorm.Model
+	GormModel
 	JobID             uint `gorm:"not null"`
 	Job               Job
 	EducatorProfileID uint   `gorm:"not null"` // Links to EducatorProfile
@@ -141,8 +165,10 @@ type JobApplication struct {
 }
 
 // Message between Parents
+// @Description Message information
+// @Schema models.Message
 type Message struct {
-	gorm.Model
+	GormModel
 	SenderID    uint      `gorm:"not null"`
 	RecipientID uint      `gorm:"not null"`
 	Content     string    `gorm:"type:text;not null"`
@@ -154,8 +180,10 @@ type Message struct {
 }
 
 // ActionLog for admin to track user actions
+// @Description Action log information
+// @Schema models.ActionLog
 type ActionLog struct {
-	gorm.Model
+	GormModel
 	UserID      *uint     `gorm:"index"` // User who performed the action (can be nil for system actions)
 	User        *User     `gorm:"foreignKey:UserID"`
 	ActionType  string    // e.g., "SCHOOL_CREATE", "JOB_POST", "USER_REGISTER"
@@ -168,8 +196,10 @@ type ActionLog struct {
 }
 
 // Event represents an event posted by a school or training center
+// @Description Event information
+// @Schema models.Event
 type Event struct {
-	gorm.Model
+	GormModel
 	CreatorID       uint               `gorm:"not null;index"` // User who created the event
 	Creator         User               `gorm:"foreignKey:CreatorID"`
 	InstitutionID   uint               `gorm:"not null;index"` // Institution that hosts the event
@@ -193,8 +223,10 @@ type Event struct {
 }
 
 // BlogPost represents a blog post or article
+// @Description Blog post information
+// @Schema models.BlogPost
 type BlogPost struct {
-	gorm.Model
+	GormModel
 	AuthorID    uint   `gorm:"not null;index"` // User who wrote the post
 	Author      User   `gorm:"foreignKey:AuthorID"`
 	Title       string `gorm:"not null"`
@@ -214,8 +246,10 @@ type BlogPost struct {
 }
 
 // Subscription represents a premium subscription
+// @Description Subscription information
+// @Schema models.Subscription
 type Subscription struct {
-	gorm.Model
+	GormModel
 	UserID             uint               `gorm:"not null;index"` // User who has the subscription
 	User               User               `gorm:"foreignKey:UserID"`
 	Plan               SubscriptionPlan   `gorm:"type:varchar(20);not null"`
@@ -230,8 +264,10 @@ type Subscription struct {
 }
 
 // Review represents a review of a school
+// @Description Review information
+// @Schema models.Review
 type Review struct {
-	gorm.Model
+	GormModel
 	SchoolID       uint         `gorm:"not null;index"` // School being reviewed
 	School         School       `gorm:"foreignKey:SchoolID"`
 	ReviewerID     uint         `gorm:"not null;index"` // User who wrote the review

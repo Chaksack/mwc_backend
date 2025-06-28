@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"mwc_backend/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/checkout/session"
 	"github.com/stripe/stripe-go/v72/customer"
+	"github.com/stripe/stripe-go/v72/sub"
 	"github.com/stripe/stripe-go/v72/webhook"
 	"gorm.io/gorm"
 )
@@ -32,6 +34,19 @@ func NewSubscriptionHandler(db *gorm.DB, cfg *config.Config, mqService queue.Mes
 }
 
 // CreateCheckoutSession creates a Stripe checkout session for subscription
+// @Summary Create a checkout session for subscription
+// @Description Creates a Stripe checkout session for a user to subscribe to a plan
+// @Tags subscription
+// @Accept json
+// @Produce json
+// @Param plan query string false "Subscription plan (monthly or annual)" Enums(monthly, annual)
+// @Success 200 {object} map[string]interface{} "Checkout session created successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 409 {object} map[string]string "User already has an active subscription"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/subscription/checkout [post]
 func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -78,10 +93,8 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 		customerParams := &stripe.CustomerParams{
 			Email: stripe.String(user.Email),
 			Name:  stripe.String(fmt.Sprintf("%s %s", user.FirstName, user.LastName)),
-			Metadata: map[string]string{
-				"user_id": strconv.FormatUint(uint64(userID), 10),
-			},
 		}
+		customerParams.AddMetadata("user_id", strconv.FormatUint(uint64(userID), 10))
 		newCustomer, err := customer.New(customerParams)
 		if err != nil {
 			log.Printf("Error creating Stripe customer: %v", err)
@@ -131,6 +144,16 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 }
 
 // HandleStripeWebhook handles Stripe webhook events
+// @Summary Handle Stripe webhook events
+// @Description Processes webhook events from Stripe for subscription management
+// @Tags webhooks
+// @Accept json
+// @Produce json
+// @Param Stripe-Signature header string true "Stripe signature for webhook verification"
+// @Success 200 {object} map[string]bool "Webhook event processed successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /webhooks/stripe [post]
 func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 	// Get the webhook secret
 	webhookSecret := h.cfg.StripeWebhookSecret
@@ -164,7 +187,7 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 	switch event.Type {
 	case "checkout.session.completed":
 		var session stripe.CheckoutSession
-		err := stripe.Unmarshal(event.Data.Raw, &session)
+		err := json.Unmarshal(event.Data.Raw, &session)
 		if err != nil {
 			log.Printf("Error parsing checkout session: %v", err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid checkout session"})
@@ -198,13 +221,13 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 		}
 
 		subscription := models.Subscription{
-			UserID:              uint(userID),
-			Plan:                models.SubscriptionPlan(plan),
-			Status:              models.SubscriptionActive,
-			StartDate:           time.Now(),
-			EndDate:             endDate,
-			AutoRenew:           true,
-			StripeCustomerID:    session.Customer.ID,
+			UserID:               uint(userID),
+			Plan:                 models.SubscriptionPlan(plan),
+			Status:               models.SubscriptionActive,
+			StartDate:            time.Now(),
+			EndDate:              endDate,
+			AutoRenew:            true,
+			StripeCustomerID:     session.Customer.ID,
 			StripeSubscriptionID: session.Subscription.ID,
 		}
 
@@ -217,7 +240,7 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 
 	case "customer.subscription.updated":
 		var subscription stripe.Subscription
-		err := stripe.Unmarshal(event.Data.Raw, &subscription)
+		err := json.Unmarshal(event.Data.Raw, &subscription)
 		if err != nil {
 			log.Printf("Error parsing subscription: %v", err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid subscription"})
@@ -271,7 +294,7 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 
 	case "customer.subscription.deleted":
 		var subscription stripe.Subscription
-		err := stripe.Unmarshal(event.Data.Raw, &subscription)
+		err := json.Unmarshal(event.Data.Raw, &subscription)
 		if err != nil {
 			log.Printf("Error parsing subscription: %v", err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid subscription"})
@@ -315,6 +338,16 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 }
 
 // GetUserSubscription gets the current user's subscription
+// @Summary Get user subscription
+// @Description Retrieves the current user's subscription details
+// @Tags subscription
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Subscription details"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 404 {object} map[string]string "No subscription found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/subscription/status [get]
 func (h *SubscriptionHandler) GetUserSubscription(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -342,7 +375,24 @@ func (h *SubscriptionHandler) GetUserSubscription(c *fiber.Ctx) error {
 	})
 }
 
+// CancelRequest is the request body for canceling a subscription
+type CancelRequest struct {
+	Reason string `json:"reason"`
+}
+
 // CancelSubscription cancels the current user's subscription
+// @Summary Cancel user subscription
+// @Description Cancels the current user's active subscription
+// @Tags subscription
+// @Accept json
+// @Produce json
+// @Param request body CancelRequest false "Cancellation reason"
+// @Success 200 {object} map[string]string "Subscription canceled successfully"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 404 {object} map[string]string "No active subscription found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/subscription/cancel [post]
 func (h *SubscriptionHandler) CancelSubscription(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -359,7 +409,7 @@ func (h *SubscriptionHandler) CancelSubscription(c *fiber.Ctx) error {
 	}
 
 	// Cancel the subscription in Stripe
-	_, err = stripe.Subscriptions.Cancel(subscription.StripeSubscriptionID, &stripe.SubscriptionCancelParams{})
+	_, err = sub.Cancel(subscription.StripeSubscriptionID, &stripe.SubscriptionCancelParams{})
 	if err != nil {
 		log.Printf("Error canceling Stripe subscription: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to cancel subscription in Stripe"})
@@ -372,9 +422,6 @@ func (h *SubscriptionHandler) CancelSubscription(c *fiber.Ctx) error {
 	subscription.AutoRenew = false
 
 	// Get cancellation reason from request body
-	type CancelRequest struct {
-		Reason string `json:"reason"`
-	}
 	var req CancelRequest
 	if err := c.BodyParser(&req); err == nil && req.Reason != "" {
 		subscription.CancellationReason = req.Reason

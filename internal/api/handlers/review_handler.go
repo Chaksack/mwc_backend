@@ -30,6 +30,21 @@ type CreateReviewRequest struct {
 }
 
 // CreateReview creates a new review
+// @Summary Create a new review
+// @Description Creates a new review for a school (parents and educators only). The review will be pending approval by an admin.
+// @Tags reviews
+// @Accept json
+// @Produce json
+// @Param review body CreateReviewRequest true "Review information"
+// @Success 201 {object} map[string]interface{} "Review created successfully and pending approval"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - only parents and educators can create reviews"
+// @Failure 404 {object} map[string]string "School not found"
+// @Failure 409 {object} map[string]string "User has already reviewed this school"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/reviews [post]
 func (h *ReviewHandler) CreateReview(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -107,6 +122,16 @@ func (h *ReviewHandler) CreateReview(c *fiber.Ctx) error {
 }
 
 // GetSchoolReviews gets all approved reviews for a school
+// @Summary Get school reviews
+// @Description Retrieves all approved reviews for a specific school, along with the average rating and total review count.
+// @Tags reviews,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]interface{} "List of reviews with average rating"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 404 {object} map[string]string "School not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/schools/{school_id}/reviews [get]
 func (h *ReviewHandler) GetSchoolReviews(c *fiber.Ctx) error {
 	schoolID, err := c.ParamsInt("school_id")
 	if err != nil {
@@ -165,6 +190,15 @@ func (h *ReviewHandler) GetSchoolReviews(c *fiber.Ctx) error {
 }
 
 // GetUserReviews gets all reviews by the current user
+// @Summary Get current user's reviews
+// @Description Retrieves all reviews submitted by the authenticated user.
+// @Tags reviews,users
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List of reviews by the current user"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/reviews/me [get]
 func (h *ReviewHandler) GetUserReviews(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -202,6 +236,21 @@ func (h *ReviewHandler) GetUserReviews(c *fiber.Ctx) error {
 }
 
 // UpdateReview updates a review by the current user
+// @Summary Update a review
+// @Description Allows an authenticated user to update their own review. The updated review will be reset to pending status.
+// @Tags reviews
+// @Accept json
+// @Produce json
+// @Param review_id path int true "Review ID"
+// @Param review body CreateReviewRequest true "Updated review information"
+// @Success 200 {object} map[string]interface{} "Review updated successfully and pending approval"
+// @Failure 400 {object} map[string]string "Bad request or invalid review ID/request body"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - user can only update their own reviews"
+// @Failure 404 {object} map[string]string "Review not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/reviews/{review_id} [put]
 func (h *ReviewHandler) UpdateReview(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -264,6 +313,19 @@ func (h *ReviewHandler) UpdateReview(c *fiber.Ctx) error {
 }
 
 // DeleteReview deletes a review by the current user
+// @Summary Delete a review
+// @Description Allows an authenticated user to delete their own review.
+// @Tags reviews
+// @Produce json
+// @Param review_id path int true "Review ID"
+// @Success 200 {object} map[string]string "Review deleted successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid review ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - user can only delete their own reviews"
+// @Failure 404 {object} map[string]string "Review not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/reviews/{review_id} [delete]
 func (h *ReviewHandler) DeleteReview(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -301,11 +363,41 @@ func (h *ReviewHandler) DeleteReview(c *fiber.Ctx) error {
 
 // Admin endpoints
 
+// ModerateReviewRequest is the request body for moderating a review
+type ModerateReviewRequest struct {
+	Status models.ReviewStatus `json:"status" validate:"required,oneof=approved rejected"`
+	Notes  string              `json:"notes"`
+}
+
 // ModerateReview approves or rejects a review (admin only)
+// @Summary Moderate a review
+// @Description Allows an admin to approve or reject a pending review.
+// @Tags admin,reviews
+// @Accept json
+// @Produce json
+// @Param review_id path int true "Review ID"
+// @Param moderation body ModerateReviewRequest true "Moderation details (status and optional notes)"
+// @Success 200 {object} map[string]interface{} "Review moderated successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid review ID/request body"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - only administrators can moderate reviews"
+// @Failure 404 {object} map[string]string "Review not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/reviews/{review_id}/moderate [put]
 func (h *ReviewHandler) ModerateReview(c *fiber.Ctx) error {
 	adminID, ok := c.Locals("user_id").(uint)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role to ensure they are an admin
+	var user models.User
+	if err := h.db.First(&user, adminID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only administrators can moderate reviews"})
 	}
 
 	reviewID, err := c.ParamsInt("review_id")
@@ -314,11 +406,7 @@ func (h *ReviewHandler) ModerateReview(c *fiber.Ctx) error {
 	}
 
 	// Parse request
-	type ModerateRequest struct {
-		Status models.ReviewStatus `json:"status" validate:"required,oneof=approved rejected"`
-		Notes  string              `json:"notes"`
-	}
-	var req ModerateRequest
+	var req ModerateReviewRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
@@ -351,21 +439,45 @@ func (h *ReviewHandler) ModerateReview(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": fmt.Sprintf("Review %s successfully", req.Status),
 		"review": fiber.Map{
-			"id":             review.ID,
-			"school_id":      review.SchoolID,
-			"reviewer_id":    review.ReviewerID,
-			"rating":         review.Rating,
-			"comment":        review.Comment,
-			"status":         review.Status,
-			"moderated_by":   review.ModeratedBy,
-			"moderated_at":   review.ModeratedAt,
+			"id":              review.ID,
+			"school_id":       review.SchoolID,
+			"reviewer_id":     review.ReviewerID,
+			"rating":          review.Rating,
+			"comment":         review.Comment,
+			"status":          review.Status,
+			"moderated_by":    review.ModeratedBy,
+			"moderated_at":    review.ModeratedAt,
 			"moderator_notes": review.ModeratorNotes,
 		},
 	})
 }
 
 // GetPendingReviews gets all pending reviews (admin only)
+// @Summary Get pending reviews
+// @Description Retrieves all reviews that are currently in 'pending' status, awaiting admin moderation.
+// @Tags admin,reviews
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List of pending reviews"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - only administrators can view pending reviews"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/admin/reviews/pending [get]
 func (h *ReviewHandler) GetPendingReviews(c *fiber.Ctx) error {
+	adminID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role to ensure they are an admin
+	var user models.User
+	if err := h.db.First(&user, adminID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only administrators can view pending reviews"})
+	}
+
 	// Get pending reviews
 	var reviews []models.Review
 	if err := h.db.Where("status = ?", models.ReviewPending).

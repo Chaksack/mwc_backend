@@ -38,6 +38,18 @@ type JobRequest struct {
 }
 
 // CreateOrUpdateInstitutionProfile for an institution/training center
+// @Summary Create or update institution profile
+// @Description Creates a new institution profile or updates an existing one
+// @Tags institution,profile
+// @Accept json
+// @Produce json
+// @Param profile body InstitutionProfileRequest true "Institution profile information"
+// @Success 200 {object} models.InstitutionProfile "Profile created or updated successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/profile [post]
 func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) error {
 	actorUserID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -88,6 +100,19 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 }
 
 // SelectSchool allows an institution to select an existing school uploaded by admin.
+// @Summary Select a school
+// @Description Associates an institution with an existing school from the admin-uploaded list
+// @Tags institution,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]interface{} "School selected successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Institution profile or school not found"
+// @Failure 409 {object} map[string]string "Institution already has a school or school already taken"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/schools/select/{school_id} [put]
 func (h *InstitutionHandler) SelectSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -143,6 +168,20 @@ func (h *InstitutionHandler) SelectSchool(c *fiber.Ctx) error {
 }
 
 // CreateSchool allows an institution to create a new school if not in the admin list.
+// @Summary Create a new school
+// @Description Creates a new school entry for an institution when not found in admin list
+// @Tags institution,schools
+// @Accept json
+// @Produce json
+// @Param school body SchoolUploadData true "School information"
+// @Success 201 {object} models.School "School created successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Institution profile not found"
+// @Failure 409 {object} map[string]string "Institution already has a school"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/schools [post]
 func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -205,6 +244,19 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 }
 
 // PostJob allows an institution to post a new job.
+// @Summary Post a job opening
+// @Description Creates a new job posting for an institution
+// @Tags institution,jobs
+// @Accept json
+// @Produce json
+// @Param job body JobRequest true "Job information"
+// @Success 201 {object} models.Job "Job posted successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Institution profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/jobs [post]
 func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -258,6 +310,21 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 }
 
 // UpdateJob allows an institution to update an existing job.
+// @Summary Update a job posting
+// @Description Updates an existing job posting
+// @Tags institution,jobs
+// @Accept json
+// @Produce json
+// @Param job_id path int true "Job ID"
+// @Param job body JobRequest true "Updated job information"
+// @Success 200 {object} models.Job "Job updated successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid job ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only update own jobs"
+// @Failure 404 {object} map[string]string "Job not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/jobs/{job_id} [put]
 func (h *InstitutionHandler) UpdateJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -310,6 +377,19 @@ func (h *InstitutionHandler) UpdateJob(c *fiber.Ctx) error {
 }
 
 // DeleteJob allows an institution to delete a job (soft delete).
+// @Summary Delete a job posting
+// @Description Deletes an existing job posting
+// @Tags institution,jobs
+// @Produce json
+// @Param job_id path int true "Job ID"
+// @Success 200 {object} map[string]string "Job deleted successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid job ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only delete own jobs"
+// @Failure 404 {object} map[string]string "Job not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/jobs/{job_id} [delete]
 func (h *InstitutionHandler) DeleteJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -339,6 +419,19 @@ func (h *InstitutionHandler) DeleteJob(c *fiber.Ctx) error {
 }
 
 // GetJobApplicants retrieves applicants for a specific job.
+// @Summary Get job applicants
+// @Description Retrieves all applicants for a specific job posting
+// @Tags institution,jobs
+// @Produce json
+// @Param job_id path int true "Job ID"
+// @Success 200 {array} models.JobApplication "List of job applications with applicant details"
+// @Failure 400 {object} map[string]string "Bad request or invalid job ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only view applicants for own jobs"
+// @Failure 404 {object} map[string]string "Job not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/jobs/{job_id}/applicants [get]
 func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -401,6 +494,16 @@ func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 }
 
 // GetMyJobs retrieves all jobs posted by the logged-in institution.
+// @Summary Get institution's jobs
+// @Description Retrieves all job postings created by the institution
+// @Tags institution,jobs
+// @Produce json
+// @Success 200 {array} models.Job "List of jobs posted by the institution"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Institution profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/institution/jobs [get]
 func (h *InstitutionHandler) GetMyJobs(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 

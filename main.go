@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -79,6 +80,24 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
+
+	app.Get("/documentation", func(c *fiber.Ctx) error {
+		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
+			// SpecURL: "https://generator3.swagger.io/openapi.json",// allow external URL or local path file
+			SpecURL: "./docs/swagger.json",
+			CustomOptions: scalar.CustomOptions{
+				PageTitle: "Logistics API",
+			},
+			DarkMode: true,
+		})
+
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
+
+		c.Set("Content-Type", "text/html")
+		return c.SendString(htmlContent)
+	})
 
 	// Setup API routes
 	api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)

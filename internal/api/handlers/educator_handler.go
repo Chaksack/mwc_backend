@@ -28,6 +28,19 @@ type JobApplicationRequest struct {
 	ResumeURL   string `json:"resume_url" validate:"omitempty,url"` // Optional, but if provided, must be URL
 }
 
+// CreateOrUpdateEducatorProfile creates or updates an educator's profile.
+// @Summary Create or update educator profile
+// @Description Creates a new educator profile or updates an existing one
+// @Tags educator,profile
+// @Accept json
+// @Produce json
+// @Param profile body EducatorProfileRequest true "Educator profile information"
+// @Success 200 {object} models.EducatorProfile "Profile created or updated successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/profile [post]
 func (h *EducatorHandler) CreateOrUpdateEducatorProfile(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -72,6 +85,20 @@ func (h *EducatorHandler) CreateOrUpdateEducatorProfile(c *fiber.Ctx) error {
 }
 
 // SearchSchools allows educators (and parents) to search for schools.
+// @Summary Search for schools
+// @Description Search for schools with various filters and pagination
+// @Tags educator,schools
+// @Produce json
+// @Param name query string false "Filter by school name"
+// @Param city query string false "Filter by city"
+// @Param country_code query string false "Filter by country code"
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{} "List of schools with pagination metadata"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/schools/search [get]
 func (h *EducatorHandler) SearchSchools(c *fiber.Ctx) error {
 	// This handler is identical to GetPublicSchools, can be aliased or refactored.
 	// For now, just calling the shared one.
@@ -79,6 +106,19 @@ func (h *EducatorHandler) SearchSchools(c *fiber.Ctx) error {
 }
 
 // SaveSchool allows an educator to save a school to their list.
+// @Summary Save a school
+// @Description Adds a school to the educator's saved schools list
+// @Tags educator,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]string "School saved successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Educator profile or school not found"
+// @Failure 409 {object} map[string]string "School already saved"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/schools/save/{school_id} [post]
 func (h *EducatorHandler) SaveSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -115,6 +155,18 @@ func (h *EducatorHandler) SaveSchool(c *fiber.Ctx) error {
 }
 
 // DeleteSavedSchool allows an educator to remove a school from their saved list.
+// @Summary Delete a saved school
+// @Description Removes a school from the educator's saved schools list
+// @Tags educator,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]string "School removed successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Educator profile or school not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/schools/save/{school_id} [delete]
 func (h *EducatorHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -145,6 +197,16 @@ func (h *EducatorHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 }
 
 // GetSavedSchools retrieves the educator's saved schools.
+// @Summary Get saved schools
+// @Description Retrieves the list of schools saved by the educator
+// @Tags educator,schools
+// @Produce json
+// @Success 200 {array} models.School "List of saved schools"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Educator profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/schools/saved [get]
 func (h *EducatorHandler) GetSavedSchools(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -159,6 +221,21 @@ func (h *EducatorHandler) GetSavedSchools(c *fiber.Ctx) error {
 }
 
 // ApplyForJob allows an educator to apply for a job.
+// @Summary Apply for a job
+// @Description Submit an application for a job posting
+// @Tags educator,jobs
+// @Accept json
+// @Produce json
+// @Param job_id path int true "Job ID"
+// @Param application body JobApplicationRequest true "Job application details"
+// @Success 201 {object} map[string]interface{} "Application submitted successfully"
+// @Failure 400 {object} map[string]string "Bad request or invalid job ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Educator profile or job not found"
+// @Failure 409 {object} map[string]string "Already applied for this job"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/jobs/{job_id}/apply [post]
 func (h *EducatorHandler) ApplyForJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -214,6 +291,16 @@ func (h *EducatorHandler) ApplyForJob(c *fiber.Ctx) error {
 }
 
 // GetAppliedJobs retrieves all jobs an educator has applied for.
+// @Summary Get applied jobs
+// @Description Retrieves all job applications submitted by the educator
+// @Tags educator,jobs
+// @Produce json
+// @Success 200 {array} models.JobApplication "List of job applications with job details"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Educator profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /api/v1/educator/jobs/applied [get]
 func (h *EducatorHandler) GetAppliedJobs(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
