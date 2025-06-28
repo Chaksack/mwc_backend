@@ -39,6 +39,7 @@ func SetupRoutes(
 	apiV1.Post("/register", authHandler.Register)
 	apiV1.Post("/login", authHandler.Login)
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db)) // Publicly searchable schools
+	apiV1.Get("/jobs", institutionHandler.GetAllJobs) // Publicly searchable jobs
 
 	// Auth Middleware
 	authMw := middleware.Protected(cfg.JWTSecret)

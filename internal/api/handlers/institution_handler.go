@@ -493,6 +493,41 @@ func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response)
 }
 
+// GetAllJobs retrieves all active jobs in the system.
+// @Summary Get all jobs
+// @Description Retrieves all active job postings in the system
+// @Tags jobs
+// @Produce json
+// @Success 200 {array} models.Job "List of all active jobs"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/jobs [get]
+func (h *InstitutionHandler) GetAllJobs(c *fiber.Ctx) error {
+	// Add pagination
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset := (page - 1) * limit
+
+	var jobs []models.Job
+	query := h.db.Where("is_active = ?", true).Order("created_at desc").Offset(offset).Limit(limit)
+
+	if err := query.Find(&jobs).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve jobs: " + err.Error()})
+	}
+
+	var total int64
+	h.db.Model(&models.Job{}).Where("is_active = ?", true).Count(&total)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data": jobs,
+		"meta": fiber.Map{
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
+			"last_page": (total + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
 // GetMyJobs retrieves all jobs posted by the logged-in institution.
 // @Summary Get institution's jobs
 // @Description Retrieves all job postings created by the institution

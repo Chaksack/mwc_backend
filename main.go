@@ -70,7 +70,7 @@ func main() {
 	})
 
 	// Middleware
-	app.Use(recover.New())            // Recovers from panics anywhere in the stack
+	app.Use(recover.New()) // Recovers from panics anywhere in the stack
 	app.Use(logger.New(logger.Config{ // Logs HTTP requests
 		Format: "[${time}] ${status} - ${latency} ${method} ${path} ${ip}\n",
 	}))
@@ -83,10 +83,9 @@ func main() {
 
 	app.Get("/documentation", func(c *fiber.Ctx) error {
 		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
-			// SpecURL: "https://generator3.swagger.io/openapi.json",// allow external URL or local path file
 			SpecURL: "./docs/swagger.json",
 			CustomOptions: scalar.CustomOptions{
-				PageTitle: "Logistics API",
+				PageTitle: "Montessori World Connect API",
 			},
 			DarkMode: true,
 		})
@@ -102,9 +101,51 @@ func main() {
 	// Setup API routes
 	api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)
 
+	// Setup static route for Swagger JSON files
+	app.Static("/docs", "./docs")
+
 	// Setup Swagger documentation
 	api.SetupSwagger(app)
 	log.Println("Swagger documentation available at /swagger/index.html")
+
+	// Setup metrics dashboard
+	app.Get("/metrics", func(c *fiber.Ctx) error {
+		return c.SendFile("./views/metrics.html")
+	})
+
+	// Setup metrics API endpoint with dummy data
+	app.Get("/metrics/api", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"uptime": fiber.Map{
+				"seconds": 0,
+				"human":   "Unknown",
+			},
+			"memory": fiber.Map{
+				"alloc":       0,
+				"total_alloc": 0,
+				"sys":         0,
+				"num_gc":      0,
+			},
+			"goroutines": 0,
+			"http": fiber.Map{
+				"request_count":     fiber.Map{},
+				"avg_response_time": fiber.Map{},
+			},
+			"database": fiber.Map{
+				"query_count":    0,
+				"avg_query_time": 0,
+				"connection_stats": fiber.Map{
+					"open_connections": 0,
+					"in_use":           0,
+					"idle":             0,
+					"max_open_conns":   0,
+				},
+			},
+			"logs": []fiber.Map{},
+		})
+	})
+
+	log.Println("Metrics dashboard available at /metrics")
 
 	// Start server
 	port := os.Getenv("PORT")

@@ -1,3 +1,4 @@
+basePath: /api/v1
 definitions:
   handlers.CancelRequest:
     properties:
@@ -588,8 +589,34 @@ definitions:
     - EducatorRole
     - TrainingCenterRole
     - ParentRole
+host: localhost:8080
 info:
-  contact: {}
+  contact:
+    email: support@montessoriworldconnect.com
+    name: API Support
+  description: 'API for the Montessori World Connect platform. Introduction: Welcome
+    to the Montessori World Connect API documentation. This API provides access to
+    various resources and functionalities of the Montessori World Connect platform,
+    including schools, educators, institutions, events, blogs, and more. The API is
+    designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE)
+    for operations. Responses are returned in JSON format. Getting Started: Authentication
+    - Most endpoints require authentication using JWT (JSON Web Token). To authenticate,
+    you need to: 1) Register a new account or login with existing credentials, 2)
+    Include the received token in the Authorization header of your requests, 3) Format:
+    ''Authorization: Bearer your_token_here''. Public Endpoints - Some endpoints are
+    publicly accessible without authentication: /api/v1/register (Register a new user),
+    /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get
+    list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events
+    (Get list of events), /api/v1/blog (Get list of blog posts). Rate Limiting - API
+    requests are subject to rate limiting to ensure fair usage. Please design your
+    applications to handle rate limit responses (HTTP 429) gracefully. Pagination
+    - List endpoints support pagination using ''page'' and ''limit'' query parameters.'
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Montessori World Connect API
+  version: "1.0"
 paths:
   /api/v1/admin/action-logs:
     get:
@@ -2533,6 +2560,27 @@ paths:
       tags:
       - institution
       - schools
+  /api/v1/jobs:
+    get:
+      description: Retrieves all active job postings in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all active jobs
+          schema:
+            items:
+              $ref: '#/definitions/models.Job'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all jobs
+      tags:
+      - jobs
   /api/v1/login:
     post:
       consumes:
@@ -3476,4 +3524,13 @@ paths:
       summary: WebSocket connection upgrade
       tags:
       - websocket
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

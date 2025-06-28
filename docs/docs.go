@@ -9,7 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "email": "support@montessoriworldconnect.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -2976,6 +2984,38 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/jobs": {
+            "get": {
+                "description": "Retrieves all active job postings in the system",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Get all jobs",
+                "responses": {
+                    "200": {
+                        "description": "List of all active jobs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Job"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/login": {
             "post": {
                 "description": "Authenticate a user and return a JWT token",
@@ -5278,17 +5318,25 @@ const docTemplate = `{
                 "ParentRole"
             ]
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and the JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
-	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Version:          "1.0",
+	Host:             "localhost:8080",
+	BasePath:         "/api/v1",
+	Schemes:          []string{"http", "https"},
+	Title:            "Montessori World Connect API",
+	Description:      "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, blogs, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format. Getting Started: Authentication - Most endpoints require authentication using JWT (JSON Web Token). To authenticate, you need to: 1) Register a new account or login with existing credentials, 2) Include the received token in the Authorization header of your requests, 3) Format: 'Authorization: Bearer your_token_here'. Public Endpoints - Some endpoints are publicly accessible without authentication: /api/v1/register (Register a new user), /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get list of blog posts). Rate Limiting - API requests are subject to rate limiting to ensure fair usage. Please design your applications to handle rate limit responses (HTTP 429) gracefully. Pagination - List endpoints support pagination using 'page' and 'limit' query parameters.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

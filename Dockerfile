@@ -26,6 +26,12 @@ RUN apk --no-cache add ca-certificates
 # Copy the binary from builder
 COPY --from=builder /app/main .
 
+# Copy Swagger documentation files
+COPY --from=builder /app/docs ./docs
+
+# Copy views directory for metrics dashboard
+COPY --from=builder /app/views ./views
+
 # Copy any config files if needed
 # COPY --from=builder /app/config ./config
 
