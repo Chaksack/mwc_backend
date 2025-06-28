@@ -79,3 +79,60 @@ For local development without Docker:
 ```bash
 go run main.go
 ```
+
+## GitHub Workflow for AWS ECR Deployment
+
+This project includes a GitHub Actions workflow for automatically building and pushing the Docker image to AWS Elastic Container Registry (ECR).
+
+### Workflow Features
+
+- Automatically builds and pushes the Docker image to AWS ECR on pushes to the main branch
+- Supports manual triggering with environment selection (dev, staging, prod)
+- Uses Docker layer caching for faster builds
+- Tags images with commit SHA, environment name, and 'latest'
+- Sends Slack notifications for successful and failed deployments
+
+### Required GitHub Secrets
+
+To use this workflow, you need to set up the following secrets in your GitHub repository:
+
+- `AWS_ACCESS_KEY_ID`: Your AWS access key with permissions to push to ECR
+- `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
+- `SLACK_WEBHOOK`: Your Slack webhook URL for sending notifications
+
+### Slack Notifications Setup
+
+To set up Slack notifications:
+
+1. Create a Slack app in your workspace or use an existing one
+2. Enable Incoming Webhooks for your Slack app
+3. Create a new webhook URL for the channel where you want to receive deployment notifications
+4. Add the webhook URL as the `SLACK_WEBHOOK` secret in your GitHub repository
+
+The workflow will send notifications to the specified Slack channel when deployments succeed or fail.
+
+### Configuration
+
+The workflow can be configured by modifying the following environment variables in the `.github/workflows/aws-ecr-push.yml` file:
+
+- `AWS_REGION`: The AWS region where your ECR repository is located (default: us-east-1)
+- `ECR_REPOSITORY`: The name of your ECR repository (default: mwc-backend)
+
+### Manual Deployment
+
+To manually trigger a deployment:
+
+1. Go to the "Actions" tab in your GitHub repository
+2. Select the "Build and Push to AWS ECR" workflow
+3. Click "Run workflow"
+4. Select the target environment (dev, staging, or prod)
+5. Click "Run workflow" to start the deployment
+
+### AWS ECR Repository Setup
+
+Before using this workflow, make sure you have:
+
+1. Created an ECR repository in your AWS account
+2. Created an IAM user with appropriate permissions for ECR
+3. Generated access keys for the IAM user
+4. Added the access keys as secrets in your GitHub repository
