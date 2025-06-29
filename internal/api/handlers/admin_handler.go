@@ -109,7 +109,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			ContactPhone:    data.ContactPhone,
 			Website:         data.Website,
 			UploadedByAdmin: true,
-			CreatedByUserID: &adminUserID, // Link to the admin who uploaded
+			CreatedByUserID: &adminUserID,
 		}
 		schoolsToCreate = append(schoolsToCreate, school)
 	}

@@ -8,28 +8,21 @@ services:
     container_name: mwc_backend
     restart: unless-stopped
     ports:
-      - "8081:8081"
+      - "8080:8080"
       - "443:443"  # For HTTPS
     environment:
       # Basic configuration
-      - PORT=8081
+      - PORT=8080
 
       # AWS RDS PostgreSQL configuration
-      - DATABASE_URL=postgres://postgres:yourpassword@your-rds-instance.rds.amazonaws.com:5432/mwcdb?sslmode=require
+      - DATABASE_URL=postgres://postgres:8FP9fxvzdvaeJE@mwcdb.cvygk6ks2n4t.us-east-1.rds.amazonaws.com:5432/syentia_db?sslmode=disabled
 
       # Amazon MQ configuration
       - RABBITMQ_URL=amqps://username:password@your-amazonmq-broker.mq.us-east-1.amazonaws.com:5671/
-      - RABBITMQ_USE_TLS=true
-      - RABBITMQ_CERT_PATH=/app/certs/rabbitmq
-
-      # HTTPS configuration for WSS
-      - SSL_ENABLED=true
-      - SSL_CERT_FILE=/app/certs/ssl/certificate.pem
-      - SSL_KEY_FILE=/app/certs/ssl/private-key.pem
-
+      -
       # WebSocket configuration
       - WEBSOCKET_ENABLED=true
-      - WEBSOCKET_PATH=/ws
+      - WEBSOCKET_PATH=/wss
 
       # Other configuration
       - SMTP_HOST=smtp.example.com
