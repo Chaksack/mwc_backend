@@ -34,8 +34,30 @@ func SetupRoutes(
 	eventHandler := handlers.NewEventHandler(db, cfg, mqService)
 	blogHandler := handlers.NewBlogHandler(db, cfg, mqService)
 
+	// Root route handler
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"message": "Welcome to Montessori World Connect API",
+			"version": "1.0",
+			"documentation": "/swagger/index.html",
+		})
+	})
+
 	// Public routes
 	apiV1 := app.Group("/api/v1")
+
+	// API v1 root handler
+	apiV1.Get("/", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"message": "Montessori World Connect API v1",
+			"endpoints": []string{
+				"/register", "/login", "/schools/public", "/jobs",
+				"/events", "/blog", "/schools/:school_id/reviews",
+			},
+			"documentation": "/swagger/index.html",
+		})
+	})
+
 	apiV1.Post("/register", authHandler.Register)
 	apiV1.Post("/login", authHandler.Login)
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db)) // Publicly searchable schools

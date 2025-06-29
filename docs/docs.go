@@ -9,21 +9,13 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "email": "support@montessoriworldconnect.com"
-        },
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/admin/action-logs": {
+        "/admin/action-logs": {
             "get": {
                 "security": [
                     {
@@ -96,7 +88,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/blog": {
+        "/admin/blog": {
             "post": {
                 "security": [
                     {
@@ -173,7 +165,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/blog/{post_id}": {
+        "/admin/blog/{post_id}": {
             "put": {
                 "security": [
                     {
@@ -347,7 +339,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/events/{event_id}/feature": {
+        "/admin/events/{event_id}/feature": {
             "put": {
                 "security": [
                     {
@@ -440,7 +432,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/reviews/pending": {
+        "/admin/reviews/pending": {
             "get": {
                 "security": [
                     {
@@ -494,7 +486,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/reviews/{review_id}/moderate": {
+        "/admin/reviews/{review_id}/moderate": {
             "put": {
                 "security": [
                     {
@@ -587,7 +579,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/schools": {
+        "/admin/schools": {
             "get": {
                 "security": [
                     {
@@ -664,7 +656,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/schools/batch-upload": {
+        "/admin/schools/batch-upload": {
             "post": {
                 "security": [
                     {
@@ -730,7 +722,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/schools/{id}": {
+        "/admin/schools/{id}": {
             "put": {
                 "security": [
                     {
@@ -894,7 +886,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/users": {
+        "/admin/users": {
             "get": {
                 "security": [
                     {
@@ -955,7 +947,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/users/{id}": {
+        "/admin/users/{id}": {
             "delete": {
                 "security": [
                     {
@@ -1029,7 +1021,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/users/{id}/role": {
+        "/admin/users/{id}/role": {
             "put": {
                 "security": [
                     {
@@ -1113,7 +1105,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/admin/users/{id}/status": {
+        "/admin/users/{id}/status": {
             "put": {
                 "security": [
                     {
@@ -1197,7 +1189,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/blog": {
+        "/blog": {
             "get": {
                 "description": "Retrieves all published blog posts with optional filtering",
                 "produces": [
@@ -1247,7 +1239,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/blog/categories": {
+        "/blog/categories": {
             "get": {
                 "description": "Retrieves all distinct categories from published blog posts",
                 "produces": [
@@ -1277,7 +1269,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/blog/featured": {
+        "/blog/featured": {
             "get": {
                 "description": "Retrieves all featured and published blog posts",
                 "produces": [
@@ -1315,7 +1307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/blog/tags": {
+        "/blog/tags": {
             "get": {
                 "description": "Retrieves all unique tags from published blog posts",
                 "produces": [
@@ -1345,7 +1337,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/blog/{slug}": {
+        "/blog/{slug}": {
             "get": {
                 "description": "Retrieves a specific blog post by its slug",
                 "produces": [
@@ -1399,7 +1391,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/educator/jobs/applied": {
+        "/educator/jobs/applied": {
             "get": {
                 "security": [
                     {
@@ -1455,7 +1447,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/educator/jobs/{job_id}/apply": {
+        "/educator/jobs/{job_id}/apply": {
             "post": {
                 "security": [
                     {
@@ -1548,7 +1540,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/educator/profile": {
+        "/educator/profile": {
             "post": {
                 "security": [
                     {
@@ -1615,7 +1607,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/educator/schools/save/{school_id}": {
+        "/educator/schools/save/{school_id}": {
             "post": {
                 "security": [
                     {
@@ -1770,7 +1762,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/educator/schools/saved": {
+        "/educator/schools/saved": {
             "get": {
                 "security": [
                     {
@@ -1826,7 +1818,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/educator/schools/search": {
+        "/educator/schools/search": {
             "get": {
                 "security": [
                     {
@@ -1905,7 +1897,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/events": {
+        "/events": {
             "get": {
                 "description": "Retrieves a list of all published events with optional filtering",
                 "produces": [
@@ -1968,7 +1960,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/events/featured": {
+        "/events/featured": {
             "get": {
                 "description": "Retrieves all featured and published events",
                 "produces": [
@@ -2007,7 +1999,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/events/{event_id}": {
+        "/events/{event_id}": {
             "get": {
                 "description": "Retrieves detailed information about a specific event",
                 "produces": [
@@ -2071,7 +2063,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/events": {
+        "/institution/events": {
             "get": {
                 "security": [
                     {
@@ -2191,7 +2183,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/events/{event_id}": {
+        "/institution/events/{event_id}": {
             "put": {
                 "security": [
                     {
@@ -2365,7 +2357,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/jobs": {
+        "/institution/jobs": {
             "get": {
                 "security": [
                     {
@@ -2495,7 +2487,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/jobs/{job_id}": {
+        "/institution/jobs/{job_id}": {
             "put": {
                 "security": [
                     {
@@ -2668,7 +2660,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/jobs/{job_id}/applicants": {
+        "/institution/jobs/{job_id}/applicants": {
             "get": {
                 "security": [
                     {
@@ -2751,7 +2743,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/profile": {
+        "/institution/profile": {
             "post": {
                 "security": [
                     {
@@ -2818,7 +2810,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/schools": {
+        "/institution/schools": {
             "post": {
                 "security": [
                     {
@@ -2903,7 +2895,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/institution/schools/select/{school_id}": {
+        "/institution/schools/select/{school_id}": {
             "put": {
                 "security": [
                     {
@@ -2984,7 +2976,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/jobs": {
+        "/jobs": {
             "get": {
                 "description": "Retrieves all active job postings in the system",
                 "produces": [
@@ -3016,7 +3008,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/login": {
+        "/login": {
             "post": {
                 "description": "Authenticate a user and return a JWT token",
                 "consumes": [
@@ -3087,7 +3079,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/messages": {
+        "/parent/messages": {
             "get": {
                 "security": [
                     {
@@ -3143,7 +3135,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/messages/send/{recipient_id}": {
+        "/parent/messages/send/{recipient_id}": {
             "post": {
                 "security": [
                     {
@@ -3226,7 +3218,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/messages/{message_id}/read": {
+        "/parent/messages/{message_id}/read": {
             "post": {
                 "security": [
                     {
@@ -3309,7 +3301,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/profile": {
+        "/parent/profile": {
             "post": {
                 "security": [
                     {
@@ -3376,7 +3368,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/schools/save/{school_id}": {
+        "/parent/schools/save/{school_id}": {
             "post": {
                 "security": [
                     {
@@ -3531,7 +3523,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/schools/saved": {
+        "/parent/schools/saved": {
             "get": {
                 "security": [
                     {
@@ -3587,7 +3579,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/parent/schools/search": {
+        "/parent/schools/search": {
             "get": {
                 "security": [
                     {
@@ -3666,7 +3658,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/register": {
+        "/register": {
             "post": {
                 "description": "Register a new user with the specified role",
                 "consumes": [
@@ -3728,7 +3720,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/reviews": {
+        "/reviews": {
             "post": {
                 "security": [
                     {
@@ -3822,7 +3814,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/reviews/me": {
+        "/reviews/me": {
             "get": {
                 "security": [
                     {
@@ -3867,7 +3859,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/reviews/{review_id}": {
+        "/reviews/{review_id}": {
             "put": {
                 "security": [
                     {
@@ -4039,7 +4031,71 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/schools/{school_id}/reviews": {
+        "/schools/public": {
+            "get": {
+                "description": "Retrieves a list of public schools with optional filtering and pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "schools"
+                ],
+                "summary": "Get public schools",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by school name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by city",
+                        "name": "city",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by country code",
+                        "name": "country_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number for pagination",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of schools with pagination metadata",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/schools/{school_id}/reviews": {
             "get": {
                 "description": "Retrieves all approved reviews for a specific school, along with the average rating and total review count.",
                 "produces": [
@@ -4097,7 +4153,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/subscription/cancel": {
+        "/subscription/cancel": {
             "post": {
                 "security": [
                     {
@@ -4165,7 +4221,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/subscription/checkout": {
+        "/subscription/checkout": {
             "post": {
                 "security": [
                     {
@@ -4242,7 +4298,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/subscription/status": {
+        "/subscription/status": {
             "get": {
                 "security": [
                     {
@@ -4443,6 +4499,114 @@ const docTemplate = `{
                     },
                     "426": {
                         "description": "Upgrade Required - Client must request WebSocket upgrade",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ws/broadcast": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sends a real-time notification to all connected users via WebSocket",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "websocket"
+                ],
+                "summary": "Broadcast notification to all users",
+                "parameters": [
+                    {
+                        "description": "Type of notification",
+                        "name": "notification_type",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Notification payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {}
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Notification broadcasted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.WebSocketMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws/notify/{user_id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sends a real-time notification to a specific user via WebSocket",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "websocket"
+                ],
+                "summary": "Send notification to user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID to send notification to",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Type of notification",
+                        "name": "notification_type",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Notification payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {}
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Notification sent successfully",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.WebSocketMessage"
+                        }
+                    },
+                    "404": {
+                        "description": "User not connected",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -4838,6 +5002,15 @@ const docTemplate = `{
             "properties": {
                 "is_active": {
                     "type": "boolean"
+                }
+            }
+        },
+        "handlers.WebSocketMessage": {
+            "type": "object",
+            "properties": {
+                "payload": {},
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -5318,25 +5491,17 @@ const docTemplate = `{
                 "ParentRole"
             ]
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and the JWT token.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
-	Host:             "localhost:8080",
-	BasePath:         "/api/v1",
-	Schemes:          []string{"http", "https"},
-	Title:            "Montessori World Connect API",
-	Description:      "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, blogs, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format. Getting Started: Authentication - Most endpoints require authentication using JWT (JSON Web Token). To authenticate, you need to: 1) Register a new account or login with existing credentials, 2) Include the received token in the Authorization header of your requests, 3) Format: 'Authorization: Bearer your_token_here'. Public Endpoints - Some endpoints are publicly accessible without authentication: /api/v1/register (Register a new user), /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get list of blog posts). Rate Limiting - API requests are subject to rate limiting to ensure fair usage. Please design your applications to handle rate limit responses (HTTP 429) gracefully. Pagination - List endpoints support pagination using 'page' and 'limit' query parameters.",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
+	Schemes:          []string{},
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

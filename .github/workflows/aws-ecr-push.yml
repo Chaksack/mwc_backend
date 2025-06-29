@@ -17,7 +17,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: mwc-backend
+  ECR_REPOSITORY: ${{ secrets.ECR }}
   IMAGE_TAG: latest
   SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
@@ -58,6 +58,12 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
 
+    # Log environment information
+    - name: Log environment information
+      run: |
+        echo "Preparing to build for ${{ env.ENVIRONMENT }} environment"
+        echo "Using environment-specific configuration from GitHub Secrets"
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -67,10 +73,24 @@ jobs:
 
         echo "Building Docker image for $ENV_TAG environment..."
 
-        # Build the Docker image with caching
+        # Build the Docker image with caching and environment-specific args
         docker buildx build \
           --cache-from=type=local,src=/tmp/.buildx-cache \
           --cache-to=type=local,dest=/tmp/.buildx-cache-new \
+          --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
+          --build-arg RABBITMQ_URL=${{ secrets.RABBITMQ_URL }} \
+          --build-arg RABBITMQ_USE_TLS=true \
+          --build-arg JWT_SECRET=${{ secrets.JWT_SECRET }} \
+          --build-arg SMTP_HOST=${{ secrets.SMTP_HOST }} \
+          --build-arg SMTP_PORT=${{ secrets.SMTP_PORT }} \
+          --build-arg SMTP_USER=${{ secrets.SMTP_USER }} \
+          --build-arg SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
+          --build-arg EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
+          --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+          --build-arg STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+          --build-arg STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+          --build-arg STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }} \
+          --build-arg STRIPE_ANNUAL_PRICE_ID=${{ secrets.STRIPE_ANNUAL_PRICE_ID }} \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \

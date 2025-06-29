@@ -37,6 +37,16 @@ type WebSocketMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
+// @Summary Handle WebSocket connection
+// @Description Handles WebSocket connections for real-time communication
+// @Tags websocket
+// @Accept json
+// @Produce json
+// @Success 200 {object} WebSocketMessage "WebSocket connection established"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Security BearerAuth
+// @Router /ws [get]
 // HandleWebSocket handles WebSocket connections
 func (h *WebSocketHandler) HandleWebSocket(c *websocket.Conn) {
 	// Get user ID from context
@@ -186,6 +196,18 @@ func (h *WebSocketHandler) handleDirectMessage(senderID uint, payload interface{
 	}
 }
 
+// @Summary Send notification to user
+// @Description Sends a real-time notification to a specific user via WebSocket
+// @Tags websocket
+// @Accept json
+// @Produce json
+// @Param user_id path integer true "User ID to send notification to"
+// @Param notification_type body string true "Type of notification"
+// @Param payload body interface{} true "Notification payload"
+// @Success 200 {object} WebSocketMessage "Notification sent successfully"
+// @Failure 404 {object} map[string]string "User not connected"
+// @Security BearerAuth
+// @Router /ws/notify/{user_id} [post]
 // SendNotification sends a notification to a specific user
 func (h *WebSocketHandler) SendNotification(userID uint, notificationType string, payload interface{}) {
 	h.clientsMux.RLock()
@@ -209,6 +231,16 @@ func (h *WebSocketHandler) SendNotification(userID uint, notificationType string
 	}
 }
 
+// @Summary Broadcast notification to all users
+// @Description Sends a real-time notification to all connected users via WebSocket
+// @Tags websocket
+// @Accept json
+// @Produce json
+// @Param notification_type body string true "Type of notification"
+// @Param payload body interface{} true "Notification payload"
+// @Success 200 {object} WebSocketMessage "Notification broadcasted successfully"
+// @Security BearerAuth
+// @Router /ws/broadcast [post]
 // BroadcastNotification sends a notification to all connected users
 func (h *WebSocketHandler) BroadcastNotification(notificationType string, payload interface{}) {
 	notification := WebSocketMessage{

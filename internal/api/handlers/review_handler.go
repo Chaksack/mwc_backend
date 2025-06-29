@@ -44,7 +44,7 @@ type CreateReviewRequest struct {
 // @Failure 409 {object} map[string]string "User has already reviewed this school"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/reviews [post]
+// @Router /reviews [post]
 func (h *ReviewHandler) CreateReview(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -131,7 +131,7 @@ func (h *ReviewHandler) CreateReview(c *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string "Bad request or invalid school ID"
 // @Failure 404 {object} map[string]string "School not found"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/schools/{school_id}/reviews [get]
+// @Router /schools/{school_id}/reviews [get]
 func (h *ReviewHandler) GetSchoolReviews(c *fiber.Ctx) error {
 	schoolID, err := c.ParamsInt("school_id")
 	if err != nil {
@@ -198,7 +198,7 @@ func (h *ReviewHandler) GetSchoolReviews(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/reviews/me [get]
+// @Router /reviews/me [get]
 func (h *ReviewHandler) GetUserReviews(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -250,7 +250,7 @@ func (h *ReviewHandler) GetUserReviews(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Review not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/reviews/{review_id} [put]
+// @Router /reviews/{review_id} [put]
 func (h *ReviewHandler) UpdateReview(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -325,7 +325,7 @@ func (h *ReviewHandler) UpdateReview(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Review not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/reviews/{review_id} [delete]
+// @Router /reviews/{review_id} [delete]
 func (h *ReviewHandler) DeleteReview(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -384,7 +384,7 @@ type ModerateReviewRequest struct {
 // @Failure 404 {object} map[string]string "Review not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/reviews/{review_id}/moderate [put]
+// @Router /admin/reviews/{review_id}/moderate [put]
 func (h *ReviewHandler) ModerateReview(c *fiber.Ctx) error {
 	adminID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -462,7 +462,7 @@ func (h *ReviewHandler) ModerateReview(c *fiber.Ctx) error {
 // @Failure 403 {object} map[string]string "Forbidden - only administrators can view pending reviews"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/reviews/pending [get]
+// @Router /admin/reviews/pending [get]
 func (h *ReviewHandler) GetPendingReviews(c *fiber.Ctx) error {
 	adminID, ok := c.Locals("user_id").(uint)
 	if !ok {

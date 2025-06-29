@@ -49,7 +49,7 @@ type SchoolUploadData struct {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/schools/batch-upload [post]
+// @Router /admin/schools/batch-upload [post]
 func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	adminUserID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -161,7 +161,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "School not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/schools/{id} [put]
+// @Router /admin/schools/{id} [put]
 func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("id")
@@ -218,7 +218,7 @@ func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/schools [get]
+// @Router /admin/schools [get]
 func (h *AdminHandler) GetSchoolsByCountry(c *fiber.Ctx) error {
 	countryCode := c.Query("country_code")
 	if countryCode == "" {
@@ -264,7 +264,7 @@ func (h *AdminHandler) GetSchoolsByCountry(c *fiber.Ctx) error {
 // @Failure 409 {object} map[string]string "Conflict - school linked to institutions"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/schools/{id} [delete]
+// @Router /admin/schools/{id} [delete]
 func (h *AdminHandler) DeleteSchool(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("id")
@@ -308,7 +308,7 @@ func (h *AdminHandler) DeleteSchool(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/users [get]
+// @Router /admin/users [get]
 func (h *AdminHandler) GetAllUsers(c *fiber.Ctx) error {
 	var users []models.User
 	// Preload profiles for more detailed user info if needed, e.g., h.db.Preload("InstitutionProfile").Find(&users)
@@ -354,7 +354,7 @@ type UserStatusUpdateRequest struct {
 // @Failure 404 {object} map[string]string "User not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/users/{id}/status [put]
+// @Router /admin/users/{id}/status [put]
 func (h *AdminHandler) UpdateUserStatus(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	targetUserIDStr := c.Params("id")
@@ -414,7 +414,7 @@ type UserRoleUpdateRequest struct {
 // @Failure 404 {object} map[string]string "User not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/users/{id}/role [put]
+// @Router /admin/users/{id}/role [put]
 func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	targetUserIDStr := c.Params("id")
@@ -467,7 +467,7 @@ func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "User not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/users/{id} [delete]
+// @Router /admin/users/{id} [delete]
 func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	adminUserID, _ := c.Locals("user_id").(uint)
 	targetUserIDStr := c.Params("id")
@@ -511,7 +511,7 @@ func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/action-logs [get]
+// @Router /admin/action-logs [get]
 func (h *AdminHandler) GetActionLogs(c *fiber.Ctx) error {
 	var logs []models.ActionLog
 	// Add pagination and filtering as needed

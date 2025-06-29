@@ -46,7 +46,7 @@ func NewSubscriptionHandler(db *gorm.DB, cfg *config.Config, mqService queue.Mes
 // @Failure 409 {object} map[string]string "User already has an active subscription"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/subscription/checkout [post]
+// @Router /subscription/checkout [post]
 func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -347,7 +347,7 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "No subscription found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/subscription/status [get]
+// @Router /subscription/status [get]
 func (h *SubscriptionHandler) GetUserSubscription(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -392,7 +392,7 @@ type CancelRequest struct {
 // @Failure 404 {object} map[string]string "No active subscription found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/subscription/cancel [post]
+// @Router /subscription/cancel [post]
 func (h *SubscriptionHandler) CancelSubscription(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {

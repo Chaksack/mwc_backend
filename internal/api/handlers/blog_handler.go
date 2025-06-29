@@ -28,13 +28,13 @@ func NewBlogHandler(db *gorm.DB, cfg *config.Config, mqService queue.MessageQueu
 
 // CreateBlogPostRequest is the request body for creating a blog post
 type CreateBlogPostRequest struct {
-	Title       string            `json:"title" validate:"required"`
-	Content     string            `json:"content" validate:"required"`
-	Excerpt     string            `json:"excerpt"`
-	Category    string            `json:"category" validate:"required"`
-	Tags        []string          `json:"tags"`
-	IsPublished bool              `json:"is_published"`
-	IsFeatured  bool              `json:"is_featured"`
+	Title         string                       `json:"title" validate:"required"`
+	Content       string                       `json:"content" validate:"required"`
+	Excerpt       string                       `json:"excerpt"`
+	Category      string                       `json:"category" validate:"required"`
+	Tags          []string                     `json:"tags"`
+	IsPublished   bool                         `json:"is_published"`
+	IsFeatured    bool                         `json:"is_featured"`
 	Localizations map[string]map[string]string `json:"localizations"` // Map of language code to localized fields
 }
 
@@ -51,7 +51,7 @@ type CreateBlogPostRequest struct {
 // @Failure 403 {object} map[string]string "Only admins can create blog posts"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/blog [post]
+// @Router /admin/blog [post]
 func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -121,18 +121,18 @@ func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 
 	// Create blog post
 	blogPost := models.BlogPost{
-		AuthorID:           userID,
-		Title:              req.Title,
-		Slug:               postSlug,
-		Content:            req.Content,
-		Excerpt:            req.Excerpt,
-		Category:           req.Category,
-		Tags:               req.Tags,
-		IsPublished:        req.IsPublished,
-		IsFeatured:         req.IsFeatured,
-		LocalizedTitles:    localizedTitles,
-		LocalizedContents:  localizedContents,
-		LocalizedExcerpts:  localizedExcerpts,
+		AuthorID:          userID,
+		Title:             req.Title,
+		Slug:              postSlug,
+		Content:           req.Content,
+		Excerpt:           req.Excerpt,
+		Category:          req.Category,
+		Tags:              req.Tags,
+		IsPublished:       req.IsPublished,
+		IsFeatured:        req.IsFeatured,
+		LocalizedTitles:   localizedTitles,
+		LocalizedContents: localizedContents,
+		LocalizedExcerpts: localizedExcerpts,
 	}
 
 	if req.IsPublished {
@@ -174,7 +174,7 @@ func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 // @Param language query string false "Language for localized content"
 // @Success 200 {object} map[string]interface{} "List of blog posts"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/blog [get]
+// @Router /blog [get]
 func (h *BlogHandler) GetBlogPosts(c *fiber.Ctx) error {
 	// Parse query parameters
 	category := c.Query("category")
@@ -259,7 +259,7 @@ func (h *BlogHandler) GetBlogPosts(c *fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{} "Blog post details"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 404 {object} map[string]string "Blog post not found"
-// @Router /api/v1/blog/{slug} [get]
+// @Router /blog/{slug} [get]
 func (h *BlogHandler) GetBlogPost(c *fiber.Ctx) error {
 	slug := c.Params("slug")
 	if slug == "" {
@@ -353,7 +353,7 @@ func (h *BlogHandler) GetBlogPost(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Blog post not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/blog/{post_id} [put]
+// @Router /admin/blog/{post_id} [put]
 func (h *BlogHandler) UpdateBlogPost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -493,7 +493,7 @@ func (h *BlogHandler) UpdateBlogPost(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Blog post not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/blog/{post_id} [delete]
+// @Router /admin/blog/{post_id} [delete]
 func (h *BlogHandler) DeleteBlogPost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -543,7 +543,7 @@ func (h *BlogHandler) DeleteBlogPost(c *fiber.Ctx) error {
 // @Param language query string false "Language for localized content"
 // @Success 200 {object} map[string]interface{} "List of featured blog posts"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/blog/featured [get]
+// @Router /blog/featured [get]
 func (h *BlogHandler) GetFeaturedBlogPosts(c *fiber.Ctx) error {
 	language := c.Query("language", h.cfg.DefaultLanguage)
 
@@ -610,7 +610,7 @@ func (h *BlogHandler) GetFeaturedBlogPosts(c *fiber.Ctx) error {
 // @Produce json
 // @Success 200 {object} map[string]interface{} "List of blog categories"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/blog/categories [get]
+// @Router /blog/categories [get]
 func (h *BlogHandler) GetBlogCategories(c *fiber.Ctx) error {
 	// Get all distinct categories from published blog posts
 	var categories []string
@@ -633,7 +633,7 @@ func (h *BlogHandler) GetBlogCategories(c *fiber.Ctx) error {
 // @Produce json
 // @Success 200 {object} map[string]interface{} "List of blog tags"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/blog/tags [get]
+// @Router /blog/tags [get]
 func (h *BlogHandler) GetBlogTags(c *fiber.Ctx) error {
 	// Get all tags from published blog posts
 	var blogPosts []models.BlogPost

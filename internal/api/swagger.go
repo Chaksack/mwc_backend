@@ -15,7 +15,7 @@ import (
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 // @host localhost:8080
 // @BasePath /api/v1
-// @schemes http https
+// @schemes http
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization

@@ -36,6 +36,18 @@ func LogUserAction(db *gorm.DB, actorUserID uint, actionType string, targetID ui
 	}
 }
 
+// @Summary Get public schools
+// @Description Retrieves a list of public schools with optional filtering and pagination
+// @Tags schools
+// @Produce json
+// @Param name query string false "Filter by school name"
+// @Param city query string false "Filter by city"
+// @Param country_code query string false "Filter by country code"
+// @Param page query integer false "Page number for pagination" default(1)
+// @Param limit query integer false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{} "List of schools with pagination metadata"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /schools/public [get]
 // GetPublicSchools allows anyone to search for schools.
 func GetPublicSchools(db *gorm.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {

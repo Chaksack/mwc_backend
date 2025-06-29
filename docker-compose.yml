@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Application service
   app:
     build:
       context: .
@@ -9,30 +10,35 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
-      - "443:443"  # For HTTPS
+    depends_on:
+      - postgres
+      - rabbitmq
     environment:
       # Basic configuration
       - PORT=8080
+      - SSL_ENABLED=false
 
-      # AWS RDS PostgreSQL configuration
-      - DATABASE_URL=postgres://postgres:8FP9fxvzdvaeJE@mwcdb.cvygk6ks2n4t.us-east-1.rds.amazonaws.com:5432/syentia_db?sslmode=disabled
+      # Local PostgreSQL configuration
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/mwc_backend?sslmode=disable
 
-      # Amazon MQ configuration
-      - RABBITMQ_URL=amqps://username:password@your-amazonmq-broker.mq.us-east-1.amazonaws.com:5671/
-      -
+      # Local RabbitMQ configuration
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_USE_TLS=false
+
       # WebSocket configuration
       - WEBSOCKET_ENABLED=true
-      - WEBSOCKET_PATH=/wss
+      - WEBSOCKET_PATH=/ws
 
-      # Other configuration
-      - SMTP_HOST=smtp.example.com
-      - SMTP_PORT=587
+      # Other configuration (using dummy values for local development)
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
       - SMTP_USER=user
       - SMTP_PASSWORD=password
       - EMAIL_FROM=no-reply@example.com
-      - JWT_SECRET=your_jwt_secret_key
-      - STRIPE_SECRET_KEY=your_stripe_secret_key
-      - STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+      - JWT_SECRET=local_development_jwt_secret
+      - STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+      - STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+      - STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
       - STRIPE_MONTHLY_PRICE_ID=price_monthly
       - STRIPE_ANNUAL_PRICE_ID=price_annual
       - DEFAULT_LANGUAGE=en
@@ -41,9 +47,56 @@ services:
       - DEFAULT_ADMIN_PASSWORD=Admin123!
       - DEFAULT_ADMIN_FIRST_NAME=Admin
       - DEFAULT_ADMIN_LAST_NAME=User
-    volumes:
-      # Mount SSL certificates
-      - ./certs/ssl:/app/certs/ssl
-      # Mount RabbitMQ certificates
-      - ./certs/rabbitmq:/app/certs/rabbitmq
+    networks:
+      - mwc-network
 
+  # PostgreSQL database service for local development
+  postgres:
+    image: postgres:15-alpine
+    container_name: mwc_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mwc_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mwc-network
+
+  # RabbitMQ service for local development
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mwc_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - mwc-network
+
+  # MailHog for local email testing
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mwc_mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - mwc-network
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  mwc-network:
+    driver: bridge

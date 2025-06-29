@@ -1,0 +1,61 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Binary files
+/main
+/mwc_backend
+/test_server
+/cmd/test/main
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Build and temporary files
+/tmp/
+/build/
+/dist/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Dependency directories
+/node_modules/
+
+# Logs
+*.log
+/logs/
+
+# Docker specific
+.docker/
+docker-compose.override.yml
+
+# Certificate files
+/certs/
+*.pem
+*.key
+*.crt
+
+# Generated Swagger documentation
+# Uncomment if you want to regenerate these on each build
+# /docs/swagger.json
+# /docs/swagger.yaml
+# /docs/docs.go
+
+# Database files
+*.db
+*.sqlite

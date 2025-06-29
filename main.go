@@ -209,16 +209,9 @@ func main() {
 	// Start server
 	port := os.Getenv("PORT")
 
-	// Start server with HTTPS if SSL is enabled
-	if cfg.SSLEnabled && cfg.SSLCertFile != "" && cfg.SSLKeyFile != "" {
-		log.Printf("Server starting with HTTPS on port %s", port)
-		if err := app.ListenTLS(":"+port, cfg.SSLCertFile, cfg.SSLKeyFile); err != nil {
-			log.Fatalf("Failed to start server with HTTPS: %v", err)
-		}
-	} else {
-		log.Printf("Server starting with HTTP on port %s", port)
-		if err := app.Listen(":" + port); err != nil {
-			log.Fatalf("Failed to start server: %v", err)
-		}
+	// Always start server with HTTP
+	log.Printf("Server starting with HTTP on port %s", port)
+	if err := app.Listen(":" + port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

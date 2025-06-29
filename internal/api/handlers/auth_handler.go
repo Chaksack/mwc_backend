@@ -57,7 +57,7 @@ type LoginRequest struct {
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 409 {object} map[string]string "Email already exists"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/register [post]
+// @Router /register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	req := new(RegisterRequest)
 	if err := c.BodyParser(req); err != nil {
@@ -187,7 +187,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Invalid credentials"
 // @Failure 403 {object} map[string]string "User account is inactive"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/login [post]
+// @Router /login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	req := new(LoginRequest)
 	if err := c.BodyParser(req); err != nil {

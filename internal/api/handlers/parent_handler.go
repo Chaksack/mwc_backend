@@ -94,7 +94,7 @@ type UnreadMessagePayload struct {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/profile [post]
+// @Router /parent/profile [post]
 func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	req := new(ParentProfileRequest)
@@ -147,7 +147,7 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/schools/search [get]
+// @Router /parent/schools/search [get]
 func (h *ParentHandler) SearchSchools(c *fiber.Ctx) error {
 	return GetPublicSchools(h.db)(c)
 }
@@ -165,7 +165,7 @@ func (h *ParentHandler) SearchSchools(c *fiber.Ctx) error {
 // @Failure 409 {object} map[string]string "School already saved"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/schools/save/{school_id} [post]
+// @Router /parent/schools/save/{school_id} [post]
 func (h *ParentHandler) SaveSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -210,7 +210,7 @@ func (h *ParentHandler) SaveSchool(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Parent profile or school not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/schools/save/{school_id} [delete]
+// @Router /parent/schools/save/{school_id} [delete]
 func (h *ParentHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -245,7 +245,7 @@ func (h *ParentHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Parent profile not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/schools/saved [get]
+// @Router /parent/schools/saved [get]
 func (h *ParentHandler) GetSavedSchools(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	var parentProfile models.ParentProfile
@@ -269,7 +269,7 @@ func (h *ParentHandler) GetSavedSchools(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Recipient not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/messages/send/{recipient_id} [post]
+// @Router /parent/messages/send/{recipient_id} [post]
 func (h *ParentHandler) SendMessage(c *fiber.Ctx) error {
 	senderID, _ := c.Locals("user_id").(uint)
 	recipientIDStr := c.Params("recipient_id")
@@ -354,7 +354,7 @@ func (h *ParentHandler) SendMessage(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/messages [get]
+// @Router /parent/messages [get]
 func (h *ParentHandler) GetMessages(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	// Pagination
@@ -399,7 +399,7 @@ func (h *ParentHandler) GetMessages(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Message not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/parent/messages/{message_id}/read [post]
+// @Router /parent/messages/{message_id}/read [post]
 func (h *ParentHandler) MarkMessageAsRead(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	messageIDStr := c.Params("message_id")

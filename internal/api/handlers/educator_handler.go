@@ -40,7 +40,7 @@ type JobApplicationRequest struct {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/profile [post]
+// @Router /educator/profile [post]
 func (h *EducatorHandler) CreateOrUpdateEducatorProfile(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -98,7 +98,7 @@ func (h *EducatorHandler) CreateOrUpdateEducatorProfile(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/schools/search [get]
+// @Router /educator/schools/search [get]
 func (h *EducatorHandler) SearchSchools(c *fiber.Ctx) error {
 	// This handler is identical to GetPublicSchools, can be aliased or refactored.
 	// For now, just calling the shared one.
@@ -118,7 +118,7 @@ func (h *EducatorHandler) SearchSchools(c *fiber.Ctx) error {
 // @Failure 409 {object} map[string]string "School already saved"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/schools/save/{school_id} [post]
+// @Router /educator/schools/save/{school_id} [post]
 func (h *EducatorHandler) SaveSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -166,7 +166,7 @@ func (h *EducatorHandler) SaveSchool(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Educator profile or school not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/schools/save/{school_id} [delete]
+// @Router /educator/schools/save/{school_id} [delete]
 func (h *EducatorHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -206,7 +206,7 @@ func (h *EducatorHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Educator profile not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/schools/saved [get]
+// @Router /educator/schools/saved [get]
 func (h *EducatorHandler) GetSavedSchools(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -235,7 +235,7 @@ func (h *EducatorHandler) GetSavedSchools(c *fiber.Ctx) error {
 // @Failure 409 {object} map[string]string "Already applied for this job"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/jobs/{job_id}/apply [post]
+// @Router /educator/jobs/{job_id}/apply [post]
 func (h *EducatorHandler) ApplyForJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -300,7 +300,7 @@ func (h *EducatorHandler) ApplyForJob(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Educator profile not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/educator/jobs/applied [get]
+// @Router /educator/jobs/applied [get]
 func (h *EducatorHandler) GetAppliedJobs(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 

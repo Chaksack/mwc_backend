@@ -49,7 +49,7 @@ type JobRequest struct {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/profile [post]
+// @Router /institution/profile [post]
 func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) error {
 	actorUserID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -112,7 +112,7 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 // @Failure 409 {object} map[string]string "Institution already has a school or school already taken"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/schools/select/{school_id} [put]
+// @Router /institution/schools/select/{school_id} [put]
 func (h *InstitutionHandler) SelectSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	schoolIDStr := c.Params("school_id")
@@ -181,7 +181,7 @@ func (h *InstitutionHandler) SelectSchool(c *fiber.Ctx) error {
 // @Failure 409 {object} map[string]string "Institution already has a school"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/schools [post]
+// @Router /institution/schools [post]
 func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -256,7 +256,7 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Institution profile not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/jobs [post]
+// @Router /institution/jobs [post]
 func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
@@ -324,7 +324,7 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Job not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/jobs/{job_id} [put]
+// @Router /institution/jobs/{job_id} [put]
 func (h *InstitutionHandler) UpdateJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -389,7 +389,7 @@ func (h *InstitutionHandler) UpdateJob(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Job not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/jobs/{job_id} [delete]
+// @Router /institution/jobs/{job_id} [delete]
 func (h *InstitutionHandler) DeleteJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -431,7 +431,7 @@ func (h *InstitutionHandler) DeleteJob(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Job not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/jobs/{job_id}/applicants [get]
+// @Router /institution/jobs/{job_id}/applicants [get]
 func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")
@@ -500,7 +500,7 @@ func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 // @Produce json
 // @Success 200 {array} models.Job "List of all active jobs"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/jobs [get]
+// @Router /jobs [get]
 func (h *InstitutionHandler) GetAllJobs(c *fiber.Ctx) error {
 	// Add pagination
 	page, _ := strconv.Atoi(c.Query("page", "1"))
@@ -538,7 +538,7 @@ func (h *InstitutionHandler) GetAllJobs(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Institution profile not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/jobs [get]
+// @Router /institution/jobs [get]
 func (h *InstitutionHandler) GetMyJobs(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 

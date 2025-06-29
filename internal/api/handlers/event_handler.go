@@ -61,7 +61,7 @@ type FeatureRequest struct {
 // @Failure 403 {object} map[string]string "Forbidden - only institutions and training centers can create events"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/events [post]
+// @Router /institution/events [post]
 func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -172,18 +172,18 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "Event created successfully",
 		"event": fiber.Map{
-			"id":             event.ID,
-			"title":          event.Title,
-			"description":    event.Description,
-			"start_date":     event.StartDate,
-			"end_date":       event.EndDate,
-			"location":       event.Location,
-			"virtual_event":  event.VirtualEvent,
-			"event_type":     event.EventType,
-			"audience":       event.Audience,
-			"is_published":   event.IsPublished,
-			"published_at":   event.PublishedAt,
-			"localizations":  event.LocalizedTitles,
+			"id":            event.ID,
+			"title":         event.Title,
+			"description":   event.Description,
+			"start_date":    event.StartDate,
+			"end_date":      event.EndDate,
+			"location":      event.Location,
+			"virtual_event": event.VirtualEvent,
+			"event_type":    event.EventType,
+			"audience":      event.Audience,
+			"is_published":  event.IsPublished,
+			"published_at":  event.PublishedAt,
+			"localizations": event.LocalizedTitles,
 		},
 	})
 }
@@ -200,7 +200,7 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 // @Param language query string false "Language for localized content" default(en)
 // @Success 200 {object} map[string]interface{} "List of events"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/events [get]
+// @Router /events [get]
 func (h *EventHandler) GetEvents(c *fiber.Ctx) error {
 	// Parse query parameters
 	eventType := c.Query("event_type")
@@ -259,17 +259,17 @@ func (h *EventHandler) GetEvents(c *fiber.Ctx) error {
 		}
 
 		formattedEvents = append(formattedEvents, fiber.Map{
-			"id":             event.ID,
-			"title":          title,
-			"description":    description,
-			"start_date":     event.StartDate,
-			"end_date":       event.EndDate,
-			"location":       event.Location,
-			"virtual_event":  event.VirtualEvent,
+			"id":                event.ID,
+			"title":             title,
+			"description":       description,
+			"start_date":        event.StartDate,
+			"end_date":          event.EndDate,
+			"location":          event.Location,
+			"virtual_event":     event.VirtualEvent,
 			"virtual_event_url": event.VirtualEventURL,
-			"event_type":     event.EventType,
-			"audience":       event.Audience,
-			"published_at":   event.PublishedAt,
+			"event_type":        event.EventType,
+			"audience":          event.Audience,
+			"published_at":      event.PublishedAt,
 			"institution": fiber.Map{
 				"id":   event.Institution.ID,
 				"name": event.Institution.InstitutionName,
@@ -293,7 +293,7 @@ func (h *EventHandler) GetEvents(c *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string "Bad request or invalid event ID"
 // @Failure 404 {object} map[string]string "Event not found or not published"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/events/{event_id} [get]
+// @Router /events/{event_id} [get]
 func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 	eventID, err := c.ParamsInt("event_id")
 	if err != nil {
@@ -334,17 +334,17 @@ func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"event": fiber.Map{
-			"id":             event.ID,
-			"title":          title,
-			"description":    description,
-			"start_date":     event.StartDate,
-			"end_date":       event.EndDate,
-			"location":       event.Location,
-			"virtual_event":  event.VirtualEvent,
+			"id":                event.ID,
+			"title":             title,
+			"description":       description,
+			"start_date":        event.StartDate,
+			"end_date":          event.EndDate,
+			"location":          event.Location,
+			"virtual_event":     event.VirtualEvent,
 			"virtual_event_url": event.VirtualEventURL,
-			"event_type":     event.EventType,
-			"audience":       event.Audience,
-			"published_at":   event.PublishedAt,
+			"event_type":        event.EventType,
+			"audience":          event.Audience,
+			"published_at":      event.PublishedAt,
 			"institution": fiber.Map{
 				"id":   event.Institution.ID,
 				"name": event.Institution.InstitutionName,
@@ -362,7 +362,7 @@ func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/events [get]
+// @Router /institution/events [get]
 func (h *EventHandler) GetInstitutionEvents(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -387,19 +387,19 @@ func (h *EventHandler) GetInstitutionEvents(c *fiber.Ctx) error {
 	var formattedEvents []fiber.Map
 	for _, event := range events {
 		formattedEvents = append(formattedEvents, fiber.Map{
-			"id":             event.ID,
-			"title":          event.Title,
-			"description":    event.Description,
-			"start_date":     event.StartDate,
-			"end_date":       event.EndDate,
-			"location":       event.Location,
-			"virtual_event":  event.VirtualEvent,
+			"id":                event.ID,
+			"title":             event.Title,
+			"description":       event.Description,
+			"start_date":        event.StartDate,
+			"end_date":          event.EndDate,
+			"location":          event.Location,
+			"virtual_event":     event.VirtualEvent,
 			"virtual_event_url": event.VirtualEventURL,
-			"event_type":     event.EventType,
-			"audience":       event.Audience,
-			"is_published":   event.IsPublished,
-			"published_at":   event.PublishedAt,
-			"localizations":  event.LocalizedTitles,
+			"event_type":        event.EventType,
+			"audience":          event.Audience,
+			"is_published":      event.IsPublished,
+			"published_at":      event.PublishedAt,
+			"localizations":     event.LocalizedTitles,
 		})
 	}
 
@@ -423,7 +423,7 @@ func (h *EventHandler) GetInstitutionEvents(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Event not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/events/{event_id} [put]
+// @Router /institution/events/{event_id} [put]
 func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -528,18 +528,18 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Event updated successfully",
 		"event": fiber.Map{
-			"id":             event.ID,
-			"title":          event.Title,
-			"description":    event.Description,
-			"start_date":     event.StartDate,
-			"end_date":       event.EndDate,
-			"location":       event.Location,
-			"virtual_event":  event.VirtualEvent,
-			"event_type":     event.EventType,
-			"audience":       event.Audience,
-			"is_published":   event.IsPublished,
-			"published_at":   event.PublishedAt,
-			"localizations":  event.LocalizedTitles,
+			"id":            event.ID,
+			"title":         event.Title,
+			"description":   event.Description,
+			"start_date":    event.StartDate,
+			"end_date":      event.EndDate,
+			"location":      event.Location,
+			"virtual_event": event.VirtualEvent,
+			"event_type":    event.EventType,
+			"audience":      event.Audience,
+			"is_published":  event.IsPublished,
+			"published_at":  event.PublishedAt,
+			"localizations": event.LocalizedTitles,
 		},
 	})
 }
@@ -557,7 +557,7 @@ func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Event not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/institution/events/{event_id} [delete]
+// @Router /institution/events/{event_id} [delete]
 func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -611,7 +611,7 @@ func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]string "Event not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
-// @Router /api/v1/admin/events/{event_id}/feature [put]
+// @Router /admin/events/{event_id}/feature [put]
 func (h *EventHandler) FeatureEvent(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -660,8 +660,8 @@ func (h *EventHandler) FeatureEvent(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": message,
 		"event": fiber.Map{
-			"id":         event.ID,
-			"title":      event.Title,
+			"id":          event.ID,
+			"title":       event.Title,
 			"is_featured": event.IsFeatured,
 		},
 	})
@@ -675,7 +675,7 @@ func (h *EventHandler) FeatureEvent(c *fiber.Ctx) error {
 // @Param language query string false "Language for localized content" default(en)
 // @Success 200 {object} map[string]interface{} "List of featured events"
 // @Failure 500 {object} map[string]string "Internal server error"
-// @Router /api/v1/events/featured [get]
+// @Router /events/featured [get]
 func (h *EventHandler) GetFeaturedEvents(c *fiber.Ctx) error {
 	language := c.Query("language", h.cfg.DefaultLanguage)
 
@@ -704,17 +704,17 @@ func (h *EventHandler) GetFeaturedEvents(c *fiber.Ctx) error {
 		}
 
 		formattedEvents = append(formattedEvents, fiber.Map{
-			"id":             event.ID,
-			"title":          title,
-			"description":    description,
-			"start_date":     event.StartDate,
-			"end_date":       event.EndDate,
-			"location":       event.Location,
-			"virtual_event":  event.VirtualEvent,
+			"id":                event.ID,
+			"title":             title,
+			"description":       description,
+			"start_date":        event.StartDate,
+			"end_date":          event.EndDate,
+			"location":          event.Location,
+			"virtual_event":     event.VirtualEvent,
 			"virtual_event_url": event.VirtualEventURL,
-			"event_type":     event.EventType,
-			"audience":       event.Audience,
-			"published_at":   event.PublishedAt,
+			"event_type":        event.EventType,
+			"audience":          event.Audience,
+			"published_at":      event.PublishedAt,
 			"institution": fiber.Map{
 				"id":   event.Institution.ID,
 				"name": event.Institution.InstitutionName,
