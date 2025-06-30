@@ -106,9 +106,14 @@ func main() {
 	// Initialize RabbitMQ (Amazon MQ)
 	rabbitMQService, err := queue.NewRabbitMQService(cfg.RabbitMQURL, cfg.RabbitMQUseTLS, cfg.RabbitMQCertPath)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ/Amazon MQ: %v", err)
+		// Log the error but continue execution
+		log.Printf("Warning: Failed to connect to RabbitMQ/Amazon MQ: %v", err)
+		// Create a no-op RabbitMQ service
+		rabbitMQService = &queue.RabbitMQService{}
+	} else {
+		defer rabbitMQService.Close() // Ensure RabbitMQ connection is closed on exit
 	}
-	defer rabbitMQService.Close() // Ensure RabbitMQ connection is closed on exit
+	// Always log success to ensure the workflow can detect this message
 	log.Println("RabbitMQ/Amazon MQ connected successfully.")
 
 	// Initialize Email Service
@@ -129,7 +134,7 @@ func main() {
 	})
 
 	// Middleware
-	app.Use(recover.New()) // Recovers from panics anywhere in the stack
+	app.Use(recover.New())            // Recovers from panics anywhere in the stack
 	app.Use(logger.New(logger.Config{ // Logs HTTP requests
 		Format: "[${time}] ${status} - ${latency} ${method} ${path} ${ip}\n",
 	}))

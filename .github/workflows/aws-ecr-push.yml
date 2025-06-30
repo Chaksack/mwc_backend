@@ -155,7 +155,6 @@ jobs:
           docker run -d --name $CONTAINER_NAME -p 8080:8080 \
             -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
             -e RABBITMQ_URL=${{ secrets.RABBITMQ_URL }} \
-            -e RABBITMQ_USE_TLS=true \
             -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
             -e SMTP_HOST=${{ secrets.SMTP_HOST }} \
             -e SMTP_PORT=${{ secrets.SMTP_PORT }} \
