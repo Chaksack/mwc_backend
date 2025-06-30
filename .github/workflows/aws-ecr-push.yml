@@ -378,7 +378,7 @@ jobs:
   deploy-to-ecs:
     name: Deploy to ECS
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: push-image-to-ecr
 
     # Set environment based on trigger
     env:
@@ -412,20 +412,44 @@ jobs:
 
       - name: Replace environment variables with GitHub secrets
         run: |
-          # Replace environment variable placeholders with GitHub secrets
-          sed -i "s/DATABASE_URL_PLACEHOLDER/${{ secrets.DATABASE_URL }}/g" task-definition.json
-          sed -i "s/RABBITMQ_URL_PLACEHOLDER/${{ secrets.RABBITMQ_URL }}/g" task-definition.json
-          sed -i "s/JWT_SECRET_PLACEHOLDER/${{ secrets.JWT_SECRET }}/g" task-definition.json
-          sed -i "s/SMTP_HOST_PLACEHOLDER/${{ secrets.SMTP_HOST }}/g" task-definition.json
-          sed -i "s/SMTP_PORT_PLACEHOLDER/${{ secrets.SMTP_PORT }}/g" task-definition.json
-          sed -i "s/SMTP_USER_PLACEHOLDER/${{ secrets.SMTP_USER }}/g" task-definition.json
-          sed -i "s/SMTP_PASSWORD_PLACEHOLDER/${{ secrets.SMTP_PASSWORD }}/g" task-definition.json
-          sed -i "s/EMAIL_FROM_PLACEHOLDER/${{ secrets.EMAIL_FROM }}/g" task-definition.json
-          sed -i "s/STRIPE_SECRET_KEY_PLACEHOLDER/${{ secrets.STRIPE_SECRET_KEY }}/g" task-definition.json
-          sed -i "s/STRIPE_PUBLISHABLE_KEY_PLACEHOLDER/${{ secrets.STRIPE_PUBLISHABLE_KEY }}/g" task-definition.json
-          sed -i "s/STRIPE_WEBHOOK_SECRET_PLACEHOLDER/${{ secrets.STRIPE_WEBHOOK_SECRET }}/g" task-definition.json
-          sed -i "s/STRIPE_MONTHLY_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_MONTHLY_PRICE_ID }}/g" task-definition.json
-          sed -i "s/STRIPE_ANNUAL_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_ANNUAL_PRICE_ID }}/g" task-definition.json
+          # Create a temporary file with environment variables
+          cat > env-values.json << EOF
+          {
+            "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+            "RABBITMQ_URL": "${{ secrets.RABBITMQ_URL }}",
+            "JWT_SECRET": "${{ secrets.JWT_SECRET }}",
+            "SMTP_HOST": "${{ secrets.SMTP_HOST }}",
+            "SMTP_PORT": "${{ secrets.SMTP_PORT }}",
+            "SMTP_USER": "${{ secrets.SMTP_USER }}",
+            "SMTP_PASSWORD": "${{ secrets.SMTP_PASSWORD }}",
+            "EMAIL_FROM": "${{ secrets.EMAIL_FROM }}",
+            "STRIPE_SECRET_KEY": "${{ secrets.STRIPE_SECRET_KEY }}",
+            "STRIPE_PUBLISHABLE_KEY": "${{ secrets.STRIPE_PUBLISHABLE_KEY }}",
+            "STRIPE_WEBHOOK_SECRET": "${{ secrets.STRIPE_WEBHOOK_SECRET }}",
+            "STRIPE_MONTHLY_PRICE_ID": "${{ secrets.STRIPE_MONTHLY_PRICE_ID }}",
+            "STRIPE_ANNUAL_PRICE_ID": "${{ secrets.STRIPE_ANNUAL_PRICE_ID }}"
+          }
+          EOF
+
+          # Use jq to update the task definition
+          jq --slurpfile env env-values.json '
+            .containerDefinitions[0].environment |= map(
+              if .value | endswith("_PLACEHOLDER") then
+                $key = .name;
+                $placeholder = .value;
+                $value = $env[0][$key];
+                .value = $value
+              else
+                .
+              end
+            )
+          ' task-definition.json > task-definition-updated.json
+
+          # Replace the original file
+          mv task-definition-updated.json task-definition.json
+
+          # Clean up
+          rm env-values.json
 
       - name: Update container image
         id: update-image
