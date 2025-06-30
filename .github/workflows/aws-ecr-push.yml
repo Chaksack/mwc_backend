@@ -17,7 +17,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: ${{ secrets.ECR }}
+  ECR_REPOSITORY: ${{ secrets.ECR || 'mwc-backend' }}
   IMAGE_TAG: latest
   SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
