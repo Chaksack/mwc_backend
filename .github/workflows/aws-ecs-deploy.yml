@@ -2,10 +2,10 @@ name: Deploy to AWS ECS
 
 on:
   workflow_run:
-    workflows: ["Build and Push to AWS ECR"]
+    workflows: ["Build and Push to AWS ecs"]
     types:
       - completed
-    branches: [main, staging]
+    branches: [staging]
   workflow_dispatch:
     inputs:
       environment:
