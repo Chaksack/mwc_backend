@@ -23,14 +23,21 @@ func Protected(jwtSecret string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing or malformed JWT"})
+			log.Printf("Missing Authorization header in request to %s", c.Path())
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing Authorization header. Please include 'Authorization: Bearer your_token_here' in your request."})
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Malformed JWT token"})
+			log.Printf("Malformed Authorization header in request to %s: %s", c.Path(), authHeader)
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Malformed Authorization header. Format should be 'Bearer your_token_here'."})
 		}
 		tokenStr := parts[1]
+
+		if tokenStr == "" {
+			log.Printf("Empty token in request to %s", c.Path())
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Empty JWT token. Please include a valid token after 'Bearer '."})
+		}
 
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
@@ -42,8 +49,23 @@ func Protected(jwtSecret string) fiber.Handler {
 
 		if err != nil || !token.Valid {
 			// Log the error for debugging, e.g., token expired, signature invalid
-			log.Printf("JWT validation error: %v", err)
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid or expired JWT"})
+			log.Printf("JWT validation error for request to %s: %v", c.Path(), err)
+
+			var errorMessage string
+			if err != nil {
+				switch {
+				case strings.Contains(err.Error(), "token is expired"):
+					errorMessage = "JWT token has expired. Please login again to get a new token."
+				case strings.Contains(err.Error(), "signature is invalid"):
+					errorMessage = "JWT token signature is invalid. Please ensure you're using the correct token."
+				default:
+					errorMessage = "Invalid JWT token: " + err.Error()
+				}
+			} else {
+				errorMessage = "Invalid JWT token."
+			}
+
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": errorMessage})
 		}
 
 		// Store user information in context for handlers
