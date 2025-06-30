@@ -1,0 +1,118 @@
+{
+  "family": "mwc-backend",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/mwcTaskRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "mwc-backend",
+      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mwc-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "WEBSOCKET_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "WEBSOCKET_PATH",
+          "value": "/ws"
+        },
+        {
+          "name": "DEFAULT_LANGUAGE",
+          "value": "en"
+        },
+        {
+          "name": "SUPPORTED_LANGUAGES",
+          "value": "en,es,fr"
+        },
+        {
+          "name": "RABBITMQ_USE_TLS",
+          "value": "true"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:DATABASE_URL::"
+        },
+        {
+          "name": "RABBITMQ_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:RABBITMQ_URL::"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:JWT_SECRET::"
+        },
+        {
+          "name": "SMTP_HOST",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_HOST::"
+        },
+        {
+          "name": "SMTP_PORT",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_PORT::"
+        },
+        {
+          "name": "SMTP_USER",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_USER::"
+        },
+        {
+          "name": "SMTP_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_PASSWORD::"
+        },
+        {
+          "name": "EMAIL_FROM",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:EMAIL_FROM::"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_SECRET_KEY::"
+        },
+        {
+          "name": "STRIPE_PUBLISHABLE_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_PUBLISHABLE_KEY::"
+        },
+        {
+          "name": "STRIPE_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_WEBHOOK_SECRET::"
+        },
+        {
+          "name": "STRIPE_MONTHLY_PRICE_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_MONTHLY_PRICE_ID::"
+        },
+        {
+          "name": "STRIPE_ANNUAL_PRICE_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_ANNUAL_PRICE_ID::"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mwc-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024"
+}

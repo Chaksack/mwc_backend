@@ -1,0 +1,138 @@
+name: Deploy to AWS ECS
+
+on:
+  workflow_run:
+    workflows: ["Build and Push to AWS ECR"]
+    types:
+      - completed
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: mwc-cluster
+  ECS_SERVICE: mwc-backend-service
+  ECS_TASK_DEFINITION: mwc-backend
+  CONTAINER_NAME: mwc-backend
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    # Set environment based on trigger
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod') || 'staging' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Get AWS account ID
+        id: get-aws-account
+        run: |
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "::set-output name=aws_account_id::$AWS_ACCOUNT_ID"
+
+      - name: Prepare task definition
+        run: |
+          # Replace placeholders in task definition
+          sed -i "s/ACCOUNT_ID/${{ steps.get-aws-account.outputs.aws_account_id }}/g" task-definition.json
+
+      - name: Update container image
+        id: update-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mwc-backend
+          IMAGE_TAG: ${{ env.ENVIRONMENT }}
+          AWS_ACCOUNT_ID: ${{ steps.get-aws-account.outputs.aws_account_id }}
+        run: |
+          # Update the image in the task definition
+          NEW_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          sed -i "s|$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPOSITORY:[^ \"]*|$NEW_IMAGE|g" task-definition.json
+          echo "::set-output name=image::$NEW_IMAGE"
+
+      - name: Register new task definition
+        id: register-task
+        run: |
+          NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://task-definition.json)
+          NEW_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
+          echo "::set-output name=revision::$NEW_REVISION"
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }} \
+            --force-new-deployment
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Deployment Summary"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "Service: ${{ env.ECS_SERVICE }}"
+          echo "Task Definition: ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }}"
+          echo "Image: ${{ steps.update-image.outputs.image }}"
+
+      # Send Slack notification for successful deployment
+      - name: Send Slack notification - Success
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_CHANNEL: deployments
+          SLACK_COLOR: good
+          SLACK_ICON: https://github.com/rtCamp.png?size=48
+          SLACK_MESSAGE: |
+            ✅ Successfully deployed to ECS in ${{ env.ENVIRONMENT }} environment
+            *Cluster:* ${{ env.ECS_CLUSTER }}
+            *Service:* ${{ env.ECS_SERVICE }}
+            *Task Definition:* ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }}
+            *Image:* ${{ steps.update-image.outputs.image }}
+          SLACK_TITLE: ECS Deployment Success
+          SLACK_USERNAME: GitHub Actions
+
+      # Send Slack notification for failed deployment
+      - name: Send Slack notification - Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_CHANNEL: deployments
+          SLACK_COLOR: danger
+          SLACK_ICON: https://github.com/rtCamp.png?size=48
+          SLACK_MESSAGE: |
+            ❌ Failed to deploy to ECS in ${{ env.ENVIRONMENT }} environment
+            *Repository:* ${{ github.repository }}
+            *Workflow:* ${{ github.workflow }}
+            *Check the [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details*
+          SLACK_TITLE: ECS Deployment Failure
+          SLACK_USERNAME: GitHub Actions
