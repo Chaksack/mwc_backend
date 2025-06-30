@@ -28,6 +28,8 @@ Before running the application, you need to set up the following environment var
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret
 - `STRIPE_MONTHLY_PRICE_ID`: Stripe price ID for monthly subscription
 - `STRIPE_ANNUAL_PRICE_ID`: Stripe price ID for annual subscription
+- `ENVIRONMENT`: The current environment (dev, prod, etc.)
+- `BASE_URL`: The base URL for the API (defaults based on environment)
 
 ### Building and Running
 
@@ -54,7 +56,9 @@ The Docker Compose setup includes the following services:
 
 ### Accessing Services
 
-- **Backend API**: http://localhost:8080
+- **Backend API**: 
+  - Development: http://localhost:8080/api/v1
+  - Production: https://api.montessoriworldconnect.com/api/v1
 - **RabbitMQ Management UI**: http://localhost:15672 (username: guest, password: guest)
 
 ### Stopping the Services

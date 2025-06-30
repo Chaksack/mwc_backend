@@ -46,6 +46,9 @@ type Config struct {
 	DefaultAdminPassword  string `mapstructure:"DEFAULT_ADMIN_PASSWORD"`
 	DefaultAdminFirstName string `mapstructure:"DEFAULT_ADMIN_FIRST_NAME"`
 	DefaultAdminLastName  string `mapstructure:"DEFAULT_ADMIN_LAST_NAME"`
+	// Environment configuration
+	Environment string `mapstructure:"ENVIRONMENT"`
+	BaseURL     string `mapstructure:"BASE_URL"`
 }
 
 // LoadConfig reads configuration from file or environment variables.
@@ -248,6 +251,29 @@ func LoadConfig() (*Config, error) {
 		config.DefaultAdminLastName = os.Getenv("DEFAULT_ADMIN_LAST_NAME")
 		if config.DefaultAdminLastName == "" {
 			config.DefaultAdminLastName = "User" // Default admin last name
+		}
+	}
+
+	// Environment Configuration
+	if config.Environment == "" {
+		config.Environment = os.Getenv("ENVIRONMENT")
+		if config.Environment == "" {
+			config.Environment = "dev" // Default to development environment
+			log.Println("Warning: ENVIRONMENT not set. Using default value:", config.Environment)
+		}
+	}
+
+	// Base URL Configuration
+	if config.BaseURL == "" {
+		config.BaseURL = os.Getenv("BASE_URL")
+		if config.BaseURL == "" {
+			// Set default base URL based on environment
+			if config.Environment == "prod" {
+				config.BaseURL = "https://api.montessoriworldconnect.com/api/v1"
+			} else {
+				config.BaseURL = "http://localhost:8080/api/v1"
+			}
+			log.Println("Warning: BASE_URL not set. Using default value for", config.Environment, "environment:", config.BaseURL)
 		}
 	}
 

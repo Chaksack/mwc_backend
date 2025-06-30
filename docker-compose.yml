@@ -17,6 +17,8 @@ services:
       # Basic configuration
       - PORT=8080
       - SSL_ENABLED=false
+      - ENVIRONMENT=dev
+      - BASE_URL=http://localhost:8080/api/v1
 
       # Local PostgreSQL configuration
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/mwc_backend?sslmode=disable

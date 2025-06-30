@@ -44,6 +44,9 @@ func SetupRoutes(
 	})
 
 	// Public routes
+	// Base URL is configured in config.Config.BaseURL
+	// For development: http://localhost:8080/api/v1
+	// For production: https://api.montessoriworldconnect.com/api/v1
 	apiV1 := app.Group("/api/v1")
 
 	// API v1 root handler
