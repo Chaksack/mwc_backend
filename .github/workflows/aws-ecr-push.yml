@@ -375,7 +375,7 @@ jobs:
           SLACK_TITLE: Deployment Failure
           SLACK_USERNAME: GitHub Actions
 
-deploy-to-ecs:
+  deploy-to-ecs:
     name: Deploy to ECS
     runs-on: ubuntu-latest
     needs: build-and-push
