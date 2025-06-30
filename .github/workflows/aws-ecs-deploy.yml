@@ -2,7 +2,7 @@ name: Deploy to AWS ECS
 
 on:
   workflow_run:
-    workflows: ["Build and Push to AWS ecs"]
+    workflows: ["Build and Push to AWS ECR"]
     types:
       - completed
     branches: [staging]
@@ -60,6 +60,23 @@ jobs:
         run: |
           # Replace placeholders in task definition
           sed -i "s/ACCOUNT_ID/${{ steps.get-aws-account.outputs.aws_account_id }}/g" task-definition.json
+
+      - name: Replace environment variables with GitHub secrets
+        run: |
+          # Replace environment variable placeholders with GitHub secrets
+          sed -i "s/DATABASE_URL_PLACEHOLDER/${{ secrets.DATABASE_URL }}/g" task-definition.json
+          sed -i "s/RABBITMQ_URL_PLACEHOLDER/${{ secrets.RABBITMQ_URL }}/g" task-definition.json
+          sed -i "s/JWT_SECRET_PLACEHOLDER/${{ secrets.JWT_SECRET }}/g" task-definition.json
+          sed -i "s/SMTP_HOST_PLACEHOLDER/${{ secrets.SMTP_HOST }}/g" task-definition.json
+          sed -i "s/SMTP_PORT_PLACEHOLDER/${{ secrets.SMTP_PORT }}/g" task-definition.json
+          sed -i "s/SMTP_USER_PLACEHOLDER/${{ secrets.SMTP_USER }}/g" task-definition.json
+          sed -i "s/SMTP_PASSWORD_PLACEHOLDER/${{ secrets.SMTP_PASSWORD }}/g" task-definition.json
+          sed -i "s/EMAIL_FROM_PLACEHOLDER/${{ secrets.EMAIL_FROM }}/g" task-definition.json
+          sed -i "s/STRIPE_SECRET_KEY_PLACEHOLDER/${{ secrets.STRIPE_SECRET_KEY }}/g" task-definition.json
+          sed -i "s/STRIPE_PUBLISHABLE_KEY_PLACEHOLDER/${{ secrets.STRIPE_PUBLISHABLE_KEY }}/g" task-definition.json
+          sed -i "s/STRIPE_WEBHOOK_SECRET_PLACEHOLDER/${{ secrets.STRIPE_WEBHOOK_SECRET }}/g" task-definition.json
+          sed -i "s/STRIPE_MONTHLY_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_MONTHLY_PRICE_ID }}/g" task-definition.json
+          sed -i "s/STRIPE_ANNUAL_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_ANNUAL_PRICE_ID }}/g" task-definition.json
 
       - name: Update container image
         id: update-image

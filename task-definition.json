@@ -39,60 +39,58 @@
         {
           "name": "RABBITMQ_USE_TLS",
           "value": "true"
-        }
-      ],
-      "secrets": [
+        },
         {
           "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:DATABASE_URL::"
+          "value": "DATABASE_URL_PLACEHOLDER"
         },
         {
           "name": "RABBITMQ_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:RABBITMQ_URL::"
+          "value": "RABBITMQ_URL_PLACEHOLDER"
         },
         {
           "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:JWT_SECRET::"
+          "value": "JWT_SECRET_PLACEHOLDER"
         },
         {
           "name": "SMTP_HOST",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_HOST::"
+          "value": "SMTP_HOST_PLACEHOLDER"
         },
         {
           "name": "SMTP_PORT",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_PORT::"
+          "value": "SMTP_PORT_PLACEHOLDER"
         },
         {
           "name": "SMTP_USER",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_USER::"
+          "value": "SMTP_USER_PLACEHOLDER"
         },
         {
           "name": "SMTP_PASSWORD",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:SMTP_PASSWORD::"
+          "value": "SMTP_PASSWORD_PLACEHOLDER"
         },
         {
           "name": "EMAIL_FROM",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:EMAIL_FROM::"
+          "value": "EMAIL_FROM_PLACEHOLDER"
         },
         {
           "name": "STRIPE_SECRET_KEY",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_SECRET_KEY::"
+          "value": "STRIPE_SECRET_KEY_PLACEHOLDER"
         },
         {
           "name": "STRIPE_PUBLISHABLE_KEY",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_PUBLISHABLE_KEY::"
+          "value": "STRIPE_PUBLISHABLE_KEY_PLACEHOLDER"
         },
         {
           "name": "STRIPE_WEBHOOK_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_WEBHOOK_SECRET::"
+          "value": "STRIPE_WEBHOOK_SECRET_PLACEHOLDER"
         },
         {
           "name": "STRIPE_MONTHLY_PRICE_ID",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_MONTHLY_PRICE_ID::"
+          "value": "STRIPE_MONTHLY_PRICE_ID_PLACEHOLDER"
         },
         {
           "name": "STRIPE_ANNUAL_PRICE_ID",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:mwc-backend-secrets:STRIPE_ANNUAL_PRICE_ID::"
+          "value": "STRIPE_ANNUAL_PRICE_ID_PLACEHOLDER"
         }
       ],
       "logConfiguration": {
