@@ -116,41 +116,17 @@ jobs:
         # Output the image URI for use in subsequent steps or jobs
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-  push-image-to-ecr:
-    name: Push Image to ECR
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    env:
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+        # Push the Docker image to ECR with multiple tags
+        echo "Pushing Docker image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Push image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          # Set environment-specific tag
-          ENV_TAG=${{ env.ENVIRONMENT }}
-
-          # Push the Docker image to ECR with multiple tags
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
-
-          echo "Pushed image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
+        echo "Successfully pushed image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
   test-container-functionality:
     name: Test Container Functionality
     runs-on: ubuntu-latest
-    needs: push-image-to-ecr
+    needs: build-and-push
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
     steps:
@@ -378,7 +354,7 @@ jobs:
   deploy-to-ecs:
     name: Deploy to ECS
     runs-on: ubuntu-latest
-    needs: push-image-to-ecr
+    needs: build-and-push
 
     # Set environment based on trigger
     env:
@@ -495,7 +471,8 @@ jobs:
           echo "Image: ${{ steps.update-image.outputs.image }}"
 
       # Send Slack notification for successful deployment
-      - name: Send Slack notification - Success
+      - id: send-ecs-deployment-notification
+        name: Send Slack notification - Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
         env:
