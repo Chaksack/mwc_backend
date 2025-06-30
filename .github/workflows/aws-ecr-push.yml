@@ -138,7 +138,22 @@ jobs:
 
         # Run the container with a unique name
         CONTAINER_NAME="test-container-${{ github.run_id }}"
-        docker run -d --name $CONTAINER_NAME -p 8080:8080 $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+        docker run -d --name $CONTAINER_NAME -p 8080:8080 \
+          -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+          -e RABBITMQ_URL=${{ secrets.RABBITMQ_URL }} \
+          -e RABBITMQ_USE_TLS=true \
+          -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+          -e SMTP_HOST=${{ secrets.SMTP_HOST }} \
+          -e SMTP_PORT=${{ secrets.SMTP_PORT }} \
+          -e SMTP_USER=${{ secrets.SMTP_USER }} \
+          -e SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
+          -e EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
+          -e STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+          -e STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+          -e STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+          -e STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }} \
+          -e STRIPE_ANNUAL_PRICE_ID=${{ secrets.STRIPE_ANNUAL_PRICE_ID }} \
+          $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
 
         # Wait for container to start
         echo "Waiting for container to start..."
