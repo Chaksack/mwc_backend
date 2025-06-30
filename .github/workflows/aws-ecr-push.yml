@@ -293,7 +293,7 @@ jobs:
   send-deployment-notification:
     name: Send Deployment Notification
     runs-on: ubuntu-latest
-    needs: test-container-functionality
+    needs: build-and-push
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
     steps:
@@ -442,6 +442,35 @@ jobs:
           NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://task-definition.json)
           NEW_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
           echo "::set-output name=revision::$NEW_REVISION"
+
+      - name: Check if ECS cluster exists and create if it doesn't
+        run: |
+          # Check if cluster exists
+          if ! aws ecs describe-clusters --clusters ${{ env.ECS_CLUSTER }} --query "clusters[?clusterName=='${{ env.ECS_CLUSTER }}']" --output text | grep -q "${{ env.ECS_CLUSTER }}"; then
+            echo "Cluster ${{ env.ECS_CLUSTER }} does not exist. Creating it..."
+            aws ecs create-cluster --cluster-name ${{ env.ECS_CLUSTER }}
+          else
+            echo "Cluster ${{ env.ECS_CLUSTER }} already exists."
+          fi
+
+      - name: Check if ECS service exists and create if it doesn't
+        run: |
+          # Check if service exists
+          if ! aws ecs list-services --cluster ${{ env.ECS_CLUSTER }} --query "serviceArns[?contains(@, '${{ env.ECS_SERVICE }}')]" --output text | grep -q "${{ env.ECS_SERVICE }}"; then
+            echo "Service ${{ env.ECS_SERVICE }} does not exist in cluster ${{ env.ECS_CLUSTER }}. Creating it..."
+            aws ecs create-service \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --service-name ${{ env.ECS_SERVICE }} \
+              --task-definition ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }} \
+              --desired-count 1 \
+              --launch-type FARGATE \
+              --platform-version LATEST \
+              --network-configuration "awsvpcConfiguration={subnets=[$(aws ec2 describe-subnets --filters 'Name=default-for-az,Values=true' --query 'Subnets[0:2].SubnetId' --output text | sed 's/\t/,/g')],securityGroups=[$(aws ec2 describe-security-groups --filters 'Name=group-name,Values=default' --query 'SecurityGroups[0].GroupId' --output text)],assignPublicIp=ENABLED}" \
+              --deployment-configuration "deploymentCircuitBreaker={enable=true,rollback=true},maximumPercent=200,minimumHealthyPercent=100" \
+              --health-check-grace-period-seconds 60
+          else
+            echo "Service ${{ env.ECS_SERVICE }} already exists in cluster ${{ env.ECS_CLUSTER }}."
+          fi
 
       - name: Deploy to ECS
         run: |
