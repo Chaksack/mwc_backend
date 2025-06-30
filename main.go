@@ -208,6 +208,10 @@ func main() {
 
 	// Start server
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Default to port 8080 if PORT environment variable is not set
+		log.Printf("PORT environment variable not set. Defaulting to %s", port)
+	}
 
 	// Always start server with HTTP
 	log.Printf("Server starting with HTTP on port %s", port)
