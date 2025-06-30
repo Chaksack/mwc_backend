@@ -36,7 +36,7 @@ func SetupRoutes(
 
 	// Root route handler
 	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
+		return c.Status(200).JSON(fiber.Map{
 			"message": "Welcome to Montessori World Connect API",
 			"version": "1.0",
 			"documentation": "/swagger/index.html",
