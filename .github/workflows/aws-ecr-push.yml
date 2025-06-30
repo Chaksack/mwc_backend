@@ -49,6 +49,16 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    - name: Create ECR repository if it doesn't exist
+      run: |
+        # Check if repository exists
+        if ! aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null; then
+          echo "Repository ${{ env.ECR_REPOSITORY }} does not exist. Creating it..."
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
+        else
+          echo "Repository ${{ env.ECR_REPOSITORY }} already exists."
+        fi
+
     # Cache Docker layers to speed up builds
     - name: Cache Docker layers
       uses: actions/cache@v3
