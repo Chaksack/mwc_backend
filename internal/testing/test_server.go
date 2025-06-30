@@ -3,6 +3,8 @@ package testing
 import (
 	"fmt"
 	"log"
+	"mwc_backend/internal/api/middleware"
+	"mwc_backend/internal/models"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,11 +28,11 @@ func RunTestServer() {
 	cmd := exec.Command("go", "run", "main.go")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	if err := cmd.Start(); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-	
+
 	// Ensure we clean up the process when this function returns
 	defer func() {
 		if err := cmd.Process.Kill(); err != nil {
@@ -41,15 +43,35 @@ func RunTestServer() {
 	// Wait for the server to start
 	time.Sleep(2 * time.Second)
 
+	// Generate a valid JWT token for testing
+	jwtSecret := os.Getenv("JWT_SECRET")
+	token, err := middleware.GenerateJWT(1, "test@example.com", models.AdminRole, jwtSecret, 24*time.Hour)
+	if err != nil {
+		log.Fatalf("Failed to generate JWT token: %v", err)
+	}
+
 	// Test API endpoints
 	endpoints := []string{
 		"http://localhost:8080/api/v1/schools/public",
 		"http://localhost:8080/swagger/index.html",
+		"http://localhost:8080/api/v1/admin/users", // Protected route that requires admin role
 	}
 
 	fmt.Println("Testing API endpoints:")
 	for _, endpoint := range endpoints {
-		resp, err := http.Get(endpoint)
+		// Create a new request
+		req, err := http.NewRequest("GET", endpoint, nil)
+		if err != nil {
+			log.Printf("Error creating request for %s: %v", endpoint, err)
+			continue
+		}
+
+		// Add Authorization header with valid JWT token
+		req.Header.Add("Authorization", "Bearer "+token)
+
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
 		if err != nil {
 			log.Printf("Error accessing %s: %v", endpoint, err)
 			continue
@@ -60,7 +82,7 @@ func RunTestServer() {
 	}
 
 	fmt.Println("\nServer is running. Press Ctrl+C to stop.")
-	
+
 	// Wait for the server process to finish
 	if err := cmd.Wait(); err != nil {
 		log.Printf("Server process ended with error: %v", err)

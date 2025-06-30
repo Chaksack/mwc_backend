@@ -44,6 +44,7 @@ type SchoolUploadData struct {
 // @Accept multipart/form-data
 // @Produce json
 // @Param schools_file formData file true "JSON file containing school data"
+// @Param countryCode query string false "ISO country code (e.g., US, UK, CA) to filter schools by country"
 // @Success 200 {object} map[string]interface{} "Schools uploaded successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -55,6 +56,9 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
 	}
+
+	// Get the countryCode parameter if provided
+	countryCode := c.Query("countryCode")
 
 	file, err := c.FormFile("schools_file")
 	if err != nil {
@@ -95,6 +99,11 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	var operationErrors []string
 
 	for _, data := range schoolsData {
+		// If countryCode is provided, filter schools by country code
+		if countryCode != "" && data.CountryCode != countryCode {
+			continue
+		}
+
 		// TODO: Add validation for each SchoolUploadData item
 		// validate := validator.New()
 		// if err := validate.Struct(data); err != nil { ... }
@@ -130,21 +139,40 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 		"created_count":   createdCount,
 		"errors":          operationErrors,
 	}
+
+	// Add countryCode to action log if it was provided
+	if countryCode != "" {
+		actionDetail["country_code_filter"] = countryCode
+	}
 	detailJson, _ := json.Marshal(actionDetail)
 	LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_BATCH_UPLOAD_COMPLETE", 0, "System", string(detailJson), c)
 
 	if len(operationErrors) > 0 {
-		return c.Status(fiber.StatusMultiStatus).JSON(fiber.Map{
+		response := fiber.Map{
 			"message":       "Batch upload partially completed with errors.",
 			"created_count": createdCount,
 			"errors":        operationErrors,
-		})
+		}
+
+		// Add countryCode to response if it was provided
+		if countryCode != "" {
+			response["country_code_filter"] = countryCode
+		}
+
+		return c.Status(fiber.StatusMultiStatus).JSON(response)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+	response := fiber.Map{
 		"message":       "Schools batch uploaded successfully.",
 		"created_count": createdCount,
-	})
+	}
+
+	// Add countryCode to response if it was provided
+	if countryCode != "" {
+		response["country_code_filter"] = countryCode
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(response)
 }
 
 // UpdateSchool updates an existing school.
