@@ -110,11 +110,13 @@ func main() {
 		log.Printf("Warning: Failed to connect to RabbitMQ/Amazon MQ: %v", err)
 		// Create a no-op RabbitMQ service
 		rabbitMQService = &queue.RabbitMQService{}
+		// Log a message indicating we're using a no-op service but the application can continue
+		log.Println("Using no-op RabbitMQ service. Message queue functionality will be disabled.")
 	} else {
 		defer rabbitMQService.Close() // Ensure RabbitMQ connection is closed on exit
+		// Only log success when we actually connected successfully
+		log.Println("RabbitMQ/Amazon MQ connected successfully.")
 	}
-	// Always log success to ensure the workflow can detect this message
-	log.Println("RabbitMQ/Amazon MQ connected successfully.")
 
 	// Initialize Email Service
 	emailService := email.NewGoMailerService(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.EmailFrom)
