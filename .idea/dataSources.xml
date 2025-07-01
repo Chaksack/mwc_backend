@@ -8,13 +8,6 @@
       <jdbc-url>jdbc:postgresql://localhost:5432/postgres</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="mwc_backend@localhost" uuid="b5d11638-34a6-47de-af36-ae2b06b9cb86">
-      <driver-ref>postgresql</driver-ref>
-      <synchronize>true</synchronize>
-      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://localhost:5432/mwc_backend</jdbc-url>
-      <working-dir>$ProjectFileDir$</working-dir>
-    </data-source>
     <data-source source="LOCAL" name="syentia_db@mwcdb.cvygk6ks2n4t.us-east-1.rds.amazonaws.com" uuid="ed15c7ba-dd35-4f99-9bf8-ce1b3ef30c5c">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>

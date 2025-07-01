@@ -5013,35 +5013,184 @@
         "handlers.SchoolUploadData": {
             "type": "object",
             "required": [
-                "country_code",
-                "name"
+                "countryCode",
+                "title"
             ],
             "properties": {
+                "additionalInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Accessibility": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "key": {
+                                        "type": "string"
+                                    },
+                                    "value": {
+                                        "type": "boolean"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
                 "address": {
+                    "type": "string"
+                },
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "categoryName": {
+                    "type": "string"
+                },
+                "cid": {
                     "type": "string"
                 },
                 "city": {
                     "type": "string"
                 },
-                "contact_email": {
+                "claimThisBusiness": {
+                    "type": "boolean"
+                },
+                "countryCode": {
                     "type": "string"
                 },
-                "contact_phone": {
+                "fid": {
                     "type": "string"
                 },
-                "country_code": {
+                "gasPrices": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "googleFoodUrl": {
                     "type": "string"
                 },
-                "name": {
+                "hotelAds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "imageCategories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "imageUrl": {
+                    "type": "string"
+                },
+                "imagesCount": {
+                    "type": "integer"
+                },
+                "isAdvertisement": {
+                    "type": "boolean"
+                },
+                "kgmid": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "object",
+                    "properties": {
+                        "lat": {
+                            "type": "number"
+                        },
+                        "lng": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "neighborhood": {
+                    "type": "string"
+                },
+                "openingHours": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "day": {
+                                "type": "string"
+                            },
+                            "hours": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "peopleAlsoSearch": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "permanentlyClosed": {
+                    "type": "boolean"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "phoneUnformatted": {
+                    "type": "string"
+                },
+                "placeId": {
+                    "type": "string"
+                },
+                "placesTags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "postalCode": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "reviewsCount": {
+                    "type": "integer"
+                },
+                "reviewsTags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "scrapedAt": {
+                    "type": "string"
+                },
+                "searchPageUrl": {
+                    "type": "string"
+                },
+                "searchString": {
                     "type": "string"
                 },
                 "state": {
                     "type": "string"
                 },
-                "website": {
+                "street": {
                     "type": "string"
                 },
-                "zip_code": {
+                "temporarilyClosed": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }

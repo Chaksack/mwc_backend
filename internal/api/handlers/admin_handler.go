@@ -27,15 +27,57 @@ func NewAdminHandler(db *gorm.DB, mq queue.MessageQueueService) *AdminHandler {
 
 // SchoolUploadData represents the structure of a school in the JSON file.
 type SchoolUploadData struct {
-	Name         string `json:"name" validate:"required"`
-	Address      string `json:"address"`
-	City         string `json:"city"`
-	State        string `json:"state"`
-	CountryCode  string `json:"country_code" validate:"required"`
-	ZipCode      string `json:"zip_code"`
-	ContactEmail string `json:"contact_email" validate:"email"`
-	ContactPhone string `json:"contact_phone"`
-	Website      string `json:"website" validate:"url"`
+	Rank              int     `json:"rank"`
+	Title             string  `json:"title" validate:"required"`
+	Price             *string `json:"price"`
+	CategoryName      string  `json:"categoryName"`
+	Address           string  `json:"address"`
+	Neighborhood      *string `json:"neighborhood"`
+	Street            string  `json:"street"`
+	City              string  `json:"city"`
+	PostalCode        *string `json:"postalCode"`
+	State             *string `json:"state"`
+	CountryCode       string  `json:"countryCode" validate:"required"`
+	Phone             string  `json:"phone"`
+	PhoneUnformatted  string  `json:"phoneUnformatted"`
+	ClaimThisBusiness bool    `json:"claimThisBusiness"`
+	Location          struct {
+		Lat float64 `json:"lat"`
+		Lng float64 `json:"lng"`
+	} `json:"location"`
+	PermanentlyClosed bool     `json:"permanentlyClosed"`
+	TemporarilyClosed bool     `json:"temporarilyClosed"`
+	PlaceID           string   `json:"placeId"`
+	Categories        []string `json:"categories"`
+	Fid               string   `json:"fid"`
+	Cid               string   `json:"cid"`
+	ReviewsCount      int      `json:"reviewsCount"`
+	ImagesCount       int      `json:"imagesCount"`
+	ImageCategories   []string `json:"imageCategories"`
+	ScrapedAt         string   `json:"scrapedAt"`
+	GoogleFoodUrl     *string  `json:"googleFoodUrl"`
+	HotelAds          []string `json:"hotelAds"`
+	OpeningHours      []struct {
+		Day   string `json:"day"`
+		Hours string `json:"hours"`
+	} `json:"openingHours"`
+	PeopleAlsoSearch []string `json:"peopleAlsoSearch"`
+	PlacesTags       []string `json:"placesTags"`
+	ReviewsTags      []string `json:"reviewsTags"`
+	AdditionalInfo   struct {
+		Accessibility []struct {
+			Key   string `json:"key"`
+			Value bool   `json:"value"`
+		} `json:"Accessibility"`
+	} `json:"additionalInfo"`
+	GasPrices    []string `json:"gasPrices"`
+	Url          string   `json:"url"`
+	SearchPageUrl string   `json:"searchPageUrl"`
+	SearchString string   `json:"searchString"`
+	Language     string   `json:"language"`
+	IsAdvertisement bool   `json:"isAdvertisement"`
+	ImageUrl     string   `json:"imageUrl"`
+	Kgmid        string   `json:"kgmid"`
 }
 
 // BatchUploadSchools handles batch uploading of schools from a JSON file.
@@ -115,16 +157,28 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 		// TODO: Add validation for each SchoolUploadData item
 		// validate := validator.New()
 		// if err := validate.Struct(data); err != nil { ... }
+
+		// Map the new data structure to the School model
+		var state string
+		if data.State != nil {
+			state = *data.State
+		}
+
+		var postalCode string
+		if data.PostalCode != nil {
+			postalCode = *data.PostalCode
+		}
+
 		school := models.School{
-			Name:            data.Name,
+			Name:            data.Title,
 			Address:         data.Address,
 			City:            data.City,
-			State:           data.State,
+			State:           state,
 			CountryCode:     data.CountryCode,
-			ZipCode:         data.ZipCode,
-			ContactEmail:    data.ContactEmail,
-			ContactPhone:    data.ContactPhone,
-			Website:         data.Website,
+			ZipCode:         postalCode,
+			ContactEmail:    "", // Not available in the new structure
+			ContactPhone:    data.Phone,
+			Website:         data.Url,
 			UploadedByAdmin: true,
 			CreatedByUserID: &adminUserID,
 		}
@@ -220,15 +274,30 @@ func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 	}
 	// TODO: Validate updateData
 
-	school.Name = updateData.Name
+	// Map the new data structure to the School model
+	school.Name = updateData.Title
 	school.Address = updateData.Address
 	school.City = updateData.City
-	school.State = updateData.State
+
+	// Handle nullable fields
+	if updateData.State != nil {
+		school.State = *updateData.State
+	} else {
+		school.State = ""
+	}
+
 	school.CountryCode = updateData.CountryCode
-	school.ZipCode = updateData.ZipCode
-	school.ContactEmail = updateData.ContactEmail
-	school.ContactPhone = updateData.ContactPhone
-	school.Website = updateData.Website
+
+	if updateData.PostalCode != nil {
+		school.ZipCode = *updateData.PostalCode
+	} else {
+		school.ZipCode = ""
+	}
+
+	// ContactEmail is not available in the new structure
+	school.ContactEmail = ""
+	school.ContactPhone = updateData.Phone
+	school.Website = updateData.Url
 	// school.UploadedByAdmin remains true, or could be updatable
 	// school.CreatedByUserID should ideally not change, or track updater
 

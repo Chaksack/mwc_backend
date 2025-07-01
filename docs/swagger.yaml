@@ -209,27 +209,125 @@ definitions:
     type: object
   handlers.SchoolUploadData:
     properties:
+      additionalInfo:
+        properties:
+          Accessibility:
+            items:
+              properties:
+                key:
+                  type: string
+                value:
+                  type: boolean
+              type: object
+            type: array
+        type: object
       address:
+        type: string
+      categories:
+        items:
+          type: string
+        type: array
+      categoryName:
+        type: string
+      cid:
         type: string
       city:
         type: string
-      contact_email:
+      claimThisBusiness:
+        type: boolean
+      countryCode:
         type: string
-      contact_phone:
+      fid:
         type: string
-      country_code:
+      gasPrices:
+        items:
+          type: string
+        type: array
+      googleFoodUrl:
         type: string
-      name:
+      hotelAds:
+        items:
+          type: string
+        type: array
+      imageCategories:
+        items:
+          type: string
+        type: array
+      imageUrl:
+        type: string
+      imagesCount:
+        type: integer
+      isAdvertisement:
+        type: boolean
+      kgmid:
+        type: string
+      language:
+        type: string
+      location:
+        properties:
+          lat:
+            type: number
+          lng:
+            type: number
+        type: object
+      neighborhood:
+        type: string
+      openingHours:
+        items:
+          properties:
+            day:
+              type: string
+            hours:
+              type: string
+          type: object
+        type: array
+      peopleAlsoSearch:
+        items:
+          type: string
+        type: array
+      permanentlyClosed:
+        type: boolean
+      phone:
+        type: string
+      phoneUnformatted:
+        type: string
+      placeId:
+        type: string
+      placesTags:
+        items:
+          type: string
+        type: array
+      postalCode:
+        type: string
+      price:
+        type: string
+      rank:
+        type: integer
+      reviewsCount:
+        type: integer
+      reviewsTags:
+        items:
+          type: string
+        type: array
+      scrapedAt:
+        type: string
+      searchPageUrl:
+        type: string
+      searchString:
         type: string
       state:
         type: string
-      website:
+      street:
         type: string
-      zip_code:
+      temporarilyClosed:
+        type: boolean
+      title:
+        type: string
+      url:
         type: string
     required:
-    - country_code
-    - name
+    - countryCode
+    - title
     type: object
   handlers.UnreadMessagePayload:
     properties:

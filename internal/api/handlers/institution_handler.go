@@ -199,21 +199,32 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
 	}
-	// TODO: Validate req (name, country_code are important)
-	if req.Name == "" || req.CountryCode == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School name and country code are required."})
+	// TODO: Validate req (title, countryCode are important)
+	if req.Title == "" || req.CountryCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School title and country code are required."})
+	}
+
+	// Handle nullable fields
+	var state string
+	if req.State != nil {
+		state = *req.State
+	}
+
+	var postalCode string
+	if req.PostalCode != nil {
+		postalCode = *req.PostalCode
 	}
 
 	newSchool := models.School{
-		Name:            req.Name,
+		Name:            req.Title,
 		Address:         req.Address,
 		City:            req.City,
-		State:           req.State,
+		State:           state,
 		CountryCode:     req.CountryCode,
-		ZipCode:         req.ZipCode,
-		ContactEmail:    req.ContactEmail,
-		ContactPhone:    req.ContactPhone,
-		Website:         req.Website,
+		ZipCode:         postalCode,
+		ContactEmail:    "", // Not available in the new structure
+		ContactPhone:    req.Phone,
+		Website:         req.Url,
 		UploadedByAdmin: false,
 		CreatedByUserID: &actorUserID, // Link to the institution user who created it
 	}
