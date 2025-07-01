@@ -1163,6 +1163,15 @@ paths:
         name: schools_file
         required: true
         type: file
+      - description: ISO country code (e.g., US, UK, CA) to filter schools by country
+        in: query
+        name: countryCode
+        type: string
+      - description: Alternative parameter name for ISO country code filter (same
+          as countryCode)
+        in: query
+        name: country_code_filter
+        type: string
       produces:
       - application/json
       responses:

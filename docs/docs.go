@@ -690,6 +690,18 @@ const docTemplate = `{
                         "name": "schools_file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ISO country code (e.g., US, UK, CA) to filter schools by country",
+                        "name": "countryCode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alternative parameter name for ISO country code filter (same as countryCode)",
+                        "name": "country_code_filter",
+                        "in": "query"
                     }
                 ],
                 "responses": {

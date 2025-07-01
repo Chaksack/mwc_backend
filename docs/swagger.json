@@ -684,7 +684,7 @@
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "JSON file containing an array of school objects. Each school object should include: name (required), address, city, state, country_code (required, ISO format like 'US', 'UK', 'CA'), zip_code, contact_email, contact_phone, and website.",
+                        "description": "JSON file containing school data",
                         "name": "schools_file",
                         "in": "formData",
                         "required": true
@@ -693,8 +693,13 @@
                         "type": "string",
                         "description": "ISO country code (e.g., US, UK, CA) to filter schools by country",
                         "name": "countryCode",
-                        "in": "query",
-                        "required": false
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alternative parameter name for ISO country code filter (same as countryCode)",
+                        "name": "country_code_filter",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3047,23 +3052,10 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Login successful with token. Copy the token value and click the 'Authorize' button at the top of the page to authenticate all API requests.",
+                        "description": "Login successful with token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
-                        },
-                        "examples": {
-                            "application/json": {
-                                "message": "Login successful",
-                                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwiaXNzIjoiZ29fZmliZXJfYXBwIiwiZXhwIjoxNzUxNTgwMTI3LCJuYmYiOjE3NTEzMjA5MjcsImlhdCI6MTc1MTMyMDkyN30.nHwOO38ceU8RjHatL4VbDnPzTTjqnYjydbjG4KlP1U8",
-                                "user": {
-                                    "email": "admin@example.com",
-                                    "firstName": "Admin",
-                                    "id": 1,
-                                    "lastName": "User",
-                                    "role": "admin"
-                                }
-                            }
                         }
                     },
                     "400": {
@@ -4971,8 +4963,7 @@
                     "type": "string"
                 },
                 "country_code": {
-                    "type": "string",
-                    "description": "ISO country code (e.g., US, UK, CA)"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -5521,7 +5512,7 @@
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "JWT Authorization header using the Bearer scheme. \n\n Enter your token in the format: \"Bearer {your_token_here}\" \n\n Example: \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n\n You can get a token by logging in via the /login endpoint. \n\n To authorize in Swagger UI: \n 1. Click the 'Authorize' button at the top of the page \n 2. Enter your token in the format described above \n 3. Click 'Authorize' and then 'Close' \n 4. Your token will now be included in all API requests",
+            "description": "Type \"Bearer\" followed by a space and the JWT token.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

@@ -45,6 +45,7 @@ type SchoolUploadData struct {
 // @Produce json
 // @Param schools_file formData file true "JSON file containing school data"
 // @Param countryCode query string false "ISO country code (e.g., US, UK, CA) to filter schools by country"
+// @Param country_code_filter query string false "Alternative parameter name for ISO country code filter (same as countryCode)"
 // @Success 200 {object} map[string]interface{} "Schools uploaded successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -59,6 +60,11 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 
 	// Get the countryCode parameter if provided
 	countryCode := c.Query("countryCode")
+
+	// Also check for country_code_filter parameter for compatibility
+	if countryCode == "" {
+		countryCode = c.Query("country_code_filter")
+	}
 
 	file, err := c.FormFile("schools_file")
 	if err != nil {
