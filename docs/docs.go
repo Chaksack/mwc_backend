@@ -2915,6 +2915,73 @@ const docTemplate = `{
                 }
             }
         },
+        "/institution/schools/available": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves a list of schools uploaded by admin that can be selected by an institution",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "schools"
+                ],
+                "summary": "Get available schools",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter schools by country code (e.g., US, UK)",
+                        "name": "country_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number for pagination",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of available schools with pagination metadata",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/institution/schools/select/{school_id}": {
             "put": {
                 "security": [

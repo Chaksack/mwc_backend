@@ -528,6 +528,71 @@ func (h *InstitutionHandler) GetAllJobs(c *fiber.Ctx) error {
 	})
 }
 
+// GetAvailableSchools retrieves schools that can be selected by an institution.
+// @Summary Get available schools
+// @Description Retrieves a list of schools uploaded by admin that can be selected by an institution
+// @Tags institution,schools
+// @Produce json
+// @Param country_code query string false "Filter schools by country code (e.g., US, UK)"
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{} "List of available schools with pagination metadata"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /institution/schools/available [get]
+func (h *InstitutionHandler) GetAvailableSchools(c *fiber.Ctx) error {
+	actorUserID, _ := c.Locals("user_id").(uint)
+
+	// Get filter parameters
+	countryCode := c.Query("country_code")
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset := (page - 1) * limit
+
+	// Build query to get schools uploaded by admin
+	query := h.db.Model(&models.School{}).Where("uploaded_by_admin = ?", true)
+
+	// Add country code filter if provided
+	if countryCode != "" {
+		query = query.Where("country_code = ?", countryCode)
+	}
+
+	// Get schools that are not already selected by any institution
+	// This uses a subquery to exclude schools that are already linked to institutions
+	query = query.Where("id NOT IN (SELECT school_id FROM institution_profiles WHERE school_id IS NOT NULL)")
+
+	// Apply pagination
+	query = query.Offset(offset).Limit(limit)
+
+	var schools []models.School
+	if err := query.Find(&schools).Error; err != nil {
+		LogUserAction(h.db, actorUserID, "INST_SCHOOLS_LIST_FAIL", 0, "School", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve available schools: " + err.Error()})
+	}
+
+	// Count total matching records for pagination metadata
+	var total int64
+	countQuery := h.db.Model(&models.School{}).Where("uploaded_by_admin = ?", true)
+	if countryCode != "" {
+		countQuery = countQuery.Where("country_code = ?", countryCode)
+	}
+	countQuery = countQuery.Where("id NOT IN (SELECT school_id FROM institution_profiles WHERE school_id IS NOT NULL)")
+	countQuery.Count(&total)
+
+	LogUserAction(h.db, actorUserID, "INST_SCHOOLS_LIST_SUCCESS", 0, "School", fmt.Sprintf("Listed %d schools", len(schools)), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data": schools,
+		"meta": fiber.Map{
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
+			"last_page": (total + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
 // GetMyJobs retrieves all jobs posted by the logged-in institution.
 // @Summary Get institution's jobs
 // @Description Retrieves all job postings created by the institution

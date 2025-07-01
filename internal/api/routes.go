@@ -84,6 +84,7 @@ func SetupRoutes(
 	// Institution and Training Center Routes (shared logic)
 	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
 	instTcRoutes.Post("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
+	instTcRoutes.Get("/schools/available", institutionHandler.GetAvailableSchools) // Get schools available for selection
 	instTcRoutes.Post("/schools", institutionHandler.CreateSchool) // If school not in admin list
 	instTcRoutes.Put("/schools/select/:school_id", institutionHandler.SelectSchool)
 	instTcRoutes.Post("/jobs", institutionHandler.PostJob)

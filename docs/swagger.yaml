@@ -2521,6 +2521,51 @@ paths:
       tags:
       - institution
       - schools
+  /institution/schools/available:
+    get:
+      description: Retrieves a list of schools uploaded by admin that can be selected
+        by an institution
+      parameters:
+      - description: Filter schools by country code (e.g., US, UK)
+        in: query
+        name: country_code
+        type: string
+      - default: 1
+        description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of available schools with pagination metadata
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get available schools
+      tags:
+      - institution
+      - schools
   /institution/schools/select/{school_id}:
     put:
       description: Associates an institution with an existing school from the admin-uploaded
