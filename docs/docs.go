@@ -5129,12 +5129,7 @@ const docTemplate = `{
                         }
                     }
                 },
-                "peopleAlsoSearch": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
+                "peopleAlsoSearch": {},
                 "permanentlyClosed": {
                     "type": "boolean"
                 },

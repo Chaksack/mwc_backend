@@ -281,10 +281,7 @@ definitions:
               type: string
           type: object
         type: array
-      peopleAlsoSearch:
-        items:
-          type: string
-        type: array
+      peopleAlsoSearch: {}
       permanentlyClosed:
         type: boolean
       phone:

@@ -133,6 +133,8 @@ func main() {
 			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
 			return c.Status(code).JSON(fiber.Map{"error": err.Error()})
 		},
+		// Increase body size limit to 50MB (default is 4MB)
+		BodyLimit: 50 * 1024 * 1024,
 	})
 
 	// Middleware
