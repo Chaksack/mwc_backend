@@ -8,6 +8,7 @@ import (
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"strconv" // For parsing IDs
+	"strings" // For string operations like ToUpper
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -106,7 +107,8 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 
 	for _, data := range schoolsData {
 		// If countryCode is provided, filter schools by country code
-		if countryCode != "" && data.CountryCode != countryCode {
+		// Use case-insensitive comparison for country codes
+		if countryCode != "" && strings.ToUpper(data.CountryCode) != strings.ToUpper(countryCode) {
 			continue
 		}
 
@@ -148,7 +150,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 
 	// Add countryCode to action log if it was provided
 	if countryCode != "" {
-		actionDetail["country_code_filter"] = countryCode
+		actionDetail["countryCode"] = countryCode
 	}
 	detailJson, _ := json.Marshal(actionDetail)
 	LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_BATCH_UPLOAD_COMPLETE", 0, "System", string(detailJson), c)
@@ -162,7 +164,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 
 		// Add countryCode to response if it was provided
 		if countryCode != "" {
-			response["country_code_filter"] = countryCode
+			response["countryCode"] = countryCode
 		}
 
 		return c.Status(fiber.StatusMultiStatus).JSON(response)
@@ -175,7 +177,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 
 	// Add countryCode to response if it was provided
 	if countryCode != "" {
-		response["country_code_filter"] = countryCode
+		response["countryCode"] = countryCode
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
