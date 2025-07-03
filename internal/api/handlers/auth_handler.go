@@ -48,12 +48,12 @@ type LoginRequest struct {
 
 // Register handles new user registration.
 // @Summary Register a new user
-// @Description Register a new user with the specified role
+// @Description Register a new user with the specified role and return a JWT token
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "User registration information"
-// @Success 201 {object} map[string]interface{} "User registered successfully"
+// @Success 201 {object} map[string]interface{} "User registered successfully with token"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 409 {object} map[string]string "Email already exists"
 // @Failure 500 {object} map[string]string "Internal server error"
@@ -167,11 +167,42 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	logDetails := fmt.Sprintf("User %s registered as %s. %s", user.Email, user.Role, profileDetails)
 	LogUserAction(h.db, user.ID, "USER_REGISTER_SUCCESS", user.ID, "User", logDetails, c)
 
+	// Generate JWT token for automatic login
+	expiresIn := time.Hour * time.Duration(h.cfg.JwtExpirationHours)
+	token, err := middleware.GenerateJWT(user.ID, user.Email, user.Role, h.cfg.JWTSecret, expiresIn)
+	if err != nil {
+		LogUserAction(h.db, user.ID, "REGISTER_WARN_JWT_GEN", user.ID, "System", err.Error(), c)
+		log.Printf("Failed to generate token for newly registered user %d: %v", user.ID, err)
+		// Continue without token, registration is still successful
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message": "User registered successfully, but automatic login failed",
+			"user_id": user.ID,
+			"email":   user.Email,
+			"role":    user.Role,
+		})
+	}
+
+	// Update LastLogin
+	now := time.Now()
+	user.LastLogin = &now
+	if err := h.db.Save(&user).Error; err != nil {
+		// Log this error but don't fail the registration
+		log.Printf("Failed to update last login for newly registered user %d: %v", user.ID, err)
+		LogUserAction(h.db, user.ID, "REGISTER_WARN_LASTLOGIN_FAIL", user.ID, "System", err.Error(), c)
+	}
+
+	LogUserAction(h.db, user.ID, "USER_AUTO_LOGIN_SUCCESS", user.ID, "User", "User automatically logged in after registration", c)
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "User registered successfully",
-		"user_id": user.ID,
-		"email":   user.Email,
-		"role":    user.Role,
+		"message": "User registered and logged in successfully",
+		"token":   token,
+		"user": fiber.Map{
+			"id":        user.ID,
+			"email":     user.Email,
+			"firstName": user.FirstName,
+			"lastName":  user.LastName,
+			"role":      user.Role,
+		},
 	})
 }
 

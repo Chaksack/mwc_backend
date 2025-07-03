@@ -3794,7 +3794,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Register a new user with the specified role",
+                "description": "Register a new user with the specified role and return a JWT token",
                 "consumes": [
                     "application/json"
                 ],
@@ -3818,7 +3818,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "User registered successfully",
+                        "description": "User registered successfully with token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
