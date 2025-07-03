@@ -144,7 +144,7 @@ func main() {
 	}))
 	// General CORS for most API endpoints
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: "http://localhost:3000,http://localhost:8080,https://montessoriworldconnect.com,https://api.montessoriworldconnect.com,https://search.montessoriworldconnect.com",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
