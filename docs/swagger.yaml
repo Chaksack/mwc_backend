@@ -2783,6 +2783,36 @@ paths:
       summary: User login
       tags:
       - auth
+  /me:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the currently logged-in user's information with full profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User information with full profile
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - auth
   /parent/messages:
     get:
       description: Retrieves all messages sent to or by the current user

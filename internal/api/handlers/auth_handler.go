@@ -253,7 +253,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Success 200 {object} map[string]interface{} "User information with full profile"
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Internal server error"
