@@ -246,3 +246,105 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		},
 	})
 }
+
+// GetCurrentUser retrieves the currently logged-in user's information.
+// @Summary Get current user
+// @Description Retrieve the currently logged-in user's information with full profile
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} map[string]interface{} "User information with full profile"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /me [get]
+func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
+	// Get user ID from context (set by auth middleware)
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in context"})
+	}
+
+	// Retrieve user from database with appropriate profile preloaded based on role
+	var user models.User
+	query := h.db.Model(&models.User{})
+
+	// First get the user to determine the role
+	if err := query.First(&user, userID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User account is inactive"})
+	}
+
+	// Now preload the appropriate profile based on user role
+	switch user.Role {
+	case models.InstitutionRole, models.TrainingCenterRole:
+		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load institution profile: " + err.Error()})
+		}
+	case models.EducatorRole:
+		if err := h.db.Preload("EducatorProfile").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load educator profile: " + err.Error()})
+		}
+	case models.ParentRole:
+		if err := h.db.Preload("ParentProfile").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load parent profile: " + err.Error()})
+		}
+	}
+
+	// Log the action
+	LogUserAction(h.db, user.ID, "USER_GET_CURRENT", user.ID, "User", "User retrieved their full profile", c)
+
+	// Prepare response based on user role
+	userMap := fiber.Map{
+		"id":        user.ID,
+		"email":     user.Email,
+		"firstName": user.FirstName,
+		"lastName":  user.LastName,
+		"role":      user.Role,
+		"isActive":  user.IsActive,
+		"createdAt": user.CreatedAt,
+		"lastLogin": user.LastLogin,
+	}
+
+	// Add profile information based on role
+	switch user.Role {
+	case models.InstitutionRole, models.TrainingCenterRole:
+		if user.InstitutionProfile != nil {
+			userMap["profile"] = fiber.Map{
+				"id":              user.InstitutionProfile.ID,
+				"institutionName": user.InstitutionProfile.InstitutionName,
+				"isVerified":      user.InstitutionProfile.IsVerified,
+				"schoolId":        user.InstitutionProfile.SchoolID,
+				"school":          user.InstitutionProfile.School,
+			}
+		}
+	case models.EducatorRole:
+		if user.EducatorProfile != nil {
+			userMap["profile"] = fiber.Map{
+				"id":            user.EducatorProfile.ID,
+				"bio":           user.EducatorProfile.Bio,
+				"qualifications": user.EducatorProfile.Qualifications,
+				"experience":    user.EducatorProfile.Experience,
+			}
+		}
+	case models.ParentRole:
+		if user.ParentProfile != nil {
+			userMap["profile"] = fiber.Map{
+				"id": user.ParentProfile.ID,
+				// Add any other parent profile fields here
+			}
+		}
+	}
+
+	// Return user information with profile
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"user": userMap,
+	})
+}

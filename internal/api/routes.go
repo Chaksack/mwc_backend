@@ -69,6 +69,9 @@ func SetupRoutes(
 	// Auth Middleware
 	authMw := middleware.Protected(cfg.JWTSecret)
 
+	// User Routes
+	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
+
 	// Admin Routes
 	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole))
 	adminRoutes.Post("/schools/batch-upload", adminHandler.BatchUploadSchools)
