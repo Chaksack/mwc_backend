@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -22,11 +23,53 @@ type AuthHandler struct {
 	cfg          *config.Config // Changed to pass full config
 	emailService email.EmailService
 	mqService    queue.MessageQueueService
+	validate     *validator.Validate
 }
 
 // NewAuthHandler creates a new AuthHandler.
 func NewAuthHandler(db *gorm.DB, cfg *config.Config, emailService email.EmailService, mqService queue.MessageQueueService) *AuthHandler {
-	return &AuthHandler{db: db, cfg: cfg, emailService: emailService, mqService: mqService}
+	return &AuthHandler{
+		db:           db,
+		cfg:          cfg,
+		emailService: emailService,
+		mqService:    mqService,
+		validate:     validator.New(),
+	}
+}
+
+// validateRequest validates a struct using the go-playground/validator library and returns user-friendly error messages.
+// It extracts validation errors from the validator and formats them into a more readable format.
+// The function handles common validation tags like 'required', 'email', 'min', and 'oneof'.
+// For example, if a field with the 'required' tag is empty, it will return an error message like "Field is required".
+// This function is used by both Register and Login handlers to validate request bodies.
+func (h *AuthHandler) validateRequest(c *fiber.Ctx, req interface{}) error {
+	if err := h.validate.Struct(req); err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+
+		// Create a more user-friendly error response
+		errorDetails := make(map[string]string)
+		for _, e := range validationErrors {
+			field := e.Field()
+			switch e.Tag() {
+			case "required":
+				errorDetails[field] = field + " is required"
+			case "email":
+				errorDetails[field] = field + " must be a valid email address"
+			case "min":
+				errorDetails[field] = field + " must be at least " + e.Param() + " characters long"
+			case "oneof":
+				errorDetails[field] = field + " must be one of: " + e.Param()
+			default:
+				errorDetails[field] = "Invalid value for " + field + ": " + e.Tag()
+			}
+		}
+
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"details": errorDetails,
+		})
+	}
+	return nil
 }
 
 // RegisterRequest is the request body for user registration.
@@ -64,12 +107,10 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
 	}
 
-	// TODO: Implement robust validation using a library like 'go-playground/validator'
-	// Example:
-	// validate := validator.New()
-	// if err := validate.Struct(req); err != nil {
-	//    return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Validation failed: " + err.Error()})
-	// }
+	// Validate request using the helper function
+	if err := h.validateRequest(c, req); err != nil {
+		return err
+	}
 
 	// Prevent non-admin from registering as admin
 	authClaims, _ := c.Locals("user_claims").(*middleware.Claims)
@@ -224,7 +265,10 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
-	// TODO: Validate req
+	// Validate request using the helper function
+	if err := h.validateRequest(c, req); err != nil {
+		return err
+	}
 
 	var user models.User
 	if err := h.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
