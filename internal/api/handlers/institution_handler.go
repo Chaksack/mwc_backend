@@ -507,7 +507,7 @@ func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 // GetAllJobs retrieves all active jobs in the system.
 // @Summary Get all jobs
 // @Description Retrieves all active job postings in the system
-// @Tags jobs
+// @Tags jobs,public
 // @Produce json
 // @Success 200 {array} models.Job "List of all active jobs"
 // @Failure 500 {object} map[string]string "Internal server error"

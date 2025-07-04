@@ -3070,7 +3070,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "jobs"
+                    "jobs",
+                    "public"
                 ],
                 "summary": "Get all jobs",
                 "responses": {
@@ -3105,7 +3106,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "auth",
+                    "public"
                 ],
                 "summary": "User login",
                 "parameters": [
@@ -3181,7 +3183,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "auth",
+                    "authenticated"
                 ],
                 "summary": "Get current user",
                 "responses": {
@@ -3802,7 +3805,8 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "auth",
+                    "public"
                 ],
                 "summary": "Register a new user",
                 "parameters": [
@@ -5772,12 +5776,22 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and the JWT token.",
+            "description": "Provide your JWT token directly in the Authorization header without any prefix.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
         }
-    }
+    },
+    "tags": [
+        {
+            "description": "Public endpoints that don't require authentication",
+            "name": "public"
+        },
+        {
+            "description": "Endpoints that require authentication",
+            "name": "authenticated"
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
@@ -5787,7 +5801,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
 	Title:            "Montessori World Connect API",
-	Description:      "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, blogs, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format. Getting Started: Authentication - Most endpoints require authentication using JWT (JSON Web Token). To authenticate, you need to: 1) Register a new account or login with existing credentials, 2) Include the received token in the Authorization header of your requests, 3) Format: 'Authorization: Bearer your_token_here'. Public Endpoints - Some endpoints are publicly accessible without authentication: /api/v1/register (Register a new user), /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get list of blog posts). Rate Limiting - API requests are subject to rate limiting to ensure fair usage. Please design your applications to handle rate limit responses (HTTP 429) gracefully. Pagination - List endpoints support pagination using 'page' and 'limit' query parameters.",
+	Description:      "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, blogs, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format. Getting Started: Authentication - Most endpoints require authentication using JWT (JSON Web Token). To authenticate, you need to: 1) Register a new account or login with existing credentials, 2) Include the received token directly in the Authorization header of your requests. Public Endpoints - Some endpoints are publicly accessible without authentication: /api/v1/register (Register a new user), /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get list of blog posts). Rate Limiting - API requests are subject to rate limiting to ensure fair usage. Please design your applications to handle rate limit responses (HTTP 429) gracefully. Pagination - List endpoints support pagination using 'page' and 'limit' query parameters.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

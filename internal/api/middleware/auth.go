@@ -24,19 +24,18 @@ func Protected(jwtSecret string) fiber.Handler {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
 			log.Printf("Missing Authorization header in request to %s", c.Path())
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing Authorization header. Please include 'Authorization: Bearer your_token_here' in your request."})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing Authorization header. Please include your token in the Authorization header."})
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			log.Printf("Malformed Authorization header in request to %s: %s", c.Path(), authHeader)
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Malformed Authorization header. Format should be 'Bearer your_token_here'."})
+		// Only accept tokens without the "Bearer" prefix
+		tokenStr := authHeader
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token format. Please provide the token directly in the Authorization header without the 'Bearer' prefix."})
 		}
-		tokenStr := parts[1]
 
 		if tokenStr == "" {
 			log.Printf("Empty token in request to %s", c.Path())
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Empty JWT token. Please include a valid token after 'Bearer '."})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Empty JWT token. Please include a valid token in the Authorization header."})
 		}
 
 		claims := &Claims{}

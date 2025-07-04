@@ -22,25 +22,25 @@ test_request() {
   echo -e "\n${GREEN}Testing: $description${NC}"
   echo "Endpoint: $endpoint"
   echo "Auth Header: $auth_header"
-  
+
   # Make the request
   if [ -z "$auth_header" ]; then
     response=$(curl -s -w "\n%{http_code}" "$BASE_URL$endpoint")
   else
     response=$(curl -s -w "\n%{http_code}" -H "Authorization: $auth_header" "$BASE_URL$endpoint")
   fi
-  
+
   # Extract status code and body
   status_code=$(echo "$response" | tail -n1)
   body=$(echo "$response" | sed '$d')
-  
+
   # Check status code
   if [ "$status_code" -eq "$expected_status" ]; then
     echo -e "${GREEN}✓ Status code matches: $status_code${NC}"
   else
     echo -e "${RED}✗ Status code mismatch: Expected $expected_status, got $status_code${NC}"
   fi
-  
+
   # Check error message if expected
   if [ ! -z "$expected_error" ]; then
     if echo "$body" | grep -q "$expected_error"; then
@@ -50,21 +50,21 @@ test_request() {
       echo "Response body: $body"
     fi
   fi
-  
+
   echo "Response body: $body"
 }
 
 # Test 1: No Authorization header
 test_request "No Authorization header" "/admin/users" "" 401 "Missing Authorization header"
 
-# Test 2: Malformed Authorization header (no Bearer)
-test_request "Malformed Authorization header (no Bearer)" "/admin/users" "token123" 401 "Malformed Authorization header"
+# Test 2: Empty token
+test_request "Empty token" "/admin/users" "" 401 "Empty JWT token"
 
-# Test 3: Empty token
-test_request "Empty token" "/admin/users" "Bearer " 401 "Empty JWT token"
+# Test 3: Invalid token
+test_request "Invalid token" "/admin/users" "invalid.token.here" 401 "Invalid JWT token"
 
-# Test 4: Invalid token
-test_request "Invalid token" "/admin/users" "Bearer invalid.token.here" 401 "Invalid JWT token"
+# Test 4: Token with Bearer prefix (should be rejected)
+test_request "Token with Bearer prefix" "/admin/users" "Bearer valid.token.here" 401 "Invalid token format"
 
 # Test 5: Login to get a valid token
 echo -e "\n${GREEN}Logging in to get a valid token${NC}"
@@ -84,7 +84,7 @@ fi
 
 echo "Token: $token"
 
-# Test 6: Valid token
-test_request "Valid token" "/admin/users" "Bearer $token" 200 ""
+# Test 6: Valid token (without Bearer prefix)
+test_request "Valid token" "/admin/users" "$token" 200 ""
 
 echo -e "\n${GREEN}All tests completed${NC}"

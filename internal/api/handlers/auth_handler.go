@@ -92,7 +92,7 @@ type LoginRequest struct {
 // Register handles new user registration.
 // @Summary Register a new user
 // @Description Register a new user with the specified role and return a JWT token
-// @Tags auth
+// @Tags auth,public
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "User registration information"
@@ -250,7 +250,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 // Login handles user login.
 // @Summary User login
 // @Description Authenticate a user and return a JWT token
-// @Tags auth
+// @Tags auth,public
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "User login credentials"
@@ -325,7 +325,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 // GetCurrentUser retrieves the currently logged-in user's information.
 // @Summary Get current user
 // @Description Retrieve the currently logged-in user's information with full profile
-// @Tags auth
+// @Tags auth,authenticated
 // @Accept json
 // @Produce json
 // @Security BearerAuth
