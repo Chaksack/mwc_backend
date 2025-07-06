@@ -114,14 +114,6 @@ definitions:
     required:
     - institution_name
     type: object
-  handlers.JobApplicationRequest:
-    properties:
-      cover_letter:
-        type: string
-      resume_url:
-        description: Optional, but if provided, must be URL
-        type: string
-    type: object
   handlers.JobRequest:
     properties:
       description:
@@ -1636,7 +1628,7 @@ paths:
   /educator/jobs/{job_id}/apply:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: Submit an application for a job posting
       parameters:
       - description: Job ID
@@ -1644,12 +1636,15 @@ paths:
         name: job_id
         required: true
         type: integer
-      - description: Job application details
-        in: body
-        name: application
+      - description: Cover letter text
+        in: formData
+        name: cover_letter
         required: true
-        schema:
-          $ref: '#/definitions/handlers.JobApplicationRequest'
+        type: string
+      - description: Resume file
+        in: formData
+        name: resume
+        type: file
       produces:
       - application/json
       responses:

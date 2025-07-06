@@ -1476,7 +1476,7 @@ const docTemplate = `{
                 ],
                 "description": "Submit an application for a job posting",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -1495,13 +1495,17 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Job application details",
-                        "name": "application",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.JobApplicationRequest"
-                        }
+                        "type": "string",
+                        "description": "Cover letter text",
+                        "name": "cover_letter",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Resume file",
+                        "name": "resume",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -4919,18 +4923,6 @@ const docTemplate = `{
                 },
                 "verification_docs": {
                     "description": "URL or path",
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.JobApplicationRequest": {
-            "type": "object",
-            "properties": {
-                "cover_letter": {
-                    "type": "string"
-                },
-                "resume_url": {
-                    "description": "Optional, but if provided, must be URL",
                     "type": "string"
                 }
             }

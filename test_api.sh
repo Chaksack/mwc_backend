@@ -222,6 +222,48 @@ test_educator_endpoints() {
   test_request "Get applied jobs" "GET" "/educator/jobs/applied" "$EDUCATOR_TOKEN" "" 200
 }
 
+# Function to test educator job application with file upload
+test_educator_job_application() {
+  echo -e "\n${BLUE}=== Testing Educator Job Application with File Upload ===${NC}"
+
+  if [ -z "$EDUCATOR_TOKEN" ] || [ -z "$JOB_ID" ]; then
+    echo -e "${RED}Skipping educator job application test - missing educator token or job ID${NC}"
+    return
+  fi
+
+  # Create a temporary resume file
+  TEMP_RESUME_FILE="/tmp/test_resume.pdf"
+  echo "This is a test resume" > "$TEMP_RESUME_FILE"
+
+  echo -e "\n${YELLOW}Testing job application with cover letter string and resume file${NC}"
+  echo "Method: POST"
+  echo "Endpoint: /educator/jobs/$JOB_ID/apply"
+  echo "Auth Header: $EDUCATOR_TOKEN"
+
+  # Use curl with -F option to send multipart/form-data
+  response=$(curl -s -w "\n%{http_code}" -X POST \
+    "$BASE_URL/educator/jobs/$JOB_ID/apply" \
+    -H "Authorization: $EDUCATOR_TOKEN" \
+    -F "cover_letter=This is a test cover letter" \
+    -F "resume=@$TEMP_RESUME_FILE")
+
+  # Extract status code and body
+  status_code=$(echo "$response" | tail -n1)
+  body=$(echo "$response" | sed '$d')
+
+  # Check status code (expecting 201 Created)
+  if [ "$status_code" -eq 201 ]; then
+    echo -e "${GREEN}✓ Status code matches: $status_code${NC}"
+  else
+    echo -e "${RED}✗ Status code mismatch: Expected 201, got $status_code${NC}"
+  fi
+
+  echo "Response body: $body"
+
+  # Clean up the temporary file
+  rm -f "$TEMP_RESUME_FILE"
+}
+
 # Function to test parent endpoints
 test_parent_endpoints() {
   echo -e "\n${BLUE}=== Testing Parent Endpoints ===${NC}"
@@ -546,6 +588,12 @@ generate_test_summary() {
   else
     echo -e "${GREEN}Blog CRUD:${NC} Tested"
   fi
+
+  if [ -z "$EDUCATOR_TOKEN" ] || [ -z "$JOB_ID" ]; then
+    echo -e "${RED}Educator Job Application:${NC} Not tested (missing educator token or job ID)"
+  else
+    echo -e "${GREEN}Educator Job Application:${NC} Tested"
+  fi
 }
 
 # Main function to run all tests
@@ -567,6 +615,9 @@ run_all_tests() {
   test_review_crud
   test_event_crud
   test_blog_crud
+
+  # Run additional tests
+  test_educator_job_application
 
   # Generate test summary
   generate_test_summary

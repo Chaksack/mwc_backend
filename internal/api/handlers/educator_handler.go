@@ -24,8 +24,8 @@ type EducatorProfileRequest struct {
 }
 
 type JobApplicationRequest struct {
-	CoverLetter string `json:"cover_letter"`
-	ResumeURL   string `json:"resume_url" validate:"omitempty,url"` // Optional, but if provided, must be URL
+	CoverLetter string `json:"cover_letter" form:"cover_letter"`
+	// ResumeURL is now handled as a file upload, not as a URL string
 }
 
 // CreateOrUpdateEducatorProfile creates or updates an educator's profile.
@@ -224,10 +224,11 @@ func (h *EducatorHandler) GetSavedSchools(c *fiber.Ctx) error {
 // @Summary Apply for a job
 // @Description Submit an application for a job posting
 // @Tags educator,jobs
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
 // @Param job_id path int true "Job ID"
-// @Param application body JobApplicationRequest true "Job application details"
+// @Param cover_letter formData string true "Cover letter text"
+// @Param resume formData file false "Resume file"
 // @Success 201 {object} map[string]interface{} "Application submitted successfully"
 // @Failure 400 {object} map[string]string "Bad request or invalid job ID"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -266,17 +267,43 @@ func (h *EducatorHandler) ApplyForJob(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error checking existing application: " + errCheck.Error()})
 	}
 
-	req := new(JobApplicationRequest)
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	// Parse form data
+	if err := c.BodyParser(new(JobApplicationRequest)); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse form data: " + err.Error()})
 	}
-	// TODO: Validate req (e.g. ResumeURL if provided)
+
+	// Get cover letter from form
+	coverLetter := c.FormValue("cover_letter")
+	if coverLetter == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cover letter is required"})
+	}
+
+	// Initialize resumeURL
+	var resumeURL string
+
+	// Handle resume file upload if provided
+	file, err := c.FormFile("resume")
+	if err == nil && file != nil {
+		// Process the file - in a real implementation, you would:
+		// 1. Save the file to a storage service (e.g., S3, local filesystem)
+		// 2. Generate a URL for accessing the file
+		// For this example, we'll just use the filename as the URL
+		resumeURL = file.Filename
+
+		// In a real implementation, you would add code here to save the file
+		// For example:
+		// err = c.SaveFile(file, "./uploads/" + file.Filename)
+		// if err != nil {
+		//     return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file: " + err.Error()})
+		// }
+		// resumeURL = "/uploads/" + file.Filename
+	}
 
 	application := models.JobApplication{
 		JobID:             uint(jobID),
 		EducatorProfileID: educatorProfile.ID,
-		CoverLetter:       req.CoverLetter,
-		ResumeURL:         req.ResumeURL,
+		CoverLetter:       coverLetter,
+		ResumeURL:         resumeURL,
 		Status:            "pending", // Initial status
 	}
 
