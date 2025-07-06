@@ -12,6 +12,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Update dependencies to fix missing go.sum entry for golang.org/x/sync/semaphore
+RUN go get github.com/jackc/puddle/v2@v2.2.1
+
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 
