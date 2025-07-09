@@ -196,6 +196,9 @@ func SetupMetricsRoutes(app *fiber.App, metricsService *MetricsService) {
 
 	// Add the /metrics/monitor endpoint that uses the built-in Fiber monitor
 	app.Get("/metrics/monitor", monitor.New())
+
+	// Add the /metrics/prometheus endpoint that returns metrics in Prometheus format
+	app.Get("/metrics/prometheus", PrometheusMetricsHandler(metricsService))
 }
 
 // HTTPMetricsMiddleware creates a middleware that records HTTP request metrics

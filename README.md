@@ -140,3 +140,44 @@ Before using this workflow, make sure you have:
 2. Created an IAM user with appropriate permissions for ECR
 3. Generated access keys for the IAM user
 4. Added the access keys as secrets in your GitHub repository
+
+## Monitoring and Alerting
+
+This project includes a comprehensive monitoring and alerting setup using SonarQube, Prometheus, AlertManager, and Slack.
+
+### Monitoring Components
+
+1. **SonarQube**: Code quality analysis
+2. **Prometheus**: Metrics collection and monitoring
+3. **AlertManager**: Alert management and notification
+4. **Slack**: Notifications and alerts
+
+### Metrics Endpoints
+
+The application exposes the following metrics endpoints:
+
+- `/metrics`: HTML dashboard for viewing metrics
+- `/metrics/api`: JSON API endpoint for raw metrics data
+- `/metrics/monitor`: Fiber's built-in monitor
+- `/metrics/prometheus`: Prometheus-compatible metrics endpoint
+
+### GitHub Workflows for Monitoring
+
+The following GitHub Actions workflows are available for monitoring and alerting:
+
+1. **SonarQube Analysis**: Code quality analysis
+2. **Prometheus and AlertManager Setup**: Metrics collection and alerting
+3. **Slack Notifications Setup**: Notification channel configuration
+
+### Required GitHub Secrets
+
+To use the monitoring workflows, you need to set up the following secrets in your GitHub repository:
+
+- `SONAR_TOKEN`: Authentication token for SonarQube
+- `SONAR_HOST_URL`: URL of the SonarQube server
+- `AWS_ACCESS_KEY_ID`: AWS access key ID
+- `AWS_SECRET_ACCESS_KEY`: AWS secret access key
+- `AWS_ACCOUNT_ID`: AWS account ID
+- `SLACK_WEBHOOK`: Webhook URL for Slack notifications
+
+For detailed information about the monitoring and alerting setup, see [Monitoring Setup Documentation](docs/MONITORING-SETUP.md).

@@ -1,0 +1,226 @@
+name: Slack Notifications Setup
+
+on:
+  push:
+    branches: [ main, staging ]
+    paths:
+      - '.github/workflows/slack-notifications.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  setup-slack-notifications:
+    name: Setup Slack Notifications
+    runs-on: ubuntu-latest
+    
+    # Set environment based on trigger
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod') || 'staging' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Verify Slack webhook
+        run: |
+          if [ -z "${{ secrets.SLACK_WEBHOOK }}" ]; then
+            echo "::error::SLACK_WEBHOOK secret is not set. Please configure it in your repository secrets."
+            exit 1
+          fi
+          echo "Slack webhook is configured."
+      
+      - name: Configure notification channels
+        run: |
+          echo "Setting up Slack notification channels for ${{ env.ENVIRONMENT }} environment"
+          
+          # Create a configuration file for Slack channels
+          mkdir -p .github/slack-config
+          cat > .github/slack-config/channels.json <<EOF
+          {
+            "channels": {
+              "deployments": {
+                "description": "Deployment notifications",
+                "emoji": ":rocket:"
+              },
+              "alerts": {
+                "description": "System alerts from Prometheus/AlertManager",
+                "emoji": ":warning:"
+              },
+              "monitoring": {
+                "description": "Monitoring system updates",
+                "emoji": ":chart_with_upwards_trend:"
+              },
+              "code-quality": {
+                "description": "Code quality reports from SonarQube",
+                "emoji": ":mag:"
+              }
+            }
+          }
+          EOF
+      
+      - name: Create test notification
+        id: test-notification
+        run: |
+          # Send a test notification to verify the webhook works
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "text": "✅ Slack notifications have been set up for ${{ github.repository }} in ${{ env.ENVIRONMENT }} environment",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Slack Notifications Setup Complete",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ Slack notifications have been set up for *${{ github.repository }}* in *${{ env.ENVIRONMENT }}* environment"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\n${{ env.ENVIRONMENT }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Setup by:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Setup time:*\n$(date)"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "The following notification channels have been configured:"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*#deployments*\nDeployment notifications"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*#alerts*\nSystem alerts from Prometheus/AlertManager"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*#monitoring*\nMonitoring system updates"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*#code-quality*\nCode quality reports from SonarQube"
+                    }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "Configured via GitHub Actions workflow"
+                    }
+                  ]
+                }
+              ]
+            }' \
+            ${{ secrets.SLACK_WEBHOOK }}
+          
+          if [ $? -eq 0 ]; then
+            echo "::set-output name=status::success"
+            echo "Test notification sent successfully."
+          else
+            echo "::set-output name=status::failure"
+            echo "::error::Failed to send test notification. Please check your Slack webhook URL."
+            exit 1
+          fi
+      
+      - name: Document Slack integration
+        run: |
+          # Create or update documentation about Slack integration
+          mkdir -p docs
+          cat > docs/SLACK-INTEGRATION.md <<EOF
+          # Slack Integration
+          
+          This project is integrated with Slack for notifications and alerts.
+          
+          ## Notification Channels
+          
+          - **#deployments**: Notifications about deployments to different environments
+          - **#alerts**: System alerts from Prometheus/AlertManager
+          - **#monitoring**: Updates about the monitoring system
+          - **#code-quality**: Code quality reports from SonarQube
+          
+          ## Integration Points
+          
+          1. **GitHub Actions**: Deployment status notifications
+          2. **SonarQube**: Code quality analysis results
+          3. **Prometheus/AlertManager**: System and application alerts
+          
+          ## Configuration
+          
+          The Slack webhook URL is stored as a GitHub secret named `SLACK_WEBHOOK`.
+          
+          To update the Slack webhook:
+          
+          1. Go to GitHub repository settings
+          2. Navigate to Secrets > Actions
+          3. Update the `SLACK_WEBHOOK` secret
+          
+          ## Alert Rules
+          
+          Alert rules are defined in the Prometheus configuration. See `.github/workflows/prometheus-setup.yml` for details.
+          
+          ## Customizing Notifications
+          
+          To customize the notification format, edit the relevant GitHub workflow files:
+          
+          - `.github/workflows/aws-ecs-deploy.yml`
+          - `.github/workflows/sonarqube-analysis.yml`
+          - `.github/workflows/prometheus-setup.yml`
+          - `.github/workflows/slack-notifications.yml`
+          EOF
+          
+          echo "Documentation created at docs/SLACK-INTEGRATION.md"
+      
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/slack-config/channels.json docs/SLACK-INTEGRATION.md
+          git commit -m "Setup Slack notification channels for ${{ env.ENVIRONMENT }} environment" || echo "No changes to commit"
+          git push || echo "No changes to push"
+      
+      - name: Summary
+        run: |
+          echo "✅ Slack Notifications Setup Summary"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Test notification: ${{ steps.test-notification.outputs.status == 'success' && 'Successful' || 'Failed' }}"
+          echo "Documentation: Created at docs/SLACK-INTEGRATION.md"
+          echo "Configuration: Created at .github/slack-config/channels.json"
