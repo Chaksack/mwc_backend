@@ -221,6 +221,7 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 		City:            req.City,
 		State:           state,
 		CountryCode:     req.CountryCode,
+		Country:         req.Country,
 		ZipCode:         postalCode,
 		ContactEmail:    "", // Not available in the new structure
 		ContactPhone:    req.Phone,

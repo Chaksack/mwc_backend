@@ -82,6 +82,7 @@ type School struct {
 	City            string
 	State           string
 	CountryCode     string `gorm:"index;not null"` // For searching by country
+	Country         string // Full country name
 	ZipCode         string
 	ContactEmail    string
 	ContactPhone    string
