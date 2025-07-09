@@ -38,6 +38,7 @@ type SchoolUploadData struct {
 	PostalCode        *string `json:"postalCode"`
 	State             *string `json:"state"`
 	CountryCode       string  `json:"countryCode" validate:"required"`
+	Country           string  `json:"country" validate:"required"`
 	Phone             string  `json:"phone"`
 	PhoneUnformatted  string  `json:"phoneUnformatted"`
 	ClaimThisBusiness bool    `json:"claimThisBusiness"`
@@ -154,9 +155,19 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			continue
 		}
 
-		// TODO: Add validation for each SchoolUploadData item
-		// validate := validator.New()
-		// if err := validate.Struct(data); err != nil { ... }
+		// Validate required fields
+		if data.Title == "" {
+			operationErrors = append(operationErrors, fmt.Sprintf("School at index %d: Title is required", data.Rank))
+			continue
+		}
+		if data.CountryCode == "" {
+			operationErrors = append(operationErrors, fmt.Sprintf("School at index %d: CountryCode is required", data.Rank))
+			continue
+		}
+		if data.Country == "" {
+			operationErrors = append(operationErrors, fmt.Sprintf("School at index %d: Country is required", data.Rank))
+			continue
+		}
 
 		// Map the new data structure to the School model
 		var state string
@@ -175,6 +186,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			City:            data.City,
 			State:           state,
 			CountryCode:     data.CountryCode,
+			Country:         data.Country,
 			ZipCode:         postalCode,
 			ContactEmail:    "", // Not available in the new structure
 			ContactPhone:    data.Phone,

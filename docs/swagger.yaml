@@ -319,6 +319,7 @@ definitions:
     required:
     - countryCode
     - title
+    - country
     type: object
   handlers.UnreadMessagePayload:
     properties:

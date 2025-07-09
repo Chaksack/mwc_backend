@@ -5057,7 +5057,8 @@
             "type": "object",
             "required": [
                 "countryCode",
-                "title"
+                "title",
+                "country"
             ],
             "properties": {
                 "additionalInfo": {
