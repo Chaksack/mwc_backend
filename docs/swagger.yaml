@@ -317,9 +317,9 @@ definitions:
       url:
         type: string
     required:
+    - country
     - countryCode
     - title
-    - country
     type: object
   handlers.UnreadMessagePayload:
     properties:
@@ -688,7 +688,7 @@ definitions:
     - EducatorRole
     - TrainingCenterRole
     - ParentRole
-host: api.montessoriworldconnect.com
+host: localhost:8080, https://api.montessoriworldconnect.com
 info:
   contact:
     email: support@montessoriworldconnect.com
