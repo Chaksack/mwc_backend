@@ -5100,6 +5100,9 @@
                 "claimThisBusiness": {
                     "type": "boolean"
                 },
+                "country": {
+                    "type": "string"
+                },
                 "countryCode": {
                     "type": "string"
                 },
@@ -5629,6 +5632,10 @@
                     "type": "string"
                 },
                 "contactPhone": {
+                    "type": "string"
+                },
+                "country": {
+                    "description": "Full country name",
                     "type": "string"
                 },
                 "countryCode": {

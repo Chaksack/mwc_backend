@@ -5102,6 +5102,9 @@ const docTemplate = `{
                 "claimThisBusiness": {
                     "type": "boolean"
                 },
+                "country": {
+                    "type": "string"
+                },
                 "countryCode": {
                     "type": "string"
                 },
@@ -5631,6 +5634,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "contactPhone": {
+                    "type": "string"
+                },
+                "country": {
+                    "description": "Full country name",
                     "type": "string"
                 },
                 "countryCode": {

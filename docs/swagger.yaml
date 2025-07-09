@@ -227,6 +227,8 @@ definitions:
         type: string
       claimThisBusiness:
         type: boolean
+      country:
+        type: string
       countryCode:
         type: string
       fid:
@@ -590,6 +592,9 @@ definitions:
       contactEmail:
         type: string
       contactPhone:
+        type: string
+      country:
+        description: Full country name
         type: string
       countryCode:
         description: For searching by country
