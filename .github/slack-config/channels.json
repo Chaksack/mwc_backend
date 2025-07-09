@@ -1,0 +1,20 @@
+{
+  "channels": {
+    "deployments": {
+      "description": "Deployment notifications",
+      "emoji": ":rocket:"
+    },
+    "alerts": {
+      "description": "System alerts from Prometheus/AlertManager",
+      "emoji": ":warning:"
+    },
+    "monitoring": {
+      "description": "Monitoring system updates",
+      "emoji": ":chart_with_upwards_trend:"
+    },
+    "code-quality": {
+      "description": "Code quality reports from SonarQube",
+      "emoji": ":mag:"
+    }
+  }
+}
