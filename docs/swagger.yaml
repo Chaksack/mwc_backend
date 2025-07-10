@@ -1260,6 +1260,10 @@ paths:
         in: query
         name: countryCode
         type: string
+      - description: Country name to filter schools by country
+        in: query
+        name: country
+        type: string
       - description: Alternative parameter name for ISO country code filter (same
           as countryCode)
         in: query

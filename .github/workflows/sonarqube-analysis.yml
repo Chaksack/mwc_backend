@@ -11,22 +11,22 @@ jobs:
   sonarqube:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Shallow clones should be disabled for better relevancy of analysis
-      
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
-      
+          go-version: '1.23'
+
       - name: Run tests with coverage
         run: |
           go test ./... -coverprofile=coverage.out
-      
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@master
         env:
@@ -39,14 +39,14 @@ jobs:
             -Dsonar.sources=.
             -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/**
-      
+
       - name: SonarQube Quality Gate check
         uses: SonarSource/sonarqube-quality-gate-action@master
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      
+
       # Send Slack notification for SonarQube results
       - name: Send Slack notification - Success
         if: success()
@@ -63,7 +63,7 @@ jobs:
           SLACK_TITLE: SonarQube Analysis Success
           SLACK_USERNAME: GitHub Actions
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-      
+
       - name: Send Slack notification - Failure
         if: failure()
         uses: rtCamp/action-slack-notify@v2

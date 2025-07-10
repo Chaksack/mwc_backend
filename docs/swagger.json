@@ -697,6 +697,12 @@
                     },
                     {
                         "type": "string",
+                        "description": "Country name to filter schools by country",
+                        "name": "country",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Alternative parameter name for ISO country code filter (same as countryCode)",
                         "name": "country_code_filter",
                         "in": "query"

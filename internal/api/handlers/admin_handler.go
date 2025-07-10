@@ -89,6 +89,7 @@ type SchoolUploadData struct {
 // @Produce json
 // @Param schools_file formData file true "JSON file containing school data"
 // @Param countryCode query string false "ISO country code (e.g., US, UK, CA) to filter schools by country"
+// @Param country query string false "Country name to filter schools by country"
 // @Param country_code_filter query string false "Alternative parameter name for ISO country code filter (same as countryCode)"
 // @Success 200 {object} map[string]interface{} "Schools uploaded successfully"
 // @Failure 400 {object} map[string]string "Bad request"
@@ -109,6 +110,9 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	if countryCode == "" {
 		countryCode = c.Query("country_code_filter")
 	}
+
+	// Get the country parameter if provided
+	country := c.Query("country")
 
 	file, err := c.FormFile("schools_file")
 	if err != nil {
@@ -155,6 +159,12 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			continue
 		}
 
+		// If country is provided, filter schools by country name
+		// Use case-insensitive comparison for country names
+		if country != "" && strings.ToLower(data.Country) != strings.ToLower(country) {
+			continue
+		}
+
 		// Validate required fields
 		if data.Title == "" {
 			operationErrors = append(operationErrors, fmt.Sprintf("School at index %d: Title is required", data.Rank))
@@ -191,6 +201,8 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			ContactEmail:    "", // Not available in the new structure
 			ContactPhone:    data.Phone,
 			Website:         data.Url,
+			SearchString:    data.SearchString,
+			SearchPageUrl:   data.SearchPageUrl,
 			UploadedByAdmin: true,
 			CreatedByUserID: &adminUserID,
 		}
@@ -218,6 +230,11 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	if countryCode != "" {
 		actionDetail["countryCode"] = countryCode
 	}
+
+	// Add country to action log if it was provided
+	if country != "" {
+		actionDetail["country"] = country
+	}
 	detailJson, _ := json.Marshal(actionDetail)
 	LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_BATCH_UPLOAD_COMPLETE", 0, "System", string(detailJson), c)
 
@@ -233,6 +250,11 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			response["countryCode"] = countryCode
 		}
 
+		// Add country to response if it was provided
+		if country != "" {
+			response["country"] = country
+		}
+
 		return c.Status(fiber.StatusMultiStatus).JSON(response)
 	}
 
@@ -244,6 +266,11 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	// Add countryCode to response if it was provided
 	if countryCode != "" {
 		response["countryCode"] = countryCode
+	}
+
+	// Add country to response if it was provided
+	if country != "" {
+		response["country"] = country
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
@@ -310,6 +337,8 @@ func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 	school.ContactEmail = ""
 	school.ContactPhone = updateData.Phone
 	school.Website = updateData.Url
+	school.SearchString = updateData.SearchString
+	school.SearchPageUrl = updateData.SearchPageUrl
 	// school.UploadedByAdmin remains true, or could be updatable
 	// school.CreatedByUserID should ideally not change, or track updater
 

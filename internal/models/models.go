@@ -87,6 +87,8 @@ type School struct {
 	ContactEmail    string
 	ContactPhone    string
 	Website         string
+	SearchString    string // Search query used to find this school
+	SearchPageUrl   string // URL of the search page where this school was found
 	UploadedByAdmin bool  `gorm:"default:false"` // True if uploaded by admin batch
 	CreatedByUserID *uint // Pointer to allow NULL if uploaded by admin initially
 	User            *User `gorm:"foreignKey:CreatedByUserID"`
