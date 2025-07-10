@@ -18,7 +18,7 @@
         },
         "version": "1.0"
     },
-    "host": "localhost:8080, https://api.montessoriworldconnect.com",
+    "host": "https://api.montessoriworldconnect.com",
     "basePath": "/api/v1",
     "paths": {
         "/admin/action-logs": {
@@ -5667,6 +5667,14 @@
                     "example": 1
                 },
                 "name": {
+                    "type": "string"
+                },
+                "searchPageUrl": {
+                    "description": "URL of the search page where this school was found",
+                    "type": "string"
+                },
+                "searchString": {
+                    "description": "Search query used to find this school",
                     "type": "string"
                 },
                 "state": {

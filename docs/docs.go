@@ -5671,6 +5671,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "searchPageUrl": {
+                    "description": "URL of the search page where this school was found",
+                    "type": "string"
+                },
+                "searchString": {
+                    "description": "Search query used to find this school",
+                    "type": "string"
+                },
                 "state": {
                     "type": "string"
                 },
@@ -5803,7 +5811,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080, https://api.montessoriworldconnect.com",
+	Host:             "https://api.montessoriworldconnect.com",
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
 	Title:            "Montessori World Connect API",

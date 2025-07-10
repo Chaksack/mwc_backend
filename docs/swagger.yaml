@@ -615,6 +615,12 @@ definitions:
         type: integer
       name:
         type: string
+      searchPageUrl:
+        description: URL of the search page where this school was found
+        type: string
+      searchString:
+        description: Search query used to find this school
+        type: string
       state:
         type: string
       updated_at:
@@ -688,7 +694,7 @@ definitions:
     - EducatorRole
     - TrainingCenterRole
     - ParentRole
-host: localhost:8080, https://api.montessoriworldconnect.com
+host: https://api.montessoriworldconnect.com
 info:
   contact:
     email: support@montessoriworldconnect.com
