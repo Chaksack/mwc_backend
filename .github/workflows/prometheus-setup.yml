@@ -144,6 +144,7 @@ jobs:
             "family": "mwc-prometheus",
             "networkMode": "awsvpc",
             "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
             "containerDefinitions": [
               {
                 "name": "prometheus",
@@ -194,6 +195,7 @@ jobs:
             "family": "mwc-alertmanager",
             "networkMode": "awsvpc",
             "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
             "containerDefinitions": [
               {
                 "name": "alertmanager",
