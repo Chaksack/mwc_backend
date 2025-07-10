@@ -3,9 +3,6 @@ name: Prometheus and AlertManager Setup
 on:
   push:
     branches: [ main, staging ]
-    paths:
-      - '.github/workflows/prometheus-setup.yml'
-      - 'internal/metrics/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -28,22 +25,22 @@ jobs:
   deploy-prometheus:
     name: Deploy Prometheus and AlertManager
     runs-on: ubuntu-latest
-    
+
     # Set environment based on trigger
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod') || 'staging' }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
+
       - name: Create Prometheus config
         run: |
           mkdir -p prometheus-config
@@ -51,22 +48,22 @@ jobs:
           global:
             scrape_interval: 15s
             evaluation_interval: 15s
-          
+
           alerting:
             alertmanagers:
               - static_configs:
                   - targets: ['alertmanager:9093']
-          
+
           rule_files:
             - "alert_rules.yml"
-          
+
           scrape_configs:
             - job_name: 'mwc-backend'
               metrics_path: '/metrics/prometheus'
               static_configs:
                 - targets: ['mwc-backend:8080']
           EOF
-      
+
       - name: Create AlertManager config
         run: |
           mkdir -p alertmanager-config
@@ -74,14 +71,14 @@ jobs:
           global:
             slack_api_url: '${{ secrets.SLACK_WEBHOOK }}'
             resolve_timeout: 5m
-          
+
           route:
             group_by: ['alertname', 'job']
             group_wait: 30s
             group_interval: 5m
             repeat_interval: 4h
             receiver: 'slack-notifications'
-          
+
           receivers:
             - name: 'slack-notifications'
               slack_configs:
@@ -96,7 +93,7 @@ jobs:
                       *Started:* {{ .StartsAt }}
                     {{ end }}
           EOF
-      
+
       - name: Create Alert Rules
         run: |
           cat > prometheus-config/alert_rules.yml <<EOF
@@ -111,7 +108,7 @@ jobs:
                   annotations:
                     summary: High memory usage detected
                     description: "Memory usage is above 500MB for 5 minutes"
-                
+
                 - alert: HighCPUUsage
                   expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
                   for: 5m
@@ -120,7 +117,7 @@ jobs:
                   annotations:
                     summary: High CPU usage detected
                     description: "CPU usage is above 80% for 5 minutes"
-                
+
                 - alert: HighHTTPErrorRate
                   expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100 > 5
                   for: 5m
@@ -129,7 +126,7 @@ jobs:
                   annotations:
                     summary: High HTTP error rate detected
                     description: "HTTP error rate is above 5% for 5 minutes"
-                
+
                 - alert: HighDBQueryTime
                   expr: avg_query_time_seconds > 1
                   for: 5m
@@ -139,7 +136,7 @@ jobs:
                     summary: High database query time detected
                     description: "Average database query time is above 1 second for 5 minutes"
           EOF
-      
+
       - name: Create Prometheus ECS Task Definition
         run: |
           cat > prometheus-task-definition.json <<EOF
@@ -189,7 +186,7 @@ jobs:
             "memory": "1024"
           }
           EOF
-      
+
       - name: Create AlertManager ECS Task Definition
         run: |
           cat > alertmanager-task-definition.json <<EOF
@@ -239,21 +236,21 @@ jobs:
             "memory": "512"
           }
           EOF
-      
+
       - name: Register Prometheus Task Definition
         id: register-prometheus-task
         run: |
           TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://prometheus-task-definition.json)
           REVISION=$(echo $TASK_DEF | jq -r '.taskDefinition.revision')
-          echo "::set-output name=revision::$REVISION"
-      
+          echo "revision=$REVISION" >> $GITHUB_OUTPUT
+
       - name: Register AlertManager Task Definition
         id: register-alertmanager-task
         run: |
           TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://alertmanager-task-definition.json)
           REVISION=$(echo $TASK_DEF | jq -r '.taskDefinition.revision')
-          echo "::set-output name=revision::$REVISION"
-      
+          echo "revision=$REVISION" >> $GITHUB_OUTPUT
+
       - name: Deploy Prometheus to ECS
         run: |
           aws ecs update-service \
@@ -261,7 +258,7 @@ jobs:
             --service ${{ env.PROMETHEUS_SERVICE }} \
             --task-definition mwc-prometheus:${{ steps.register-prometheus-task.outputs.revision }} \
             --force-new-deployment
-      
+
       - name: Deploy AlertManager to ECS
         run: |
           aws ecs update-service \
@@ -269,13 +266,13 @@ jobs:
             --service ${{ env.ALERTMANAGER_SERVICE }} \
             --task-definition mwc-alertmanager:${{ steps.register-alertmanager-task.outputs.revision }} \
             --force-new-deployment
-      
+
       - name: Wait for services stability
         run: |
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
             --services ${{ env.PROMETHEUS_SERVICE }} ${{ env.ALERTMANAGER_SERVICE }}
-      
+
       - name: Send Slack notification - Success
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -292,7 +289,7 @@ jobs:
           SLACK_TITLE: Monitoring Setup Success
           SLACK_USERNAME: GitHub Actions
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-      
+
       - name: Send Slack notification - Failure
         if: failure()
         uses: rtCamp/action-slack-notify@v2
