@@ -27,11 +27,21 @@ jobs:
         run: |
           go test ./... -coverprofile=coverage.out
 
+      - name: Setup SonarQube Environment
+        id: sonarqube-env
+        run: |
+          echo "Setting up SonarQube environment variables"
+          # Export token and URL for use in subsequent steps
+          echo "SONAR_TOKEN=${{ secrets.SONAR_TOKEN }}" >> $GITHUB_ENV
+          echo "SONAR_HOST_URL=${{ secrets.SONAR_HOST_URL }}" >> $GITHUB_ENV
+          # You can add additional SonarQube configuration here if needed
+          echo "SonarQube environment setup completed"
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@master
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
         with:
           args: >
             -Dsonar.projectKey=mwc_backend
@@ -44,8 +54,8 @@ jobs:
         uses: SonarSource/sonarqube-quality-gate-action@master
         timeout-minutes: 5
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
 
       # Send Slack notification for SonarQube results
       - name: Send Slack notification - Success

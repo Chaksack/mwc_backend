@@ -1,7 +1,7 @@
 {
   "family": "mwc-backend",
   "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/mwcTaskRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
   "containerDefinitions": [
     {
