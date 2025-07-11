@@ -64,7 +64,7 @@ type SchoolUploadData struct {
 	} `json:"openingHours"`
 	PeopleAlsoSearch interface{} `json:"peopleAlsoSearch"`
 	PlacesTags       []string `json:"placesTags"`
-	ReviewsTags      []string `json:"reviewsTags"`
+	ReviewsTags      interface{} `json:"reviewsTags"`
 	AdditionalInfo   struct {
 		Accessibility []struct {
 			Key   string `json:"key"`
