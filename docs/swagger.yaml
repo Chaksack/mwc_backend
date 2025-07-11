@@ -296,10 +296,7 @@ definitions:
         type: integer
       reviewsCount:
         type: integer
-      reviewsTags:
-        items:
-          type: string
-        type: array
+      reviewsTags: {}
       scrapedAt:
         type: string
       searchPageUrl:
@@ -2726,6 +2723,85 @@ paths:
       tags:
       - institution
       - schools
+  /institutions/{id}:
+    get:
+      description: Retrieves basic public information about an institution
+      parameters:
+      - description: Institution ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Institution public details
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Institution not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get institution public details
+      tags:
+      - institution
+      - public
+  /institutions/{id}/details:
+    get:
+      description: Retrieves detailed information about an institution (requires subscription)
+      parameters:
+      - description: Institution ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Institution details
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Subscription required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Institution not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get institution details
+      tags:
+      - institution
   /jobs:
     get:
       description: Retrieves all active job postings in the system

@@ -65,6 +65,7 @@ func SetupRoutes(
 	apiV1.Post("/login", authHandler.Login)
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db)) // Publicly searchable schools
 	apiV1.Get("/jobs", institutionHandler.GetAllJobs) // Publicly searchable jobs
+	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
 
 	// Auth Middleware
 	authMw := middleware.Protected(cfg.JWTSecret)
@@ -122,6 +123,9 @@ func SetupRoutes(
 	subscriptionRoutes.Post("/checkout", subscriptionHandler.CreateCheckoutSession)
 	subscriptionRoutes.Get("/status", subscriptionHandler.GetUserSubscription)
 	subscriptionRoutes.Post("/cancel", subscriptionHandler.CancelSubscription)
+
+	// Protected routes that require authentication
+	apiV1.Get("/institutions/:id/details", authMw, institutionHandler.GetInstitutionDetails) // Detailed institution info (requires subscription)
 
 	// Review Routes
 	reviewRoutes := apiV1.Group("/reviews", authMw)

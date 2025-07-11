@@ -649,3 +649,101 @@ func (h *InstitutionHandler) GetMyJobs(c *fiber.Ctx) error {
 		},
 	})
 }
+
+// GetInstitutionPublicDetails retrieves public details of an institution.
+// @Summary Get institution public details
+// @Description Retrieves basic public information about an institution
+// @Tags institution,public
+// @Produce json
+// @Param id path int true "Institution ID"
+// @Success 200 {object} map[string]interface{} "Institution public details"
+// @Failure 404 {object} map[string]string "Institution not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /institutions/{id} [get]
+func (h *InstitutionHandler) GetInstitutionPublicDetails(c *fiber.Ctx) error {
+	institutionIDStr := c.Params("id")
+	institutionID, err := strconv.ParseUint(institutionIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid institution ID format"})
+	}
+
+	var institutionProfile models.InstitutionProfile
+	if err := h.db.Where("id = ?", uint(institutionID)).Preload("User").First(&institutionProfile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Institution not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve institution: " + err.Error()})
+	}
+
+	// Return only public information
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"id":               institutionProfile.ID,
+		"institution_name": institutionProfile.InstitutionName,
+		"is_verified":      institutionProfile.IsVerified,
+		"created_at":       institutionProfile.CreatedAt,
+	})
+}
+
+// GetInstitutionDetails retrieves detailed information about an institution.
+// @Summary Get institution details
+// @Description Retrieves detailed information about an institution (requires subscription)
+// @Tags institution
+// @Produce json
+// @Param id path int true "Institution ID"
+// @Success 200 {object} map[string]interface{} "Institution details"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Subscription required"
+// @Failure 404 {object} map[string]string "Institution not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /institutions/{id}/details [get]
+func (h *InstitutionHandler) GetInstitutionDetails(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Check if user has an active subscription
+	var subscription models.Subscription
+	err := h.db.Where("user_id = ? AND status = ?", userID, models.SubscriptionActive).First(&subscription).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Active subscription required to view detailed institution information"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check subscription status: " + err.Error()})
+	}
+
+	institutionIDStr := c.Params("id")
+	institutionID, err := strconv.ParseUint(institutionIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid institution ID format"})
+	}
+
+	var institutionProfile models.InstitutionProfile
+	if err := h.db.Where("id = ?", uint(institutionID)).Preload("User").Preload("School").Preload("Jobs").First(&institutionProfile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Institution not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve institution: " + err.Error()})
+	}
+
+	// Log the action
+	LogUserAction(h.db, userID, "VIEW_INSTITUTION_DETAILS", uint(institutionID), "InstitutionProfile", "Viewed institution details", c)
+
+	// Return detailed information including school and jobs
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"id":               institutionProfile.ID,
+		"institution_name": institutionProfile.InstitutionName,
+		"is_verified":      institutionProfile.IsVerified,
+		"created_at":       institutionProfile.CreatedAt,
+		"updated_at":       institutionProfile.UpdatedAt,
+		"user": fiber.Map{
+			"id":         institutionProfile.User.ID,
+			"first_name": institutionProfile.User.FirstName,
+			"last_name":  institutionProfile.User.LastName,
+			"email":      institutionProfile.User.Email,
+		},
+		"school": institutionProfile.School,
+		"jobs":   institutionProfile.Jobs,
+	})
+}

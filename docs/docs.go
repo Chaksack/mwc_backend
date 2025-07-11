@@ -3073,6 +3073,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/institutions/{id}": {
+            "get": {
+                "description": "Retrieves basic public information about an institution",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "public"
+                ],
+                "summary": "Get institution public details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Institution ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Institution public details",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Institution not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/{id}/details": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves detailed information about an institution (requires subscription)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution"
+                ],
+                "summary": "Get institution details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Institution ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Institution details",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Subscription required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Institution not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/jobs": {
             "get": {
                 "description": "Retrieves all active job postings in the system",
@@ -5213,12 +5333,7 @@ const docTemplate = `{
                 "reviewsCount": {
                     "type": "integer"
                 },
-                "reviewsTags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
+                "reviewsTags": {},
                 "scrapedAt": {
                     "type": "string"
                 },
