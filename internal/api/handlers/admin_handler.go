@@ -153,16 +153,26 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	var operationErrors []string
 
 	for _, data := range schoolsData {
-		// If countryCode is provided, filter schools by country code
-		// Use case-insensitive comparison for country codes
-		if countryCode != "" && strings.ToUpper(data.CountryCode) != strings.ToUpper(countryCode) {
-			continue
+		// If countryCode is provided, use it as a default or filter by it
+		if countryCode != "" {
+			if data.CountryCode == "" {
+				// Use the provided countryCode as a default value
+				data.CountryCode = countryCode
+			} else if strings.ToUpper(data.CountryCode) != strings.ToUpper(countryCode) {
+				// Filter out schools that don't match the provided countryCode
+				continue
+			}
 		}
 
-		// If country is provided, filter schools by country name
-		// Use case-insensitive comparison for country names
-		if country != "" && strings.ToLower(data.Country) != strings.ToLower(country) {
-			continue
+		// If country is provided, use it as a default or filter by it
+		if country != "" {
+			if data.Country == "" {
+				// Use the provided country as a default value
+				data.Country = country
+			} else if strings.ToLower(data.Country) != strings.ToLower(country) {
+				// Filter out schools that don't match the provided country
+				continue
+			}
 		}
 
 		// Validate required fields
