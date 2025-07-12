@@ -650,13 +650,30 @@ func (h *InstitutionHandler) GetMyJobs(c *fiber.Ctx) error {
 	})
 }
 
+// InstitutionPublicResponse represents the public details of an institution
+type InstitutionPublicResponse struct {
+	ID              uint      `json:"id" example:"1"`
+	InstitutionName string    `json:"institution_name" example:"Montessori Academy"`
+	IsVerified      bool      `json:"is_verified" example:"true"`
+	CreatedAt       time.Time `json:"created_at" example:"2023-01-01T12:00:00Z"`
+	SchoolLogo      string    `json:"school_logo" example:"https://example.com/school_logo.png"`
+	SchoolName      string    `json:"school_name" example:"Montessori Academy Main Campus"`
+	About           string    `json:"about" example:"A leading Montessori school dedicated to providing quality education since 1995."`
+	ContactInfo     struct {
+		Email   string `json:"email" example:"contact@montessoriacademy.example.com"`
+		Phone   string `json:"phone" example:"555-123-4567"`
+		Website string `json:"website" example:"https://montessoriacademy.example.com"`
+		Address string `json:"address" example:"123 Education St, Springfield, IL 62701, USA"`
+	} `json:"contact_info"`
+}
+
 // GetInstitutionPublicDetails retrieves public details of an institution.
 // @Summary Get institution public details
 // @Description Retrieves basic public information about an institution
 // @Tags institution,public
 // @Produce json
 // @Param id path int true "Institution ID"
-// @Success 200 {object} map[string]interface{} "Institution public details"
+// @Success 200 {object} InstitutionPublicResponse "Institution public details"
 // @Failure 404 {object} map[string]string "Institution not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /institutions/{id} [get]
@@ -676,12 +693,120 @@ func (h *InstitutionHandler) GetInstitutionPublicDetails(c *fiber.Ctx) error {
 	}
 
 	// Return only public information
+	var schoolName, schoolLogo, about string
+	var contactEmail, contactPhone, contactWebsite, contactAddress string
+
+	// If school is associated, use its information
+	if institutionProfile.School != nil {
+		schoolName = institutionProfile.School.Name
+		contactEmail = institutionProfile.School.ContactEmail
+		contactPhone = institutionProfile.School.ContactPhone
+		contactWebsite = institutionProfile.School.Website
+		contactAddress = fmt.Sprintf("%s, %s, %s %s, %s", 
+			institutionProfile.School.Address, 
+			institutionProfile.School.City, 
+			institutionProfile.School.State, 
+			institutionProfile.School.ZipCode, 
+			institutionProfile.School.Country)
+	} else {
+		// Use institution name as fallback
+		schoolName = institutionProfile.InstitutionName
+	}
+
+	// For now, these fields might not exist in the database, so we'll use placeholder values
+	// In a real implementation, these would come from the database
+	schoolLogo = "https://example.com/school_logo.png" // Placeholder
+	about = "A leading educational institution dedicated to providing quality education." // Placeholder
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"id":               institutionProfile.ID,
 		"institution_name": institutionProfile.InstitutionName,
 		"is_verified":      institutionProfile.IsVerified,
 		"created_at":       institutionProfile.CreatedAt,
+		"school_logo":      schoolLogo,
+		"school_name":      schoolName,
+		"about":            about,
+		"contact_info": fiber.Map{
+			"email":   contactEmail,
+			"phone":   contactPhone,
+			"website": contactWebsite,
+			"address": contactAddress,
+		},
 	})
+}
+
+// UserResponse represents user information in the institution details response
+type UserResponse struct {
+	ID        uint   `json:"id" example:"42"`
+	FirstName string `json:"first_name" example:"John"`
+	LastName  string `json:"last_name" example:"Doe"`
+	Email     string `json:"email" example:"john.doe@example.com"`
+}
+
+// SchoolResponse represents school information in the institution details response
+type SchoolResponse struct {
+	ID       uint   `json:"id" example:"5"`
+	Name     string `json:"name" example:"Montessori Academy Main Campus"`
+	Address  string `json:"address" example:"123 Education St"`
+	City     string `json:"city" example:"Springfield"`
+	State    string `json:"state" example:"IL"`
+	ZipCode  string `json:"zip_code" example:"62701"`
+	Country  string `json:"country" example:"USA"`
+	Phone    string `json:"phone" example:"555-123-4567"`
+	Website  string `json:"website" example:"https://montessoriacademy.example.com"`
+}
+
+// JobResponse represents job information in the institution details response
+type JobResponse struct {
+	ID           uint      `json:"id" example:"10"`
+	Title        string    `json:"title" example:"Montessori Teacher"`
+	Description  string    `json:"description" example:"Looking for an experienced Montessori teacher"`
+	Requirements string    `json:"requirements" example:"3+ years experience, Montessori certification"`
+	Location     string    `json:"location" example:"Springfield, IL"`
+	SalaryRange  string    `json:"salary_range" example:"$45,000 - $60,000"`
+	Status       string    `json:"status" example:"open"`
+	CreatedAt    time.Time `json:"created_at" example:"2023-02-01T10:00:00Z"`
+}
+
+// ReviewResponse represents a review in the institution details response
+type ReviewResponse struct {
+	ID        uint      `json:"id" example:"15"`
+	Rating    int       `json:"rating" example:"5"`
+	Comment   string    `json:"comment" example:"Excellent school with dedicated teachers and a nurturing environment."`
+	CreatedAt time.Time `json:"created_at" example:"2023-03-10T09:15:00Z"`
+	Reviewer  struct {
+		Name string `json:"name" example:"Jane Smith"`
+	} `json:"reviewer"`
+}
+
+// InstitutionDetailsResponse represents the detailed information of an institution
+type InstitutionDetailsResponse struct {
+	ID              uint           `json:"id" example:"1"`
+	InstitutionName string         `json:"institution_name" example:"Montessori Academy"`
+	IsVerified      bool           `json:"is_verified" example:"true"`
+	CreatedAt       time.Time      `json:"created_at" example:"2023-01-01T12:00:00Z"`
+	UpdatedAt       time.Time      `json:"updated_at" example:"2023-01-15T14:30:00Z"`
+	User            UserResponse   `json:"user"`
+	School          SchoolResponse `json:"school"`
+	SchoolLogo      string         `json:"school_logo" example:"https://example.com/school_logo.png"`
+	About           string         `json:"about" example:"A leading Montessori school dedicated to providing quality education since 1995."`
+	Facts           []string       `json:"facts" example:"['Founded in 1995', 'Over 500 graduates', 'Award-winning curriculum']"`
+	Programs        []struct {
+		Name        string `json:"name" example:"Early Childhood Program"`
+		Description string `json:"description" example:"For children ages 3-6, focusing on sensorial development and practical life skills."`
+	} `json:"programs"`
+	Activities      []struct {
+		Name        string `json:"name" example:"Music and Movement"`
+		Description string `json:"description" example:"Weekly music classes incorporating movement and rhythm."`
+	} `json:"activities"`
+	Philosophy      string         `json:"philosophy" example:"We believe in the Montessori method of education, which emphasizes independence, freedom within limits, and respect for a child's natural psychological, physical, and social development."`
+	Map             struct {
+		Latitude  float64 `json:"latitude" example:"39.78373"`
+		Longitude float64 `json:"longitude" example:"-89.65063"`
+		Address   string  `json:"address" example:"123 Education St, Springfield, IL 62701, USA"`
+	} `json:"map"`
+	Jobs            []JobResponse   `json:"jobs"`
+	Reviews         []ReviewResponse `json:"reviews"`
 }
 
 // GetInstitutionDetails retrieves detailed information about an institution.
@@ -690,7 +815,7 @@ func (h *InstitutionHandler) GetInstitutionPublicDetails(c *fiber.Ctx) error {
 // @Tags institution
 // @Produce json
 // @Param id path int true "Institution ID"
-// @Success 200 {object} map[string]interface{} "Institution details"
+// @Success 200 {object} InstitutionDetailsResponse "Institution details"
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 403 {object} map[string]string "Subscription required"
 // @Failure 404 {object} map[string]string "Institution not found"
@@ -730,7 +855,90 @@ func (h *InstitutionHandler) GetInstitutionDetails(c *fiber.Ctx) error {
 	// Log the action
 	LogUserAction(h.db, userID, "VIEW_INSTITUTION_DETAILS", uint(institutionID), "InstitutionProfile", "Viewed institution details", c)
 
-	// Return detailed information including school and jobs
+	// Get reviews for this school if available
+	var reviews []models.Review
+	var schoolID uint
+	if institutionProfile.School != nil {
+		schoolID = institutionProfile.School.ID
+		h.db.Where("school_id = ?", schoolID).Preload("Reviewer").Find(&reviews)
+	}
+
+	// Prepare review responses
+	var reviewResponses []fiber.Map
+	for _, review := range reviews {
+		reviewerName := ""
+		if review.Reviewer.FirstName != "" || review.Reviewer.LastName != "" {
+			reviewerName = fmt.Sprintf("%s %s", review.Reviewer.FirstName, review.Reviewer.LastName)
+		} else {
+			reviewerName = "Anonymous"
+		}
+
+		reviewResponses = append(reviewResponses, fiber.Map{
+			"id":         review.ID,
+			"rating":     review.Rating,
+			"comment":    review.Comment,
+			"created_at": review.CreatedAt,
+			"reviewer": fiber.Map{
+				"name": reviewerName,
+			},
+		})
+	}
+
+	// Prepare location/map data
+	var latitude, longitude float64
+	var address string
+	if institutionProfile.School != nil {
+		// In a real implementation, these would come from the database
+		// For now, using placeholder values
+		latitude = 39.78373  // Placeholder
+		longitude = -89.65063 // Placeholder
+
+		address = fmt.Sprintf("%s, %s, %s %s, %s", 
+			institutionProfile.School.Address, 
+			institutionProfile.School.City, 
+			institutionProfile.School.State, 
+			institutionProfile.School.ZipCode, 
+			institutionProfile.School.Country)
+	}
+
+	// For now, these fields might not exist in the database, so we'll use placeholder values
+	// In a real implementation, these would come from the database
+	schoolLogo := "https://example.com/school_logo.png" // Placeholder
+	about := "A leading educational institution dedicated to providing quality education." // Placeholder
+	philosophy := "We believe in providing a nurturing environment where students can develop their full potential." // Placeholder
+
+	// Example programs
+	programs := []fiber.Map{
+		{
+			"name": "Early Childhood Program",
+			"description": "For children ages 3-6, focusing on sensorial development and practical life skills.",
+		},
+		{
+			"name": "Elementary Program",
+			"description": "For children ages 6-12, focusing on academic excellence and social development.",
+		},
+	}
+
+	// Example activities
+	activities := []fiber.Map{
+		{
+			"name": "Music and Movement",
+			"description": "Weekly music classes incorporating movement and rhythm.",
+		},
+		{
+			"name": "Art Studio",
+			"description": "Creative expression through various art mediums.",
+		},
+	}
+
+	// Example facts
+	facts := []string{
+		"Founded in 1995",
+		"Over 500 graduates",
+		"Award-winning curriculum",
+	}
+
+	// Return detailed information including school, jobs, reviews, and additional fields
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"id":               institutionProfile.ID,
 		"institution_name": institutionProfile.InstitutionName,
@@ -743,7 +951,19 @@ func (h *InstitutionHandler) GetInstitutionDetails(c *fiber.Ctx) error {
 			"last_name":  institutionProfile.User.LastName,
 			"email":      institutionProfile.User.Email,
 		},
-		"school": institutionProfile.School,
-		"jobs":   institutionProfile.Jobs,
+		"school":      institutionProfile.School,
+		"school_logo": schoolLogo,
+		"about":       about,
+		"facts":       facts,
+		"programs":    programs,
+		"activities":  activities,
+		"philosophy":  philosophy,
+		"map": fiber.Map{
+			"latitude":  latitude,
+			"longitude": longitude,
+			"address":   address,
+		},
+		"jobs":    institutionProfile.Jobs,
+		"reviews": reviewResponses,
 	})
 }

@@ -104,6 +104,91 @@ definitions:
       featured:
         type: boolean
     type: object
+  handlers.InstitutionDetailsResponse:
+    properties:
+      about:
+        example: A leading Montessori school dedicated to providing quality education
+          since 1995.
+        type: string
+      activities:
+        items:
+          properties:
+            description:
+              example: Weekly music classes incorporating movement and rhythm.
+              type: string
+            name:
+              example: Music and Movement
+              type: string
+          type: object
+        type: array
+      created_at:
+        example: "2023-01-01T12:00:00Z"
+        type: string
+      facts:
+        example:
+        - '[''Founded in 1995'''
+        - ' ''Over 500 graduates'''
+        - ' ''Award-winning curriculum'']'
+        items:
+          type: string
+        type: array
+      id:
+        example: 1
+        type: integer
+      institution_name:
+        example: Montessori Academy
+        type: string
+      is_verified:
+        example: true
+        type: boolean
+      jobs:
+        items:
+          $ref: '#/definitions/handlers.JobResponse'
+        type: array
+      map:
+        properties:
+          address:
+            example: 123 Education St, Springfield, IL 62701, USA
+            type: string
+          latitude:
+            example: 39.78373
+            type: number
+          longitude:
+            example: -89.65063
+            type: number
+        type: object
+      philosophy:
+        example: We believe in the Montessori method of education, which emphasizes
+          independence, freedom within limits, and respect for a child's natural psychological,
+          physical, and social development.
+        type: string
+      programs:
+        items:
+          properties:
+            description:
+              example: For children ages 3-6, focusing on sensorial development and
+                practical life skills.
+              type: string
+            name:
+              example: Early Childhood Program
+              type: string
+          type: object
+        type: array
+      reviews:
+        items:
+          $ref: '#/definitions/handlers.ReviewResponse'
+        type: array
+      school:
+        $ref: '#/definitions/handlers.SchoolResponse'
+      school_logo:
+        example: https://example.com/school_logo.png
+        type: string
+      updated_at:
+        example: "2023-01-15T14:30:00Z"
+        type: string
+      user:
+        $ref: '#/definitions/handlers.UserResponse'
+    type: object
   handlers.InstitutionProfileRequest:
     properties:
       institution_name:
@@ -113,6 +198,46 @@ definitions:
         type: string
     required:
     - institution_name
+    type: object
+  handlers.InstitutionPublicResponse:
+    properties:
+      about:
+        example: A leading Montessori school dedicated to providing quality education
+          since 1995.
+        type: string
+      contact_info:
+        properties:
+          address:
+            example: 123 Education St, Springfield, IL 62701, USA
+            type: string
+          email:
+            example: contact@montessoriacademy.example.com
+            type: string
+          phone:
+            example: 555-123-4567
+            type: string
+          website:
+            example: https://montessoriacademy.example.com
+            type: string
+        type: object
+      created_at:
+        example: "2023-01-01T12:00:00Z"
+        type: string
+      id:
+        example: 1
+        type: integer
+      institution_name:
+        example: Montessori Academy
+        type: string
+      is_verified:
+        example: true
+        type: boolean
+      school_logo:
+        example: https://example.com/school_logo.png
+        type: string
+      school_name:
+        example: Montessori Academy Main Campus
+        type: string
     type: object
   handlers.JobRequest:
     properties:
@@ -132,6 +257,33 @@ definitions:
     required:
     - description
     - title
+    type: object
+  handlers.JobResponse:
+    properties:
+      created_at:
+        example: "2023-02-01T10:00:00Z"
+        type: string
+      description:
+        example: Looking for an experienced Montessori teacher
+        type: string
+      id:
+        example: 10
+        type: integer
+      location:
+        example: Springfield, IL
+        type: string
+      requirements:
+        example: 3+ years experience, Montessori certification
+        type: string
+      salary_range:
+        example: $45,000 - $60,000
+        type: string
+      status:
+        example: open
+        type: string
+      title:
+        example: Montessori Teacher
+        type: string
     type: object
   handlers.LoginRequest:
     properties:
@@ -198,6 +350,57 @@ definitions:
     - last_name
     - password
     - role
+    type: object
+  handlers.ReviewResponse:
+    properties:
+      comment:
+        example: Excellent school with dedicated teachers and a nurturing environment.
+        type: string
+      created_at:
+        example: "2023-03-10T09:15:00Z"
+        type: string
+      id:
+        example: 15
+        type: integer
+      rating:
+        example: 5
+        type: integer
+      reviewer:
+        properties:
+          name:
+            example: Jane Smith
+            type: string
+        type: object
+    type: object
+  handlers.SchoolResponse:
+    properties:
+      address:
+        example: 123 Education St
+        type: string
+      city:
+        example: Springfield
+        type: string
+      country:
+        example: USA
+        type: string
+      id:
+        example: 5
+        type: integer
+      name:
+        example: Montessori Academy Main Campus
+        type: string
+      phone:
+        example: 555-123-4567
+        type: string
+      state:
+        example: IL
+        type: string
+      website:
+        example: https://montessoriacademy.example.com
+        type: string
+      zip_code:
+        example: "62701"
+        type: string
     type: object
   handlers.SchoolUploadData:
     properties:
@@ -284,10 +487,7 @@ definitions:
         type: string
       placeId:
         type: string
-      placesTags:
-        items:
-          type: string
-        type: array
+      placesTags: {}
       postalCode:
         type: string
       price:
@@ -326,6 +526,21 @@ definitions:
         type: integer
       sender_id:
         type: integer
+    type: object
+  handlers.UserResponse:
+    properties:
+      email:
+        example: john.doe@example.com
+        type: string
+      first_name:
+        example: John
+        type: string
+      id:
+        example: 42
+        type: integer
+      last_name:
+        example: Doe
+        type: string
     type: object
   handlers.UserRoleUpdateRequest:
     properties:
@@ -2738,8 +2953,7 @@ paths:
         "200":
           description: Institution public details
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/handlers.InstitutionPublicResponse'
         "404":
           description: Institution not found
           schema:
@@ -2771,8 +2985,7 @@ paths:
         "200":
           description: Institution details
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/handlers.InstitutionDetailsResponse'
         "401":
           description: Unauthorized
           schema:

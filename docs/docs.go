@@ -3097,8 +3097,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Institution public details",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/handlers.InstitutionPublicResponse"
                         }
                     },
                     "404": {
@@ -3150,8 +3149,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Institution details",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/handlers.InstitutionDetailsResponse"
                         }
                     },
                     "401": {
@@ -5038,6 +5036,121 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.InstitutionDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "about": {
+                    "type": "string",
+                    "example": "A leading Montessori school dedicated to providing quality education since 1995."
+                },
+                "activities": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "example": "Weekly music classes incorporating movement and rhythm."
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Music and Movement"
+                            }
+                        }
+                    }
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T12:00:00Z"
+                },
+                "facts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "['Founded in 1995'",
+                        " 'Over 500 graduates'",
+                        " 'Award-winning curriculum']"
+                    ]
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "institution_name": {
+                    "type": "string",
+                    "example": "Montessori Academy"
+                },
+                "is_verified": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.JobResponse"
+                    }
+                },
+                "map": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string",
+                            "example": "123 Education St, Springfield, IL 62701, USA"
+                        },
+                        "latitude": {
+                            "type": "number",
+                            "example": 39.78373
+                        },
+                        "longitude": {
+                            "type": "number",
+                            "example": -89.65063
+                        }
+                    }
+                },
+                "philosophy": {
+                    "type": "string",
+                    "example": "We believe in the Montessori method of education, which emphasizes independence, freedom within limits, and respect for a child's natural psychological, physical, and social development."
+                },
+                "programs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "example": "For children ages 3-6, focusing on sensorial development and practical life skills."
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Early Childhood Program"
+                            }
+                        }
+                    }
+                },
+                "reviews": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.ReviewResponse"
+                    }
+                },
+                "school": {
+                    "$ref": "#/definitions/handlers.SchoolResponse"
+                },
+                "school_logo": {
+                    "type": "string",
+                    "example": "https://example.com/school_logo.png"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-01-15T14:30:00Z"
+                },
+                "user": {
+                    "$ref": "#/definitions/handlers.UserResponse"
+                }
+            }
+        },
         "handlers.InstitutionProfileRequest": {
             "type": "object",
             "required": [
@@ -5050,6 +5163,60 @@ const docTemplate = `{
                 "verification_docs": {
                     "description": "URL or path",
                     "type": "string"
+                }
+            }
+        },
+        "handlers.InstitutionPublicResponse": {
+            "type": "object",
+            "properties": {
+                "about": {
+                    "type": "string",
+                    "example": "A leading Montessori school dedicated to providing quality education since 1995."
+                },
+                "contact_info": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string",
+                            "example": "123 Education St, Springfield, IL 62701, USA"
+                        },
+                        "email": {
+                            "type": "string",
+                            "example": "contact@montessoriacademy.example.com"
+                        },
+                        "phone": {
+                            "type": "string",
+                            "example": "555-123-4567"
+                        },
+                        "website": {
+                            "type": "string",
+                            "example": "https://montessoriacademy.example.com"
+                        }
+                    }
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T12:00:00Z"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "institution_name": {
+                    "type": "string",
+                    "example": "Montessori Academy"
+                },
+                "is_verified": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "school_logo": {
+                    "type": "string",
+                    "example": "https://example.com/school_logo.png"
+                },
+                "school_name": {
+                    "type": "string",
+                    "example": "Montessori Academy Main Campus"
                 }
             }
         },
@@ -5078,6 +5245,43 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.JobResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-02-01T10:00:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Looking for an experienced Montessori teacher"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "location": {
+                    "type": "string",
+                    "example": "Springfield, IL"
+                },
+                "requirements": {
+                    "type": "string",
+                    "example": "3+ years experience, Montessori certification"
+                },
+                "salary_range": {
+                    "type": "string",
+                    "example": "$45,000 - $60,000"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "open"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Montessori Teacher"
                 }
             }
         },
@@ -5178,6 +5382,77 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.UserRole"
                         }
                     ]
+                }
+            }
+        },
+        "handlers.ReviewResponse": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string",
+                    "example": "Excellent school with dedicated teachers and a nurturing environment."
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-03-10T09:15:00Z"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 15
+                },
+                "rating": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "reviewer": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "example": "Jane Smith"
+                        }
+                    }
+                }
+            }
+        },
+        "handlers.SchoolResponse": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "123 Education St"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Springfield"
+                },
+                "country": {
+                    "type": "string",
+                    "example": "USA"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Montessori Academy Main Campus"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "555-123-4567"
+                },
+                "state": {
+                    "type": "string",
+                    "example": "IL"
+                },
+                "website": {
+                    "type": "string",
+                    "example": "https://montessoriacademy.example.com"
+                },
+                "zip_code": {
+                    "type": "string",
+                    "example": "62701"
                 }
             }
         },
@@ -5315,12 +5590,7 @@ const docTemplate = `{
                 "placeId": {
                     "type": "string"
                 },
-                "placesTags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
+                "placesTags": {},
                 "postalCode": {
                     "type": "string"
                 },
@@ -5371,6 +5641,27 @@ const docTemplate = `{
                 },
                 "sender_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.UserResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "john.doe@example.com"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "John"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Doe"
                 }
             }
         },
