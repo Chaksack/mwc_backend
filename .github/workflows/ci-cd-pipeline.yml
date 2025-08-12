@@ -1,0 +1,633 @@
+name: CI/CD Pipeline with Security Analysis
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: ${{ secrets.ECR || 'mwc-backend' }}
+  ECS_CLUSTER: mwc-cluster
+  ECS_SERVICE: mwc-backend-service
+  ECS_TASK_DEFINITION: mwc-backend
+  CONTAINER_NAME: mwc-backend
+  IMAGE_TAG: latest
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+jobs:
+  # Security Analysis with CodeQL
+  security-analysis:
+    name: Security Analysis (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'go' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Override language selection by uncommenting this and choosing your languages
+        # languages: go, javascript, csharp, python, cpp, java, ruby
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Build for CodeQL analysis
+      run: |
+        go mod tidy
+        go build -v ./...
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+
+  # Code Quality Analysis
+  code-quality:
+    name: Code Quality (SonarQube)
+    runs-on: ubuntu-latest
+    needs: security-analysis
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for better relevancy of analysis
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Run tests with coverage
+      run: |
+        go mod tidy
+        go test ./... -coverprofile=coverage.out
+
+    - name: SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      with:
+        args: >
+          -Dsonar.projectKey=mwc_backend
+          -Dsonar.projectName=MWC Backend
+          -Dsonar.sources=.
+          -Dsonar.go.coverage.reportPaths=coverage.out
+          -Dsonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/**
+
+    - name: SonarQube Quality Gate check
+      uses: SonarSource/sonarqube-quality-gate-action@master
+      timeout-minutes: 5
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+    - name: Send Slack notification - Code Quality Success
+      if: success()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: code-quality
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ✅ Code quality analysis passed for ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Commit:* ${{ github.sha }}
+          *Check the [SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=mwc_backend) for more details*
+        SLACK_TITLE: Code Quality Analysis Success
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Send Slack notification - Code Quality Failure
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: code-quality
+        SLACK_COLOR: danger
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ❌ Code quality analysis failed for ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Commit:* ${{ github.sha }}
+          *Check the [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details*
+        SLACK_TITLE: Code Quality Analysis Failure
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Build and Push Docker Image
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    needs: [security-analysis, code-quality]
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod') || 'staging' }}
+
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+      environment: ${{ env.ENVIRONMENT }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Create ECR repository if it doesn't exist
+      run: |
+        if ! aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null; then
+          echo "Repository ${{ env.ECR_REPOSITORY }} does not exist. Creating it..."
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
+        else
+          echo "Repository ${{ env.ECR_REPOSITORY }} already exists."
+        fi
+
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build and tag image for Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        ENV_TAG=${{ env.ENVIRONMENT }}
+        echo "Building Docker image for $ENV_TAG environment..."
+
+        docker buildx build \
+          --cache-from=type=local,src=/tmp/.buildx-cache \
+          --cache-to=type=local,dest=/tmp/.buildx-cache-new \
+          --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
+          --build-arg RABBITMQ_URL=${{ secrets.RABBITMQ_URL }} \
+          --build-arg RABBITMQ_USE_TLS=true \
+          --build-arg JWT_SECRET=${{ secrets.JWT_SECRET }} \
+          --build-arg SMTP_HOST=${{ secrets.SMTP_HOST }} \
+          --build-arg SMTP_PORT=${{ secrets.SMTP_PORT }} \
+          --build-arg SMTP_USER=${{ secrets.SMTP_USER }} \
+          --build-arg SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
+          --build-arg EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
+          --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+          --build-arg STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+          --build-arg STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+          --build-arg STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }} \
+          --build-arg STRIPE_ANNUAL_PRICE_ID=${{ secrets.STRIPE_ANNUAL_PRICE_ID }} \
+          --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+          --tag $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
+          --push \
+          --file Dockerfile \
+          .
+
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG" >> $GITHUB_OUTPUT
+
+        # Clean up cache
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+    - name: Send Slack notification - Build Success
+      if: success()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ✅ Successfully built and pushed Docker image
+          *Environment:* ${{ env.ENVIRONMENT }}
+          *Image:* ${{ steps.build-image.outputs.image }}
+          *Repository:* ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Commit:* ${{ github.sha }}
+        SLACK_TITLE: Docker Build Success
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Send Slack notification - Build Failure
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: danger
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ❌ Failed to build and push Docker image
+          *Environment:* ${{ env.ENVIRONMENT }}
+          *Repository:* ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Check the [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details*
+        SLACK_TITLE: Docker Build Failure
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Trivy Security Scanning
+  trivy-scan:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: success()
+
+    env:
+      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Run Trivy vulnerability scanner (Image)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-and-push.outputs.image }}
+        format: 'sarif'
+        output: 'trivy-image-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-image-results.sarif'
+
+    - name: Run Trivy vulnerability scanner (Filesystem)
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-fs-results.sarif'
+
+    - name: Upload Trivy filesystem scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-fs-results.sarif'
+
+    - name: Run Trivy vulnerability scanner (Config/IaC)
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-config-results.sarif'
+
+    - name: Upload Trivy config scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-config-results.sarif'
+
+    - name: Run Trivy vulnerability scanner (Summary)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-and-push.outputs.image }}
+        format: 'table'
+        output: 'trivy-summary.txt'
+
+    - name: Display Trivy scan summary
+      if: always()
+      run: |
+        echo "## Trivy Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "### Container Image Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        cat trivy-summary.txt >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+    - name: Check for HIGH/CRITICAL vulnerabilities
+      id: trivy-check
+      run: |
+        # Check if there are any HIGH or CRITICAL vulnerabilities
+        if grep -q -E "(HIGH|CRITICAL)" trivy-summary.txt; then
+          echo "high_critical_found=true" >> $GITHUB_OUTPUT
+          echo "❌ HIGH or CRITICAL vulnerabilities found!"
+          exit 1
+        else
+          echo "high_critical_found=false" >> $GITHUB_OUTPUT
+          echo "✅ No HIGH or CRITICAL vulnerabilities found!"
+        fi
+
+    - name: Send Slack notification - Trivy Success
+      if: success()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ✅ Trivy security scan passed for ${{ github.repository }}
+          *Environment:* ${{ env.ENVIRONMENT }}
+          *Image:* ${{ needs.build-and-push.outputs.image }}
+          *Branch:* ${{ github.ref_name }}
+          *No HIGH or CRITICAL vulnerabilities found*
+        SLACK_TITLE: Trivy Security Scan Success
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Send Slack notification - Trivy Failure
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: danger
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ❌ Trivy security scan failed for ${{ github.repository }}
+          *Environment:* ${{ env.ENVIRONMENT }}
+          *Image:* ${{ needs.build-and-push.outputs.image }}
+          *Branch:* ${{ github.ref_name }}
+          *HIGH or CRITICAL vulnerabilities found - check the [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) and Security tab for details*
+        SLACK_TITLE: Trivy Security Scan Failure
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Deploy to AWS ECS
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: [build-and-push, trivy-scan]
+    if: success() && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+
+    env:
+      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Get AWS account ID
+      id: get-aws-account
+      run: |
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "aws_account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+
+    - name: Prepare task definition
+      run: |
+        sed -i "s/ACCOUNT_ID/${{ steps.get-aws-account.outputs.aws_account_id }}/g" task-definition.json
+
+    - name: Replace environment variables with GitHub secrets
+      run: |
+        sed -i "s/DATABASE_URL_PLACEHOLDER/${{ secrets.DATABASE_URL }}/g" task-definition.json
+        sed -i "s/RABBITMQ_URL_PLACEHOLDER/${{ secrets.RABBITMQ_URL }}/g" task-definition.json
+        sed -i "s/JWT_SECRET_PLACEHOLDER/${{ secrets.JWT_SECRET }}/g" task-definition.json
+        sed -i "s/SMTP_HOST_PLACEHOLDER/${{ secrets.SMTP_HOST }}/g" task-definition.json
+        sed -i "s/SMTP_PORT_PLACEHOLDER/${{ secrets.SMTP_PORT }}/g" task-definition.json
+        sed -i "s/SMTP_USER_PLACEHOLDER/${{ secrets.SMTP_USER }}/g" task-definition.json
+        sed -i "s/SMTP_PASSWORD_PLACEHOLDER/${{ secrets.SMTP_PASSWORD }}/g" task-definition.json
+        sed -i "s/EMAIL_FROM_PLACEHOLDER/${{ secrets.EMAIL_FROM }}/g" task-definition.json
+        sed -i "s/STRIPE_SECRET_KEY_PLACEHOLDER/${{ secrets.STRIPE_SECRET_KEY }}/g" task-definition.json
+        sed -i "s/STRIPE_PUBLISHABLE_KEY_PLACEHOLDER/${{ secrets.STRIPE_PUBLISHABLE_KEY }}/g" task-definition.json
+        sed -i "s/STRIPE_WEBHOOK_SECRET_PLACEHOLDER/${{ secrets.STRIPE_WEBHOOK_SECRET }}/g" task-definition.json
+        sed -i "s/STRIPE_MONTHLY_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_MONTHLY_PRICE_ID }}/g" task-definition.json
+        sed -i "s/STRIPE_ANNUAL_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_ANNUAL_PRICE_ID }}/g" task-definition.json
+
+    - name: Update container image
+      id: update-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: mwc-backend
+        IMAGE_TAG: ${{ env.ENVIRONMENT }}
+        AWS_ACCOUNT_ID: ${{ steps.get-aws-account.outputs.aws_account_id }}
+      run: |
+        NEW_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        sed -i "s|$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPOSITORY:[^ \"]*|$NEW_IMAGE|g" task-definition.json
+        echo "image=$NEW_IMAGE" >> $GITHUB_OUTPUT
+
+    - name: Register new task definition
+      id: register-task
+      run: |
+        NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://task-definition.json)
+        NEW_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
+        echo "revision=$NEW_REVISION" >> $GITHUB_OUTPUT
+
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --service ${{ env.ECS_SERVICE }} \
+          --task-definition ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }} \
+          --force-new-deployment
+
+    - name: Wait for service stability
+      run: |
+        aws ecs wait services-stable \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_SERVICE }}
+
+    - name: Send Slack notification - Deploy Success
+      if: success()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ✅ Successfully deployed to ECS in ${{ env.ENVIRONMENT }} environment
+          *Cluster:* ${{ env.ECS_CLUSTER }}
+          *Service:* ${{ env.ECS_SERVICE }}
+          *Task Definition:* ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }}
+          *Image:* ${{ steps.update-image.outputs.image }}
+        SLACK_TITLE: ECS Deployment Success
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Send Slack notification - Deploy Failure
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: danger
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ❌ Failed to deploy to ECS in ${{ env.ENVIRONMENT }} environment
+          *Repository:* ${{ github.repository }}
+          *Workflow:* ${{ github.workflow }}
+          *Check the [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details*
+        SLACK_TITLE: ECS Deployment Failure
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Setup Monitoring (Prometheus & AlertManager)
+  setup-monitoring:
+    name: Setup Monitoring
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+
+    env:
+      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Create Prometheus config
+      run: |
+        mkdir -p prometheus-config
+        cat > prometheus-config/prometheus.yml <<EOF
+        global:
+          scrape_interval: 15s
+          evaluation_interval: 15s
+
+        alerting:
+          alertmanagers:
+            - static_configs:
+                - targets: ['alertmanager:9093']
+
+        rule_files:
+          - "alert_rules.yml"
+
+        scrape_configs:
+          - job_name: 'mwc-backend'
+            metrics_path: '/metrics/prometheus'
+            static_configs:
+              - targets: ['mwc-backend:8080']
+        EOF
+
+    - name: Create AlertManager config
+      run: |
+        mkdir -p alertmanager-config
+        cat > alertmanager-config/alertmanager.yml <<EOF
+        global:
+          slack_api_url: '${{ secrets.SLACK_WEBHOOK }}'
+          resolve_timeout: 5m
+
+        route:
+          group_by: ['alertname', 'job']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+          receiver: 'slack-notifications'
+
+        receivers:
+          - name: 'slack-notifications'
+            slack_configs:
+              - channel: '#alerts'
+                send_resolved: true
+                title: '{{ .Status | toUpper }} {{ .CommonLabels.alertname }}'
+                text: >-
+                  {{ range .Alerts }}
+                    *Alert:* {{ .Annotations.summary }}
+                    *Description:* {{ .Annotations.description }}
+                    *Severity:* {{ .Labels.severity }}
+                    *Started:* {{ .StartsAt }}
+                  {{ end }}
+        EOF
+
+    - name: Create Alert Rules
+      run: |
+        cat > prometheus-config/alert_rules.yml <<EOF
+        groups:
+          - name: mwc-backend
+            rules:
+              - alert: HighMemoryUsage
+                expr: process_resident_memory_bytes / 1024 / 1024 > 500
+                for: 5m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: High memory usage detected
+                  description: "Memory usage is above 500MB for 5 minutes"
+
+              - alert: HighCPUUsage
+                expr: process_cpu_seconds_total > 10
+                for: 5m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: High CPU usage detected
+                  description: "CPU usage is high for 5 minutes"
+
+              - alert: ServiceDown
+                expr: up == 0
+                for: 1m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: Service is down
+                  description: "Service has been down for more than 1 minute"
+        EOF
+
+    - name: Send monitoring setup notification
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: monitoring
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          📊 Monitoring setup completed for ${{ github.repository }}
+          *Environment:* ${{ env.ENVIRONMENT }}
+          *Prometheus and AlertManager configurations updated*
+        SLACK_TITLE: Monitoring Setup Complete
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
