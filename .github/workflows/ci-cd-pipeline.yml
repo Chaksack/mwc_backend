@@ -73,7 +73,6 @@ jobs:
   code-quality:
     name: Code Quality (SonarQube)
     runs-on: ubuntu-latest
-    needs: deploy-sonarqube
 
     steps:
     - name: 📥 Step 1 - Checkout Source Code with Full History
@@ -272,7 +271,7 @@ jobs:
   slack-notification-build-success:
     name: Docker Build Success
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-and-push-app
     if: success()
     steps:
     - name: Notify Slack Build Success
@@ -295,7 +294,7 @@ jobs:
   slack-notification-build-failure:
     name: Docker Build Failure
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-and-push-app
     if: failure()
     steps:
     - name: Notify Slack Build Failure
@@ -317,7 +316,7 @@ jobs:
   email-notification-build-failure:
     name: Docker Build Failed
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-and-push-app
     if: failure()
     steps:
     - name: Send Email Build Failure
@@ -353,11 +352,11 @@ jobs:
   trivy-scan:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-and-push-app
     if: success()
 
     env:
-      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+      ENVIRONMENT: ${{ needs.build-and-push-app.outputs.environment }}
 
     steps:
     - name: 📥 Step 1 - Checkout Source Code for Security Scanning
@@ -532,11 +531,11 @@ jobs:
   deploy:
     name: Deploy to ECS
     runs-on: ubuntu-latest
-    needs: [build-and-push, trivy-scan]
+    needs: [build-and-push-app, trivy-scan]
     if: success() && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
 
     env:
-      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+      ENVIRONMENT: ${{ needs.build-and-push-app.outputs.environment }}
 
     steps:
     - name: 📥 Step 1 - Checkout Application Source Code for Deployment
