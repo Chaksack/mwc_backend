@@ -110,9 +110,13 @@ jobs:
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-    - name: 📢 Step 6 - Notify Success - Code Quality Passed
-      if: success()
+  slack-notification-success:
+    name: Code Quality Analysis Success
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: success()
+    steps:
+    - name: Notify Slack Success
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: code-quality
@@ -127,8 +131,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 🚨 Step 7 - Notify Failure - Code Quality Failed
-      if: failure()
+  slack-notification-failure:
+    name: Code Quality Analysis Failure
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: failure()
+    steps:
+    - name: Notify Slack Failure
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: code-quality
@@ -143,8 +152,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 📧 Step 8 - Send Email Notification - Code Quality Failed
-      if: failure()
+  email-notification:
+    name: Code Quality Analysis Failed
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: failure()
+    steps:
+    - name: Send Email Notification
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_HOST }}
@@ -255,9 +269,13 @@ jobs:
         # Clean up cache
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-    - name: 📢 Step 8 - Notify Success - Docker Image Built and Pushed
-      if: success()
+  slack-notification-build-success:
+    name: Docker Build Success
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: success()
+    steps:
+    - name: Notify Slack Build Success
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -274,8 +292,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 🚨 Step 9 - Notify Failure - Docker Build Failed
-      if: failure()
+  slack-notification-build-failure:
+    name: Docker Build Failure
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: failure()
+    steps:
+    - name: Notify Slack Build Failure
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -291,8 +314,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 📧 Step 10 - Send Email Notification - Docker Build Failed
-      if: failure()
+  email-notification-build-failure:
+    name: Docker Build Failed
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: failure()
+    steps:
+    - name: Send Email Build Failure
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_HOST }}
@@ -415,9 +443,13 @@ jobs:
           echo "high_critical_found=false" >> $GITHUB_OUTPUT
           echo "✅ No HIGH or CRITICAL vulnerabilities found!"
         fi
-
-    - name: 📢 Step 13 - Notify Success - Security Scan Passed
-      if: success()
+  slack-notification-trivy-success:
+    name: Trivy Security Scan Success
+    runs-on: ubuntu-latest
+    needs: trivy-scan
+    if: success()
+    steps:
+    - name: Notify Slack Trivy Success
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -433,8 +465,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 🚨 Step 14 - Notify Failure - Critical Vulnerabilities Found
-      if: failure()
+  slack-notification-trivy-failure:
+    name: Trivy Security Scan Failure
+    runs-on: ubuntu-latest
+    needs: trivy-scan
+    if: failure()
+    steps:
+    - name: Notify Slack Trivy Failure
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -450,8 +487,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 📧 Step 15 - Send Email Notification - Critical Vulnerabilities Found
-      if: failure()
+  email-notification-trivy:
+    name: Critical Vulnerabilities Found
+    runs-on: ubuntu-latest
+    needs: trivy-scan
+    if: failure()
+    steps:
+    - name: Send Email Trivy Alert
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_HOST }}
@@ -570,8 +612,13 @@ jobs:
           --cluster ${{ env.ECS_CLUSTER }} \
           --services ${{ env.ECS_SERVICE }}
 
-    - name: 📢 Step 11 - Notify Success - Application Deployed Successfully
-      if: success()
+  slack-notification-deploy-success:
+    name: ECS Deployment Success
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+    steps:
+    - name: Notify Slack Deploy Success
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -587,8 +634,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 🚨 Step 12 - Notify Failure - Application Deployment Failed
-      if: failure()
+  slack-notification-deploy-failure:
+    name: ECS Deployment Failure
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+    steps:
+    - name: Notify Slack Deploy Failure
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -603,8 +655,13 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: 📧 Step 13 - Send Email Notification - Deployment Failed
-      if: failure()
+  email-notification-deploy-failure:
+    name: Deployment Failed
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+    steps:
+    - name: Send Email Deploy Failure
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_HOST }}
@@ -640,8 +697,13 @@ jobs:
 
           This is an automated notification from GitHub Actions.
 
-    - name: 📧 Step 14 - Send Email Notification - Production Deployment Success
-      if: success() && env.ENVIRONMENT == 'prod'
+  email-notification-prod-success:
+    name: Production Deployment Success
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success() && env.ENVIRONMENT == 'prod'
+    steps:
+    - name: Send Email Prod Success
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_HOST }}
@@ -774,7 +836,13 @@ jobs:
           --cluster ${{ env.ECS_CLUSTER }} \
           --services ${{ env.ECS_SONAR_SERVICE }}
 
-    - name: 📢 Step 9 - Notify Success - SonarQube Deployed Successfully
+  slack-notification-sonar-success:
+    name: SonarQube ECS Deployment Success
+    runs-on: ubuntu-latest
+    needs: deploy-sonarqube
+    if: success()
+    steps:
+    - name: Notify Slack SonarQube Success
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: deployments
@@ -946,7 +1014,13 @@ jobs:
           --cluster ${{ env.ECS_CLUSTER }} \
           --services ${{ env.ECS_PROMETHEUS_SERVICE }}
 
-    - name: 📢 Step 9 - Notify Success - Prometheus and AlertManager Deployed Successfully
+  slack-notification-prometheus-success:
+    name: Prometheus ECS Deployment Success
+    runs-on: ubuntu-latest
+    needs: deploy-prometheus
+    if: success()
+    steps:
+    - name: Notify Slack Prometheus Success
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: monitoring
