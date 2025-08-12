@@ -376,7 +376,7 @@ jobs:
     - name: 🛡️ Step 4 - Run Trivy Container Image Vulnerability Scan
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ needs.build-and-push.outputs.image }}
+        image-ref: ${{ needs.build-and-push-app.outputs.image }}
         format: 'sarif'
         output: 'trivy-image-results.sarif'
 
@@ -417,7 +417,7 @@ jobs:
     - name: 📋 Step 10 - Generate Trivy Security Scan Summary Report
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ needs.build-and-push.outputs.image }}
+        image-ref: ${{ needs.build-and-push-app.outputs.image }}
         format: 'table'
         output: 'trivy-summary.txt'
 
@@ -864,7 +864,7 @@ jobs:
     if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
 
     env:
-      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+      ENVIRONMENT: ${{ needs.build-and-push-app.outputs.environment }}
       ECS_PROMETHEUS_SERVICE: mwc-prometheus-service
       ECS_PROMETHEUS_TASK_DEFINITION: mwc-prometheus
 
