@@ -43,27 +43,27 @@ jobs:
         language: [ 'go' ]
 
     steps:
-    - name: Checkout repository
+    - name: 🔍 Step 1 - Checkout Source Code for Security Analysis
       uses: actions/checkout@v4
 
-    - name: Initialize CodeQL
+    - name: 🛡️ Step 2 - Initialize CodeQL Security Scanner
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         # Override language selection by uncommenting this and choosing your languages
         # languages: go, javascript, csharp, python, cpp, java, ruby
 
-    - name: Set up Go
+    - name: ⚙️ Step 3 - Setup Go Development Environment
       uses: actions/setup-go@v4
       with:
         go-version: '1.23'
 
-    - name: Build for CodeQL analysis
+    - name: 🔨 Step 4 - Build Application for Security Analysis
       run: |
         go mod tidy
         go build -v ./...
 
-    - name: Perform CodeQL Analysis
+    - name: 🔬 Step 5 - Execute CodeQL Security Analysis
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
@@ -75,22 +75,22 @@ jobs:
     needs: security-analysis
 
     steps:
-    - name: Checkout code
+    - name: 📥 Step 1 - Checkout Source Code with Full History
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Shallow clones should be disabled for better relevancy of analysis
 
-    - name: Set up Go
+    - name: ⚙️ Step 2 - Setup Go Development Environment
       uses: actions/setup-go@v4
       with:
         go-version: '1.23'
 
-    - name: Run tests with coverage
+    - name: 🧪 Step 3 - Execute Tests with Coverage Analysis
       run: |
         go mod tidy
         go test ./... -coverprofile=coverage.out
 
-    - name: SonarQube Scan
+    - name: 📊 Step 4 - Run SonarQube Code Quality Scan
       uses: SonarSource/sonarqube-scan-action@master
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -103,14 +103,14 @@ jobs:
           -Dsonar.go.coverage.reportPaths=coverage.out
           -Dsonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/**
 
-    - name: SonarQube Quality Gate check
+    - name: ✅ Step 5 - Verify SonarQube Quality Gate Status
       uses: SonarSource/sonarqube-quality-gate-action@master
       timeout-minutes: 5
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-    - name: Send Slack notification - Code Quality Success
+    - name: 📢 Step 6 - Notify Success - Code Quality Passed
       if: success()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -126,7 +126,7 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: Send Slack notification - Code Quality Failure
+    - name: 🚨 Step 7 - Notify Failure - Code Quality Failed
       if: failure()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -157,24 +157,24 @@ jobs:
       environment: ${{ env.ENVIRONMENT }}
 
     steps:
-    - name: Checkout code
+    - name: 📥 Step 1 - Checkout Application Source Code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
+    - name: 🐳 Step 2 - Setup Docker Buildx for Multi-Platform Builds
       uses: docker/setup-buildx-action@v3
 
-    - name: Configure AWS credentials
+    - name: 🔑 Step 3 - Configure AWS Credentials for ECR Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Login to Amazon ECR
+    - name: 🚪 Step 4 - Authenticate with Amazon ECR Registry
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Create ECR repository if it doesn't exist
+    - name: 📦 Step 5 - Create ECR Repository if Missing
       run: |
         if ! aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null; then
           echo "Repository ${{ env.ECR_REPOSITORY }} does not exist. Creating it..."
@@ -183,7 +183,7 @@ jobs:
           echo "Repository ${{ env.ECR_REPOSITORY }} already exists."
         fi
 
-    - name: Cache Docker layers
+    - name: 💾 Step 6 - Setup Docker Layer Caching for Faster Builds
       uses: actions/cache@v4
       with:
         path: /tmp/.buildx-cache
@@ -191,7 +191,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
 
-    - name: Build and tag image for Amazon ECR
+    - name: 🔨 Step 7 - Build and Tag Docker Image for ECR
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -229,7 +229,7 @@ jobs:
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-    - name: Send Slack notification - Build Success
+    - name: 📢 Step 8 - Notify Success - Docker Image Built and Pushed
       if: success()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -247,7 +247,7 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: Send Slack notification - Build Failure
+    - name: 🚨 Step 9 - Notify Failure - Docker Build Failed
       if: failure()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -275,34 +275,34 @@ jobs:
       ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
 
     steps:
-    - name: Checkout code
+    - name: 📥 Step 1 - Checkout Source Code for Security Scanning
       uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
+    - name: 🔑 Step 2 - Configure AWS Credentials for ECR Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Login to Amazon ECR
+    - name: 🚪 Step 3 - Authenticate with Amazon ECR Registry
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Run Trivy vulnerability scanner (Image)
+    - name: 🛡️ Step 4 - Run Trivy Container Image Vulnerability Scan
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ needs.build-and-push.outputs.image }}
         format: 'sarif'
         output: 'trivy-image-results.sarif'
 
-    - name: Upload Trivy scan results to GitHub Security tab
+    - name: 📊 Step 5 - Upload Image Scan Results to GitHub Security Tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-image-results.sarif'
 
-    - name: Run Trivy vulnerability scanner (Filesystem)
+    - name: 📁 Step 6 - Run Trivy Filesystem Vulnerability Scan
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'fs'
@@ -310,13 +310,13 @@ jobs:
         format: 'sarif'
         output: 'trivy-fs-results.sarif'
 
-    - name: Upload Trivy filesystem scan results to GitHub Security tab
+    - name: 📊 Step 7 - Upload Filesystem Scan Results to GitHub Security Tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-fs-results.sarif'
 
-    - name: Run Trivy vulnerability scanner (Config/IaC)
+    - name: 🏗️ Step 8 - Run Trivy Infrastructure as Code (IaC) Security Scan
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'config'
@@ -324,20 +324,20 @@ jobs:
         format: 'sarif'
         output: 'trivy-config-results.sarif'
 
-    - name: Upload Trivy config scan results to GitHub Security tab
+    - name: 📊 Step 9 - Upload IaC Scan Results to GitHub Security Tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-config-results.sarif'
 
-    - name: Run Trivy vulnerability scanner (Summary)
+    - name: 📋 Step 10 - Generate Trivy Security Scan Summary Report
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ needs.build-and-push.outputs.image }}
         format: 'table'
         output: 'trivy-summary.txt'
 
-    - name: Display Trivy scan summary
+    - name: 📖 Step 11 - Display Security Scan Summary in GitHub Actions
       if: always()
       run: |
         echo "## Trivy Security Scan Summary" >> $GITHUB_STEP_SUMMARY
@@ -346,7 +346,7 @@ jobs:
         cat trivy-summary.txt >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
 
-    - name: Check for HIGH/CRITICAL vulnerabilities
+    - name: ⚠️ Step 12 - Validate Security Scan - Check for Critical Vulnerabilities
       id: trivy-check
       run: |
         # Check if there are any HIGH or CRITICAL vulnerabilities
@@ -359,7 +359,7 @@ jobs:
           echo "✅ No HIGH or CRITICAL vulnerabilities found!"
         fi
 
-    - name: Send Slack notification - Trivy Success
+    - name: 📢 Step 13 - Notify Success - Security Scan Passed
       if: success()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -376,7 +376,7 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: Send Slack notification - Trivy Failure
+    - name: 🚨 Step 14 - Notify Failure - Critical Vulnerabilities Found
       if: failure()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -404,31 +404,31 @@ jobs:
       ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
 
     steps:
-    - name: Checkout code
+    - name: 📥 Step 1 - Checkout Application Source Code for Deployment
       uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
+    - name: 🔑 Step 2 - Configure AWS Credentials for ECS Deployment
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Login to Amazon ECR
+    - name: 🚪 Step 3 - Authenticate with Amazon ECR Registry
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Get AWS account ID
+    - name: 🆔 Step 4 - Retrieve AWS Account ID for Task Definition
       id: get-aws-account
       run: |
         AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
         echo "aws_account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
 
-    - name: Prepare task definition
+    - name: 📋 Step 5 - Prepare ECS Task Definition Template
       run: |
         sed -i "s/ACCOUNT_ID/${{ steps.get-aws-account.outputs.aws_account_id }}/g" task-definition.json
 
-    - name: Replace environment variables with GitHub secrets
+    - name: 🔧 Step 6 - Inject Environment Variables and Secrets into Task Definition
       run: |
         sed -i "s/DATABASE_URL_PLACEHOLDER/${{ secrets.DATABASE_URL }}/g" task-definition.json
         sed -i "s/RABBITMQ_URL_PLACEHOLDER/${{ secrets.RABBITMQ_URL }}/g" task-definition.json
@@ -444,7 +444,7 @@ jobs:
         sed -i "s/STRIPE_MONTHLY_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_MONTHLY_PRICE_ID }}/g" task-definition.json
         sed -i "s/STRIPE_ANNUAL_PRICE_ID_PLACEHOLDER/${{ secrets.STRIPE_ANNUAL_PRICE_ID }}/g" task-definition.json
 
-    - name: Update container image
+    - name: 🐳 Step 7 - Update Task Definition with New Container Image
       id: update-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -456,14 +456,14 @@ jobs:
         sed -i "s|$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPOSITORY:[^ \"]*|$NEW_IMAGE|g" task-definition.json
         echo "image=$NEW_IMAGE" >> $GITHUB_OUTPUT
 
-    - name: Register new task definition
+    - name: 📝 Step 8 - Register New Task Definition Revision with ECS
       id: register-task
       run: |
         NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://task-definition.json)
         NEW_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
         echo "revision=$NEW_REVISION" >> $GITHUB_OUTPUT
 
-    - name: Deploy to ECS
+    - name: 🚀 Step 9 - Deploy Application to ECS Cluster
       run: |
         aws ecs update-service \
           --cluster ${{ env.ECS_CLUSTER }} \
@@ -471,13 +471,13 @@ jobs:
           --task-definition ${{ env.ECS_TASK_DEFINITION }}:${{ steps.register-task.outputs.revision }} \
           --force-new-deployment
 
-    - name: Wait for service stability
+    - name: ⏳ Step 10 - Wait for ECS Service Deployment to Stabilize
       run: |
         aws ecs wait services-stable \
           --cluster ${{ env.ECS_CLUSTER }} \
           --services ${{ env.ECS_SERVICE }}
 
-    - name: Send Slack notification - Deploy Success
+    - name: 📢 Step 11 - Notify Success - Application Deployed Successfully
       if: success()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -494,7 +494,7 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-    - name: Send Slack notification - Deploy Failure
+    - name: 🚨 Step 12 - Notify Failure - Application Deployment Failed
       if: failure()
       uses: rtCamp/action-slack-notify@v2
       env:
@@ -510,29 +510,126 @@ jobs:
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-  # Setup Monitoring (Prometheus & AlertManager)
-  setup-monitoring:
-    name: Setup Monitoring
+  # Deploy SonarQube to ECS
+  deploy-sonarqube:
+    name: Deploy SonarQube to ECS
     runs-on: ubuntu-latest
     needs: deploy
     if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
 
     env:
       ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+      ECS_SONAR_SERVICE: mwc-sonarqube-service
+      ECS_SONAR_TASK_DEFINITION: mwc-sonarqube
 
     steps:
-    - name: Checkout code
+    - name: 📥 Step 1 - Checkout Source Code for SonarQube Deployment
       uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
+    - name: 🔑 Step 2 - Configure AWS Credentials for SonarQube ECS Deployment
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Create Prometheus config
+    - name: 🆔 Step 3 - Retrieve AWS Account ID for SonarQube Task Definition
+      id: get-aws-account
       run: |
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "aws_account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+
+    - name: 📋 Step 4 - Prepare SonarQube ECS Task Definition Template
+      run: |
+        sed -i "s/ACCOUNT_ID/${{ steps.get-aws-account.outputs.aws_account_id }}/g" sonarqube-task-definition.json
+
+    - name: 🔧 Step 5 - Configure SonarQube Database and Storage Settings
+      run: |
+        sed -i "s/SONAR_DATABASE_URL_PLACEHOLDER/${{ secrets.SONAR_DATABASE_URL }}/g" sonarqube-task-definition.json
+        sed -i "s/SONAR_DATABASE_USERNAME_PLACEHOLDER/${{ secrets.SONAR_DATABASE_USERNAME }}/g" sonarqube-task-definition.json
+        sed -i "s/SONAR_DATABASE_PASSWORD_PLACEHOLDER/${{ secrets.SONAR_DATABASE_PASSWORD }}/g" sonarqube-task-definition.json
+        sed -i "s/EFS_FILESYSTEM_ID_PLACEHOLDER/${{ secrets.EFS_FILESYSTEM_ID }}/g" sonarqube-task-definition.json
+
+    - name: 📝 Step 6 - Register SonarQube Task Definition Revision with ECS
+      id: register-sonar-task
+      run: |
+        NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://sonarqube-task-definition.json)
+        NEW_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
+        echo "revision=$NEW_REVISION" >> $GITHUB_OUTPUT
+
+    - name: 🚀 Step 7 - Deploy SonarQube Service to ECS Cluster
+      run: |
+        if aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_SONAR_SERVICE }} 2>/dev/null | grep -q "ACTIVE\|RUNNING"; then
+          echo "Updating existing SonarQube service..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SONAR_SERVICE }} \
+            --task-definition ${{ env.ECS_SONAR_TASK_DEFINITION }}:${{ steps.register-sonar-task.outputs.revision }} \
+            --force-new-deployment
+        else
+          echo "Creating new SonarQube service..."
+          aws ecs create-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name ${{ env.ECS_SONAR_SERVICE }} \
+            --task-definition ${{ env.ECS_SONAR_TASK_DEFINITION }}:${{ steps.register-sonar-task.outputs.revision }} \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNET_IDS }}],securityGroups=[${{ secrets.ECS_SECURITY_GROUP_ID }}],assignPublicIp=ENABLED}"
+        fi
+
+    - name: ⏳ Step 8 - Wait for SonarQube Service Deployment to Stabilize
+      run: |
+        aws ecs wait services-stable \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_SONAR_SERVICE }}
+
+    - name: 📢 Step 9 - Notify Success - SonarQube Deployed Successfully
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ✅ SonarQube deployed to ECS in ${{ env.ENVIRONMENT }} environment
+          *Cluster:* ${{ env.ECS_CLUSTER }}
+          *Service:* ${{ env.ECS_SONAR_SERVICE }}
+          *Task Definition:* ${{ env.ECS_SONAR_TASK_DEFINITION }}:${{ steps.register-sonar-task.outputs.revision }}
+        SLACK_TITLE: SonarQube ECS Deployment Success
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Deploy Prometheus to ECS
+  deploy-prometheus:
+    name: Deploy Prometheus to ECS
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+
+    env:
+      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+      ECS_PROMETHEUS_SERVICE: mwc-prometheus-service
+      ECS_PROMETHEUS_TASK_DEFINITION: mwc-prometheus
+
+    steps:
+    - name: 📥 Step 1 - Checkout Source Code for Prometheus Deployment
+      uses: actions/checkout@v4
+
+    - name: 🔑 Step 2 - Configure AWS Credentials for Prometheus ECS Deployment
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🆔 Step 3 - Retrieve AWS Account ID for Prometheus Task Definition
+      id: get-aws-account
+      run: |
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "aws_account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+
+    - name: 📊 Step 4 - Create Prometheus and AlertManager Configuration Files
+      run: |
+        # Create Prometheus configuration
         mkdir -p prometheus-config
         cat > prometheus-config/prometheus.yml <<EOF
         global:
@@ -542,7 +639,7 @@ jobs:
         alerting:
           alertmanagers:
             - static_configs:
-                - targets: ['alertmanager:9093']
+                - targets: ['localhost:9093']
 
         rule_files:
           - "alert_rules.yml"
@@ -550,12 +647,15 @@ jobs:
         scrape_configs:
           - job_name: 'mwc-backend'
             metrics_path: '/metrics/prometheus'
-            static_configs:
-              - targets: ['mwc-backend:8080']
+            ec2_sd_configs:
+              - region: ${{ env.AWS_REGION }}
+                port: 8080
+            relabel_configs:
+              - source_labels: [__meta_ec2_tag_Name]
+                target_label: instance
         EOF
 
-    - name: Create AlertManager config
-      run: |
+        # Create AlertManager configuration
         mkdir -p alertmanager-config
         cat > alertmanager-config/alertmanager.yml <<EOF
         global:
@@ -584,8 +684,7 @@ jobs:
                   {{ end }}
         EOF
 
-    - name: Create Alert Rules
-      run: |
+        # Create Alert Rules
         cat > prometheus-config/alert_rules.yml <<EOF
         groups:
           - name: mwc-backend
@@ -618,16 +717,57 @@ jobs:
                   description: "Service has been down for more than 1 minute"
         EOF
 
-    - name: Send monitoring setup notification
+    - name: 📋 Step 5 - Prepare Prometheus ECS Task Definition Template
+      run: |
+        sed -i "s/ACCOUNT_ID/${{ steps.get-aws-account.outputs.aws_account_id }}/g" prometheus-task-definition.json
+        sed -i "s/EFS_FILESYSTEM_ID_PLACEHOLDER/${{ secrets.EFS_FILESYSTEM_ID }}/g" prometheus-task-definition.json
+
+    - name: 📝 Step 6 - Register Prometheus Task Definition Revision with ECS
+      id: register-prometheus-task
+      run: |
+        NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://prometheus-task-definition.json)
+        NEW_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
+        echo "revision=$NEW_REVISION" >> $GITHUB_OUTPUT
+
+    - name: 🚀 Step 7 - Deploy Prometheus and AlertManager Service to ECS Cluster
+      run: |
+        if aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_PROMETHEUS_SERVICE }} 2>/dev/null | grep -q "ACTIVE\|RUNNING"; then
+          echo "Updating existing Prometheus service..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_PROMETHEUS_SERVICE }} \
+            --task-definition ${{ env.ECS_PROMETHEUS_TASK_DEFINITION }}:${{ steps.register-prometheus-task.outputs.revision }} \
+            --force-new-deployment
+        else
+          echo "Creating new Prometheus service..."
+          aws ecs create-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name ${{ env.ECS_PROMETHEUS_SERVICE }} \
+            --task-definition ${{ env.ECS_PROMETHEUS_TASK_DEFINITION }}:${{ steps.register-prometheus-task.outputs.revision }} \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNET_IDS }}],securityGroups=[${{ secrets.ECS_SECURITY_GROUP_ID }}],assignPublicIp=ENABLED}"
+        fi
+
+    - name: ⏳ Step 8 - Wait for Prometheus Service Deployment to Stabilize
+      run: |
+        aws ecs wait services-stable \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_PROMETHEUS_SERVICE }}
+
+    - name: 📢 Step 9 - Notify Success - Prometheus and AlertManager Deployed Successfully
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_CHANNEL: monitoring
         SLACK_COLOR: good
         SLACK_ICON: https://github.com/rtCamp.png?size=48
         SLACK_MESSAGE: |
-          📊 Monitoring setup completed for ${{ github.repository }}
-          *Environment:* ${{ env.ENVIRONMENT }}
-          *Prometheus and AlertManager configurations updated*
-        SLACK_TITLE: Monitoring Setup Complete
+          📊 Prometheus and AlertManager deployed to ECS in ${{ env.ENVIRONMENT }} environment
+          *Cluster:* ${{ env.ECS_CLUSTER }}
+          *Service:* ${{ env.ECS_PROMETHEUS_SERVICE }}
+          *Task Definition:* ${{ env.ECS_PROMETHEUS_TASK_DEFINITION }}:${{ steps.register-prometheus-task.outputs.revision }}
+          *Prometheus:* Available on port 9090
+          *AlertManager:* Available on port 9093
+        SLACK_TITLE: Prometheus ECS Deployment Success
         SLACK_USERNAME: GitHub Actions
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

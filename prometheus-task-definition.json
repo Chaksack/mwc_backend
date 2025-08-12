@@ -1,0 +1,130 @@
+{
+  "family": "mwc-prometheus",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "prometheus",
+      "image": "prom/prometheus:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 9090,
+          "hostPort": 9090,
+          "protocol": "tcp"
+        }
+      ],
+      "command": [
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--web.console.libraries=/etc/prometheus/console_libraries",
+        "--web.console.templates=/etc/prometheus/consoles",
+        "--storage.tsdb.retention.time=200h",
+        "--web.enable-lifecycle"
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "prometheus-config",
+          "containerPath": "/etc/prometheus",
+          "readOnly": true
+        },
+        {
+          "sourceVolume": "prometheus-data",
+          "containerPath": "/prometheus"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mwc-prometheus",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    },
+    {
+      "name": "alertmanager",
+      "image": "prom/alertmanager:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 9093,
+          "hostPort": 9093,
+          "protocol": "tcp"
+        }
+      ],
+      "command": [
+        "--config.file=/etc/alertmanager/alertmanager.yml",
+        "--storage.path=/alertmanager",
+        "--web.external-url=http://localhost:9093"
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "alertmanager-config",
+          "containerPath": "/etc/alertmanager",
+          "readOnly": true
+        },
+        {
+          "sourceVolume": "alertmanager-data",
+          "containerPath": "/alertmanager"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mwc-alertmanager",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9093/-/healthy || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "prometheus-config",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/prometheus/config"
+      }
+    },
+    {
+      "name": "prometheus-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/prometheus/data"
+      }
+    },
+    {
+      "name": "alertmanager-config",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/alertmanager/config"
+      }
+    },
+    {
+      "name": "alertmanager-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/alertmanager/data"
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048"
+}

@@ -1,0 +1,93 @@
+{
+  "family": "mwc-sonarqube",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "sonarqube",
+      "image": "sonarqube:9-community",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 9000,
+          "hostPort": 9000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SONAR_JDBC_URL",
+          "value": "SONAR_DATABASE_URL_PLACEHOLDER"
+        },
+        {
+          "name": "SONAR_JDBC_USERNAME",
+          "value": "SONAR_DATABASE_USERNAME_PLACEHOLDER"
+        },
+        {
+          "name": "SONAR_JDBC_PASSWORD",
+          "value": "SONAR_DATABASE_PASSWORD_PLACEHOLDER"
+        },
+        {
+          "name": "SONAR_ES_BOOTSTRAP_CHECKS_DISABLE",
+          "value": "true"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "sonarqube-data",
+          "containerPath": "/opt/sonarqube/data"
+        },
+        {
+          "sourceVolume": "sonarqube-extensions",
+          "containerPath": "/opt/sonarqube/extensions"
+        },
+        {
+          "sourceVolume": "sonarqube-logs",
+          "containerPath": "/opt/sonarqube/logs"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mwc-sonarqube",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9000/api/system/status || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 300
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "sonarqube-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/sonarqube/data"
+      }
+    },
+    {
+      "name": "sonarqube-extensions",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/sonarqube/extensions"
+      }
+    },
+    {
+      "name": "sonarqube-logs",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "EFS_FILESYSTEM_ID_PLACEHOLDER",
+        "rootDirectory": "/sonarqube/logs"
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "4096"
+}
