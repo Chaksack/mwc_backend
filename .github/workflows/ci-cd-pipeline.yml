@@ -707,10 +707,39 @@ jobs:
 
     - name: 🔧 Step 5 - Configure SonarQube Database and Storage Settings
       run: |
+        # Validate required secrets are not empty
+        if [ -z "${{ secrets.SONAR_DATABASE_URL }}" ]; then
+          echo "Error: SONAR_DATABASE_URL secret is not set or empty"
+          exit 1
+        fi
+        if [ -z "${{ secrets.SONAR_DATABASE_USERNAME }}" ]; then
+          echo "Error: SONAR_DATABASE_USERNAME secret is not set or empty"
+          exit 1
+        fi
+        if [ -z "${{ secrets.SONAR_DATABASE_PASSWORD }}" ]; then
+          echo "Error: SONAR_DATABASE_PASSWORD secret is not set or empty"
+          exit 1
+        fi
+        if [ -z "${{ secrets.EFS_FILESYSTEM_ID }}" ]; then
+          echo "Error: EFS_FILESYSTEM_ID secret is not set or empty"
+          echo "Please ensure the EFS filesystem ID is configured in GitHub secrets"
+          exit 1
+        fi
+        
+        echo "Replacing placeholders with actual values..."
         sed -i "s/SONAR_DATABASE_URL_PLACEHOLDER/${{ secrets.SONAR_DATABASE_URL }}/g" sonarqube-task-definition.json
         sed -i "s/SONAR_DATABASE_USERNAME_PLACEHOLDER/${{ secrets.SONAR_DATABASE_USERNAME }}/g" sonarqube-task-definition.json
         sed -i "s/SONAR_DATABASE_PASSWORD_PLACEHOLDER/${{ secrets.SONAR_DATABASE_PASSWORD }}/g" sonarqube-task-definition.json
         sed -i "s/EFS_FILESYSTEM_ID_PLACEHOLDER/${{ secrets.EFS_FILESYSTEM_ID }}/g" sonarqube-task-definition.json
+        
+        # Verify replacements were successful
+        if grep -q "EFS_FILESYSTEM_ID_PLACEHOLDER" sonarqube-task-definition.json; then
+          echo "Error: EFS_FILESYSTEM_ID_PLACEHOLDER was not replaced properly"
+          cat sonarqube-task-definition.json | grep -A5 -B5 "EFS_FILESYSTEM_ID_PLACEHOLDER"
+          exit 1
+        fi
+        
+        echo "All placeholders successfully replaced"
 
     - name: 📝 Step 6 - Register SonarQube Task Definition Revision with ECS
       id: register-sonar-task
