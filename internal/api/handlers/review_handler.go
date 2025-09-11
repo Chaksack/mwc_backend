@@ -31,7 +31,7 @@ type CreateReviewRequest struct {
 
 // CreateReview creates a new review
 // @Summary Create a new review
-// @Description Creates a new review for a school (parents and educators only). The review will be pending approval by an admin.
+// @Description Creates a new review for a school (parents and montessori professionals only). The review will be pending approval by an admin.
 // @Tags reviews
 // @Accept json
 // @Produce json
@@ -57,9 +57,9 @@ func (h *ReviewHandler) CreateReview(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only parents and educators can leave reviews
-	if user.Role != models.ParentRole && user.Role != models.EducatorRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only parents and educators can leave reviews"})
+	// Only parents and montessori professionals can leave reviews
+	if user.Role != models.ParentRole && user.Role != models.MontessoriProfessionalRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only parents and montessori professionals can leave reviews"})
 	}
 
 	// Parse request

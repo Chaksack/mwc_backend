@@ -43,6 +43,7 @@ func LogUserAction(db *gorm.DB, actorUserID uint, actionType string, targetID ui
 // @Param name query string false "Filter by school name"
 // @Param city query string false "Filter by city"
 // @Param country_code query string false "Filter by country code"
+// @Param category query string false "Filter by category (school or training_center)"
 // @Param page query integer false "Page number for pagination" default(1)
 // @Param limit query integer false "Number of items per page" default(10)
 // @Success 200 {object} map[string]interface{} "List of schools with pagination metadata"
@@ -62,6 +63,9 @@ func GetPublicSchools(db *gorm.DB) fiber.Handler {
 		}
 		if countryCode := c.Query("country_code"); countryCode != "" {
 			query = query.Where("country_code = ?", countryCode)
+		}
+		if category := c.Query("category"); category != "" {
+			query = query.Where("category = ?", category)
 		}
 		// Add pagination
 		page, _ := strconv.Atoi(c.Query("page", "1"))

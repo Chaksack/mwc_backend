@@ -28,12 +28,15 @@ type SubscriptionStatus string
 // ReviewStatus defines the type for review status
 type ReviewStatus string
 
+// SchoolCategory defines the type for school category
+type SchoolCategory string
+
 const (
-	AdminRole          UserRole = "admin"
-	InstitutionRole    UserRole = "institution"
-	EducatorRole       UserRole = "educator"
-	TrainingCenterRole UserRole = "training_center"
-	ParentRole         UserRole = "parent"
+	AdminRole                   UserRole = "admin"
+	InstitutionRole             UserRole = "institution"
+	MontessoriProfessionalRole  UserRole = "montessori_professional"
+	TrainingCenterRole          UserRole = "training_center"
+	ParentRole                  UserRole = "parent"
 )
 
 const (
@@ -53,6 +56,11 @@ const (
 	ReviewRejected ReviewStatus = "rejected"
 )
 
+const (
+	SchoolCategorySchool         SchoolCategory = "school"
+	SchoolCategoryTrainingCenter SchoolCategory = "training_center"
+)
+
 // User represents a user in the system
 // @Description User information
 // @Schema models.User
@@ -67,9 +75,9 @@ type User struct {
 	LastLogin    *time.Time
 
 	// Relationships (depending on role)
-	InstitutionProfile *InstitutionProfile `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
-	EducatorProfile    *EducatorProfile    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Educator
-	ParentProfile      *ParentProfile      `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Parent
+	InstitutionProfile         *InstitutionProfile         `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
+	MontessoriProfessionalProfile *MontessoriProfessionalProfile `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Montessori Professional
+	ParentProfile              *ParentProfile              `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Parent
 }
 
 // School represents a school
@@ -77,7 +85,8 @@ type User struct {
 // @Schema models.School
 type School struct {
 	GormModel // Use GormModel for Swagger documentation
-	Name            string `gorm:"not null"`
+	Name            string         `gorm:"not null"`
+	Category        SchoolCategory `gorm:"type:varchar(20);not null;default:'school';index"` // For filtering by category
 	Address         string
 	City            string
 	State           string
@@ -92,6 +101,8 @@ type School struct {
 	UploadedByAdmin bool  `gorm:"default:false"` // True if uploaded by admin batch
 	CreatedByUserID *uint // Pointer to allow NULL if uploaded by admin initially
 	User            *User `gorm:"foreignKey:CreatedByUserID"`
+	IsMember        bool  `gorm:"default:false"` // True if an institution/training center has selected this school
+	IsHiring        bool  `gorm:"default:false"` // True if the associated institution has active job postings
 }
 
 // InstitutionProfile for Institution and Training Center users
@@ -109,18 +120,18 @@ type InstitutionProfile struct {
 	Jobs             []Job  `gorm:"foreignKey:InstitutionProfileID"`
 }
 
-// EducatorProfile for Educator users
-// @Description Educator profile information
-// @Schema models.EducatorProfile
-type EducatorProfile struct {
+// MontessoriProfessionalProfile for Montessori Professional users
+// @Description Montessori Professional profile information
+// @Schema models.MontessoriProfessionalProfile
+type MontessoriProfessionalProfile struct {
 	GormModel // Use GormModel for Swagger documentation
 	UserID         uint `gorm:"uniqueIndex;not null"`
 	User           User // Eager load user details
 	Bio            string
 	Qualifications string
 	Experience     string
-	SavedSchools   []*School        `gorm:"many2many:educator_saved_schools;"`
-	Applications   []JobApplication `gorm:"foreignKey:EducatorProfileID"`
+	SavedSchools   []*School        `gorm:"many2many:montessori_professional_saved_schools;"`
+	Applications   []JobApplication `gorm:"foreignKey:MontessoriProfessionalProfileID"`
 }
 
 // ParentProfile for Parent users
@@ -152,19 +163,19 @@ type Job struct {
 	Applications         []JobApplication `gorm:"foreignKey:JobID"`
 }
 
-// JobApplication by an Educator
+// JobApplication by a Montessori Professional
 // @Description Job application information
 // @Schema models.JobApplication
 type JobApplication struct {
 	GormModel
-	JobID             uint `gorm:"not null"`
-	Job               Job
-	EducatorProfileID uint   `gorm:"not null"` // Links to EducatorProfile
-	CoverLetter       string `gorm:"type:text"`
-	ResumeURL         string
-	AppliedAt         time.Time       `gorm:"autoCreateTime"`
-	Status            string          `gorm:"default:'pending'"` // e.g., pending, viewed, shortlisted, rejected
-	Educator          EducatorProfile `gorm:"foreignKey:EducatorProfileID"`
+	JobID                           uint `gorm:"not null"`
+	Job                             Job
+	MontessoriProfessionalProfileID uint   `gorm:"not null"` // Links to MontessoriProfessionalProfile
+	CoverLetter                     string `gorm:"type:text"`
+	ResumeURL                       string
+	AppliedAt                       time.Time                     `gorm:"autoCreateTime"`
+	Status                          string                        `gorm:"default:'pending'"` // e.g., pending, viewed, shortlisted, rejected
+	MontessoriProfessional          MontessoriProfessionalProfile `gorm:"foreignKey:MontessoriProfessionalProfileID"`
 }
 
 // Message between Parents
@@ -289,7 +300,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&User{},
 		&School{},
 		&InstitutionProfile{},
-		&EducatorProfile{},
+		&MontessoriProfessionalProfile{},
 		&ParentProfile{},
 		&Job{},
 		&JobApplication{},

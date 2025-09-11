@@ -141,6 +141,7 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 // @Param name query string false "Filter by school name"
 // @Param city query string false "Filter by city"
 // @Param country_code query string false "Filter by country code"
+// @Param category query string false "Filter by category (school or training_center)"
 // @Param page query int false "Page number for pagination" default(1)
 // @Param limit query int false "Number of items per page" default(10)
 // @Success 200 {object} map[string]interface{} "List of schools with pagination metadata"

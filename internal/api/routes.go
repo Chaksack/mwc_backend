@@ -26,7 +26,7 @@ func SetupRoutes(
 	authHandler := handlers.NewAuthHandler(db, cfg, emailService, mqService) // Pass full cfg
 	adminHandler := handlers.NewAdminHandler(db, mqService)
 	institutionHandler := handlers.NewInstitutionHandler(db, mqService)
-	educatorHandler := handlers.NewEducatorHandler(db, mqService)
+	montessoriProfessionalHandler := handlers.NewMontessoriProfessionalHandler(db, mqService)
 	parentHandler := handlers.NewParentHandler(db, mqService, emailService)
 	subscriptionHandler := handlers.NewSubscriptionHandler(db, cfg, mqService)
 	websocketHandler := handlers.NewWebSocketHandler(db, cfg)
@@ -54,7 +54,7 @@ func SetupRoutes(
 		return c.JSON(fiber.Map{
 			"message": "Montessori World Connect API v1",
 			"endpoints": []string{
-				"/register", "/login", "/schools/public", "/jobs",
+				"/register", "/login", "/schools/public",
 				"/events", "/blog", "/schools/:school_id/reviews",
 			},
 			"documentation": "/swagger/index.html",
@@ -64,18 +64,23 @@ func SetupRoutes(
 	apiV1.Post("/register", authHandler.Register)
 	apiV1.Post("/login", authHandler.Login)
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db)) // Publicly searchable schools
-	apiV1.Get("/jobs", institutionHandler.GetAllJobs) // Publicly searchable jobs
 	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
 
 	// Auth Middleware
 	authMw := middleware.Protected(cfg.JWTSecret)
+	subscriptionMw := middleware.SubscriptionAuth(db)
 
 	// User Routes
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
 
+	// Jobs endpoint - requires paid subscription
+	apiV1.Get("/jobs", authMw, subscriptionMw, institutionHandler.GetAllJobs)
+
 	// Admin Routes
 	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole))
 	adminRoutes.Post("/schools/batch-upload", adminHandler.BatchUploadSchools)
+	adminRoutes.Post("/schools/create", adminHandler.CreateSchool)                // New: Manual school creation
+	adminRoutes.Post("/training-centers/create", adminHandler.CreateTrainingCenter) // New: Manual training center creation
 	adminRoutes.Put("/schools/:id", adminHandler.UpdateSchool)
 	adminRoutes.Get("/schools", adminHandler.GetSchoolsByCountry) // ?country_code=US
 	adminRoutes.Delete("/schools/:id", adminHandler.DeleteSchool)
@@ -97,15 +102,15 @@ func SetupRoutes(
 	instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
 	instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
 
-	// Educator Routes
-	educatorRoutes := apiV1.Group("/educator", authMw, middleware.RoleAuth(models.EducatorRole))
-	educatorRoutes.Post("/profile", educatorHandler.CreateOrUpdateEducatorProfile)
-	educatorRoutes.Get("/schools/search", educatorHandler.SearchSchools)
-	educatorRoutes.Post("/schools/save/:school_id", educatorHandler.SaveSchool)
-	educatorRoutes.Delete("/schools/save/:school_id", educatorHandler.DeleteSavedSchool)
-	educatorRoutes.Get("/schools/saved", educatorHandler.GetSavedSchools)
-	educatorRoutes.Post("/jobs/:job_id/apply", educatorHandler.ApplyForJob)
-	educatorRoutes.Get("/jobs/applied", educatorHandler.GetAppliedJobs)
+	// Montessori Professional Routes
+	montessoriProfessionalRoutes := apiV1.Group("/montessori-professional", authMw, middleware.RoleAuth(models.MontessoriProfessionalRole))
+	montessoriProfessionalRoutes.Post("/profile", montessoriProfessionalHandler.CreateOrUpdateMontessoriProfessionalProfile)
+	montessoriProfessionalRoutes.Get("/schools/search", montessoriProfessionalHandler.SearchSchools)
+	montessoriProfessionalRoutes.Post("/schools/save/:school_id", montessoriProfessionalHandler.SaveSchool)
+	montessoriProfessionalRoutes.Delete("/schools/save/:school_id", montessoriProfessionalHandler.DeleteSavedSchool)
+	montessoriProfessionalRoutes.Get("/schools/saved", montessoriProfessionalHandler.GetSavedSchools)
+	montessoriProfessionalRoutes.Post("/jobs/:job_id/apply", montessoriProfessionalHandler.ApplyForJob)
+	montessoriProfessionalRoutes.Get("/jobs/applied", montessoriProfessionalHandler.GetAppliedJobs)
 
 	// Parent Routes
 	parentRoutes := apiV1.Group("/parent", authMw, middleware.RoleAuth(models.ParentRole))

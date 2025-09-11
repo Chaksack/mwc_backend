@@ -553,7 +553,7 @@ func (h *AdminHandler) UpdateUserStatus(c *fiber.Ctx) error {
 
 // UserRoleUpdateRequest for updating user's role
 type UserRoleUpdateRequest struct {
-	Role models.UserRole `json:"role" validate:"required,oneof=institution educator parent training_center admin"`
+	Role models.UserRole `json:"role" validate:"required,oneof=institution montessori_professional parent training_center admin"`
 }
 
 // UpdateUserRole allows admin to change a user's role.
@@ -715,4 +715,129 @@ func (h *AdminHandler) GetActionLogs(c *fiber.Ctx) error {
 			"last_page": (total + int64(limit) - 1) / int64(limit),
 		},
 	})
+}
+
+// ManualSchoolCreationRequest represents the structure for manually creating a school or training center
+type ManualSchoolCreationRequest struct {
+	Name         string                  `json:"name" validate:"required"`
+	Category     models.SchoolCategory   `json:"category" validate:"required,oneof=school training_center"`
+	Address      string                  `json:"address"`
+	City         string                  `json:"city"`
+	State        string                  `json:"state"`
+	CountryCode  string                  `json:"country_code" validate:"required"`
+	Country      string                  `json:"country" validate:"required"`
+	ZipCode      string                  `json:"zip_code"`
+	ContactEmail string                  `json:"contact_email" validate:"omitempty,email"`
+	ContactPhone string                  `json:"contact_phone"`
+	Website      string                  `json:"website" validate:"omitempty,url"`
+}
+
+// CreateSchool allows admin to manually create a school or training center.
+// @Summary Create a school or training center
+// @Description Manually creates a new school or training center (admin only)
+// @Tags admin,schools
+// @Accept json
+// @Produce json
+// @Param school body ManualSchoolCreationRequest true "School or training center information"
+// @Success 201 {object} models.School "School created successfully"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/schools/create [post]
+func (h *AdminHandler) CreateSchool(c *fiber.Ctx) error {
+	adminUserID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
+	}
+
+	var req ManualSchoolCreationRequest
+	if err := c.BodyParser(&req); err != nil {
+		LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_FAIL_PARSE", 0, "System", "Failed to parse request: "+err.Error(), c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body: " + err.Error()})
+	}
+
+	// Validate required fields
+	if req.Name == "" {
+		LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_FAIL_VALIDATION", 0, "System", "School name is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "School name is required"})
+	}
+
+	if req.CountryCode == "" {
+		LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_FAIL_VALIDATION", 0, "System", "Country code is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Country code is required"})
+	}
+
+	if req.Country == "" {
+		LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_FAIL_VALIDATION", 0, "System", "Country is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Country is required"})
+	}
+
+	// Validate category
+	if req.Category != models.SchoolCategorySchool && req.Category != models.SchoolCategoryTrainingCenter {
+		LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_FAIL_VALIDATION", 0, "System", "Invalid category", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Category must be either 'school' or 'training_center'"})
+	}
+
+	// Create the school
+	school := models.School{
+		Name:            req.Name,
+		Category:        req.Category,
+		Address:         req.Address,
+		City:            req.City,
+		State:           req.State,
+		CountryCode:     strings.ToUpper(req.CountryCode), // Ensure uppercase
+		Country:         req.Country,
+		ZipCode:         req.ZipCode,
+		ContactEmail:    req.ContactEmail,
+		ContactPhone:    req.ContactPhone,
+		Website:         req.Website,
+		UploadedByAdmin: true,
+		CreatedByUserID: &adminUserID, // Set the admin who created it
+	}
+
+	if err := h.db.Create(&school).Error; err != nil {
+		LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_FAIL_DB", 0, "School", "Failed to create school: "+err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create school: " + err.Error()})
+	}
+
+	LogUserAction(h.db, adminUserID, "ADMIN_SCHOOL_CREATE_SUCCESS", school.ID, "School", fmt.Sprintf("Manually created %s: %s", req.Category, req.Name), c)
+	return c.Status(fiber.StatusCreated).JSON(school)
+}
+
+// CreateTrainingCenter is an alias for CreateSchool with training_center category validation.
+// @Summary Create a training center
+// @Description Manually creates a new training center (admin only) - same as creating a school with training_center category
+// @Tags admin,schools,training-centers
+// @Accept json
+// @Produce json
+// @Param training_center body ManualSchoolCreationRequest true "Training center information"
+// @Success 201 {object} models.School "Training center created successfully"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/training-centers/create [post]
+func (h *AdminHandler) CreateTrainingCenter(c *fiber.Ctx) error {
+	// Parse the request first to validate category
+	var req ManualSchoolCreationRequest
+	if err := c.BodyParser(&req); err != nil {
+		adminUserID, _ := c.Locals("user_id").(uint)
+		LogUserAction(h.db, adminUserID, "ADMIN_TRAINING_CENTER_CREATE_FAIL_PARSE", 0, "System", "Failed to parse request: "+err.Error(), c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body: " + err.Error()})
+	}
+
+	// Force category to be training_center
+	req.Category = models.SchoolCategoryTrainingCenter
+
+	// Re-encode the request and call CreateSchool
+	c.Request().SetBody(nil) // Clear the body
+	if err := c.JSON(req); err != nil {
+		adminUserID, _ := c.Locals("user_id").(uint)
+		LogUserAction(h.db, adminUserID, "ADMIN_TRAINING_CENTER_CREATE_FAIL_ENCODE", 0, "System", "Failed to re-encode request: "+err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal error processing request"})
+	}
+
+	// Call the main CreateSchool method
+	return h.CreateSchool(c)
 }
