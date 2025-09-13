@@ -28,12 +28,15 @@ type SubscriptionStatus string
 // ReviewStatus defines the type for review status
 type ReviewStatus string
 
+// SchoolCategory defines the type for school category
+type SchoolCategory string
+
 const (
-	AdminRole          UserRole = "admin"
-	InstitutionRole    UserRole = "institution"
-	EducatorRole       UserRole = "educator"
-	TrainingCenterRole UserRole = "training_center"
-	ParentRole         UserRole = "parent"
+	AdminRole                  UserRole = "admin"
+	InstitutionRole            UserRole = "institution"
+	MontessoriProfessionalRole UserRole = "montessori_professional"
+	TrainingCenterRole         UserRole = "training_center"
+	ParentRole                 UserRole = "parent"
 )
 
 const (
@@ -53,11 +56,16 @@ const (
 	ReviewRejected ReviewStatus = "rejected"
 )
 
+const (
+	SchoolCategorySchool         SchoolCategory = "school"
+	SchoolCategoryTrainingCenter SchoolCategory = "training_center"
+)
+
 // User represents a user in the system
 // @Description User information
 // @Schema models.User
 type User struct {
-	GormModel // Use GormModel for Swagger documentation
+	GormModel           // Use GormModel for Swagger documentation
 	Email        string `gorm:"uniqueIndex;not null"`
 	PasswordHash string `gorm:"not null"` // Store hashed passwords only
 	FirstName    string
@@ -67,17 +75,18 @@ type User struct {
 	LastLogin    *time.Time
 
 	// Relationships (depending on role)
-	InstitutionProfile *InstitutionProfile `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
-	EducatorProfile    *EducatorProfile    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Educator
-	ParentProfile      *ParentProfile      `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Parent
+	InstitutionProfile            *InstitutionProfile            `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
+	MontessoriProfessionalProfile *MontessoriProfessionalProfile `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Montessori Professional
+	ParentProfile                 *ParentProfile                 `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Parent
 }
 
 // School represents a school
 // @Description School information
 // @Schema models.School
 type School struct {
-	GormModel // Use GormModel for Swagger documentation
-	Name            string `gorm:"not null"`
+	GormModel                      // Use GormModel for Swagger documentation
+	Name            string         `gorm:"not null"`
+	Category        SchoolCategory `gorm:"type:varchar(20);not null;default:'school';index"` // For filtering by category
 	Address         string
 	City            string
 	State           string
@@ -89,16 +98,18 @@ type School struct {
 	Website         string
 	SearchString    string // Search query used to find this school
 	SearchPageUrl   string // URL of the search page where this school was found
-	UploadedByAdmin bool  `gorm:"default:false"` // True if uploaded by admin batch
-	CreatedByUserID *uint // Pointer to allow NULL if uploaded by admin initially
-	User            *User `gorm:"foreignKey:CreatedByUserID"`
+	UploadedByAdmin bool   `gorm:"default:false"` // True if uploaded by admin batch
+	CreatedByUserID *uint  // Pointer to allow NULL if uploaded by admin initially
+	User            *User  `gorm:"foreignKey:CreatedByUserID"`
+	Member          bool   `gorm:"default:false"` // True if an institution/training center has selected this school
+	Hiring          bool   `gorm:"default:false"` // True if the associated institution has active job postings
 }
 
 // InstitutionProfile for Institution and Training Center users
 // @Description Institution or Training Center profile information
 // @Schema models.InstitutionProfile
 type InstitutionProfile struct {
-	GormModel // Use GormModel for Swagger documentation
+	GormModel               // Use GormModel for Swagger documentation
 	UserID           uint   `gorm:"uniqueIndex;not null"` // Foreign key to User table
 	User             User   // Eager load user details if needed
 	InstitutionName  string `gorm:"not null"`
@@ -109,25 +120,25 @@ type InstitutionProfile struct {
 	Jobs             []Job  `gorm:"foreignKey:InstitutionProfileID"`
 }
 
-// EducatorProfile for Educator users
-// @Description Educator profile information
-// @Schema models.EducatorProfile
-type EducatorProfile struct {
-	GormModel // Use GormModel for Swagger documentation
+// MontessoriProfessionalProfile for Montessori Professional users
+// @Description Montessori Professional profile information
+// @Schema models.MontessoriProfessionalProfile
+type MontessoriProfessionalProfile struct {
+	GormModel           // Use GormModel for Swagger documentation
 	UserID         uint `gorm:"uniqueIndex;not null"`
 	User           User // Eager load user details
 	Bio            string
 	Qualifications string
 	Experience     string
-	SavedSchools   []*School        `gorm:"many2many:educator_saved_schools;"`
-	Applications   []JobApplication `gorm:"foreignKey:EducatorProfileID"`
+	SavedSchools   []*School        `gorm:"many2many:montessori_professional_saved_schools;"`
+	Applications   []JobApplication `gorm:"foreignKey:MontessoriProfessionalProfileID"`
 }
 
 // ParentProfile for Parent users
 // @Description Parent profile information
 // @Schema models.ParentProfile
 type ParentProfile struct {
-	GormModel // Use GormModel for Swagger documentation
+	GormModel              // Use GormModel for Swagger documentation
 	UserID       uint      `gorm:"uniqueIndex;not null"`
 	User         User      // Eager load user details
 	SavedSchools []*School `gorm:"many2many:parent_saved_schools;"`
@@ -138,7 +149,7 @@ type ParentProfile struct {
 // @Description Job posting information
 // @Schema models.Job
 type Job struct {
-	GormModel // Use GormModel for Swagger documentation
+	GormModel                               // Use GormModel for Swagger documentation
 	InstitutionProfileID uint               `gorm:"not null"` // Links to InstitutionProfile
 	InstitutionProfile   InstitutionProfile // Eager load institution profile
 	Title                string             `gorm:"not null"`
@@ -152,19 +163,19 @@ type Job struct {
 	Applications         []JobApplication `gorm:"foreignKey:JobID"`
 }
 
-// JobApplication by an Educator
+// JobApplication by a Montessori Professional
 // @Description Job application information
 // @Schema models.JobApplication
 type JobApplication struct {
 	GormModel
-	JobID             uint `gorm:"not null"`
-	Job               Job
-	EducatorProfileID uint   `gorm:"not null"` // Links to EducatorProfile
-	CoverLetter       string `gorm:"type:text"`
-	ResumeURL         string
-	AppliedAt         time.Time       `gorm:"autoCreateTime"`
-	Status            string          `gorm:"default:'pending'"` // e.g., pending, viewed, shortlisted, rejected
-	Educator          EducatorProfile `gorm:"foreignKey:EducatorProfileID"`
+	JobID                           uint `gorm:"not null"`
+	Job                             Job
+	MontessoriProfessionalProfileID uint   `gorm:"not null"` // Links to MontessoriProfessionalProfile
+	CoverLetter                     string `gorm:"type:text"`
+	ResumeURL                       string
+	AppliedAt                       time.Time                     `gorm:"autoCreateTime"`
+	Status                          string                        `gorm:"default:'pending'"` // e.g., pending, viewed, shortlisted, rejected
+	MontessoriProfessional          MontessoriProfessionalProfile `gorm:"foreignKey:MontessoriProfessionalProfileID"`
 }
 
 // Message between Parents
@@ -230,12 +241,12 @@ type Event struct {
 // @Schema models.BlogPost
 type BlogPost struct {
 	GormModel
-	AuthorID    uint   `gorm:"not null;index"` // User who wrote the post
-	Author      User   `gorm:"foreignKey:AuthorID"`
-	Title       string `gorm:"not null"`
-	Slug        string `gorm:"uniqueIndex;not null"` // URL-friendly version of the title
-	Content     string `gorm:"type:text;not null"`
-	Excerpt     string `gorm:"type:text"`
+	AuthorID    uint       `gorm:"not null;index"` // User who wrote the post
+	Author      User       `gorm:"foreignKey:AuthorID"`
+	Title       string     `gorm:"not null"`
+	Slug        string     `gorm:"uniqueIndex;not null"` // URL-friendly version of the title
+	Content     string     `gorm:"type:text;not null"`
+	Excerpt     string     `gorm:"type:text"`
 	PublishedAt *time.Time `gorm:"index"`
 	IsPublished bool       `gorm:"default:false"`
 	IsFeatured  bool       `gorm:"default:false"`
@@ -243,9 +254,9 @@ type BlogPost struct {
 	Category    string     `gorm:"index"`
 	Tags        []string   `gorm:"type:text[]"`
 	// I18n support
-	LocalizedTitles    map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Title", "es": "Título"}
-	LocalizedContents  map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Content", "es": "Contenido"}
-	LocalizedExcerpts  map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Excerpt", "es": "Extracto"}
+	LocalizedTitles   map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Title", "es": "Título"}
+	LocalizedContents map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Content", "es": "Contenido"}
+	LocalizedExcerpts map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Excerpt", "es": "Extracto"}
 }
 
 // Subscription represents a premium subscription
@@ -253,17 +264,17 @@ type BlogPost struct {
 // @Schema models.Subscription
 type Subscription struct {
 	GormModel
-	UserID             uint               `gorm:"not null;index"` // User who has the subscription
-	User               User               `gorm:"foreignKey:UserID"`
-	Plan               SubscriptionPlan   `gorm:"type:varchar(20);not null"`
-	Status             SubscriptionStatus `gorm:"type:varchar(20);not null"`
-	StartDate          time.Time          `gorm:"not null"`
-	EndDate            time.Time          `gorm:"not null"`
-	AutoRenew          bool               `gorm:"default:true"`
-	StripeCustomerID   string             `gorm:"index"`
-	StripeSubscriptionID string           `gorm:"index"`
-	CancelledAt        *time.Time
-	CancellationReason string
+	UserID               uint               `gorm:"not null;index"` // User who has the subscription
+	User                 User               `gorm:"foreignKey:UserID"`
+	Plan                 SubscriptionPlan   `gorm:"type:varchar(20);not null"`
+	Status               SubscriptionStatus `gorm:"type:varchar(20);not null"`
+	StartDate            time.Time          `gorm:"not null"`
+	EndDate              time.Time          `gorm:"not null"`
+	AutoRenew            bool               `gorm:"default:true"`
+	StripeCustomerID     string             `gorm:"index"`
+	StripeSubscriptionID string             `gorm:"index"`
+	CancelledAt          *time.Time
+	CancellationReason   string
 }
 
 // Review represents a review of a school
@@ -289,7 +300,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&User{},
 		&School{},
 		&InstitutionProfile{},
-		&EducatorProfile{},
+		&MontessoriProfessionalProfile{},
 		&ParentProfile{},
 		&Job{},
 		&JobApplication{},

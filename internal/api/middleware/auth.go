@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 // Claims represents the JWT claims.
@@ -114,4 +115,36 @@ func GenerateJWT(userID uint, email string, role models.UserRole, jwtSecret stri
 		return "", err
 	}
 	return signedToken, nil
+}
+
+// SubscriptionAuth returns a middleware that checks if the authenticated user has an active paid subscription.
+func SubscriptionAuth(db *gorm.DB) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID, ok := c.Locals("user_id").(uint)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+		}
+
+		var subscription models.Subscription
+		err := db.Where("user_id = ? AND status = ? AND end_date > ?", userID, models.SubscriptionActive, time.Now()).
+			Order("end_date DESC").
+			First(&subscription).Error
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "This feature requires an active paid subscription. Please upgrade your account to access job listings.",
+					"subscription_required": true,
+				})
+			}
+			log.Printf("Error checking subscription for user %d: %v", userID, err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify subscription status"})
+		}
+
+		// Store subscription info in context for handlers if needed
+		c.Locals("subscription_id", subscription.ID)
+		c.Locals("subscription_plan", subscription.Plan)
+
+		return c.Next()
+	}
 }

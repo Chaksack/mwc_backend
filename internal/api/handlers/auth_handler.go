@@ -78,7 +78,7 @@ type RegisterRequest struct {
 	Password  string          `json:"password" validate:"required,min=8"`
 	FirstName string          `json:"first_name" validate:"required"`
 	LastName  string          `json:"last_name" validate:"required"`
-	Role      models.UserRole `json:"role" validate:"required,oneof=institution educator parent training_center admin"` // Added admin for potential setup
+	Role      models.UserRole `json:"role" validate:"required,oneof=institution montessori_professional parent training_center admin"` // Added admin for potential setup
 	// Role-specific fields
 	InstitutionName string `json:"institution_name,omitempty"` // For institution/training_center
 }
@@ -168,14 +168,14 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create institution profile: " + err.Error()})
 		}
 		profileDetails = fmt.Sprintf("Institution Profile created for %s", req.InstitutionName)
-	case models.EducatorRole:
-		profile := models.EducatorProfile{UserID: user.ID}
+	case models.MontessoriProfessionalRole:
+		profile := models.MontessoriProfessionalProfile{UserID: user.ID}
 		if err := tx.Create(&profile).Error; err != nil {
 			tx.Rollback()
-			LogUserAction(h.db, user.ID, "REGISTER_FAIL_PROFILE_EDU_CREATE", user.ID, "EducatorProfile", err.Error(), c)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create educator profile: " + err.Error()})
+			LogUserAction(h.db, user.ID, "REGISTER_FAIL_PROFILE_MONT_PROF_CREATE", user.ID, "MontessoriProfessionalProfile", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create montessori professional profile: " + err.Error()})
 		}
-		profileDetails = "Educator Profile created."
+		profileDetails = "Montessori Professional Profile created."
 	case models.ParentRole:
 		profile := models.ParentProfile{UserID: user.ID}
 		if err := tx.Create(&profile).Error; err != nil {
@@ -363,9 +363,9 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load institution profile: " + err.Error()})
 		}
-	case models.EducatorRole:
-		if err := h.db.Preload("EducatorProfile").First(&user, userID).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load educator profile: " + err.Error()})
+	case models.MontessoriProfessionalRole:
+		if err := h.db.Preload("MontessoriProfessionalProfile").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load montessori professional profile: " + err.Error()})
 		}
 	case models.ParentRole:
 		if err := h.db.Preload("ParentProfile").First(&user, userID).Error; err != nil {
@@ -400,13 +400,13 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 				"school":          user.InstitutionProfile.School,
 			}
 		}
-	case models.EducatorRole:
-		if user.EducatorProfile != nil {
+	case models.MontessoriProfessionalRole:
+		if user.MontessoriProfessionalProfile != nil {
 			userMap["profile"] = fiber.Map{
-				"id":            user.EducatorProfile.ID,
-				"bio":           user.EducatorProfile.Bio,
-				"qualifications": user.EducatorProfile.Qualifications,
-				"experience":    user.EducatorProfile.Experience,
+				"id":            user.MontessoriProfessionalProfile.ID,
+				"bio":           user.MontessoriProfessionalProfile.Bio,
+				"qualifications": user.MontessoriProfessionalProfile.Qualifications,
+				"experience":    user.MontessoriProfessionalProfile.Experience,
 			}
 		}
 	case models.ParentRole:

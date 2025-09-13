@@ -154,13 +154,31 @@ func (h *InstitutionHandler) SelectSchool(c *fiber.Ctx) error {
 	}
 
 	institutionProfile.SchoolID = &school.ID // Assign school.ID (which is uint)
-	if err := h.db.Save(&institutionProfile).Error; err != nil {
+
+	// Start transaction to update both institution profile and school
+	tx := h.db.Begin()
+
+	if err := tx.Save(&institutionProfile).Error; err != nil {
+		tx.Rollback()
 		// This might fail due to the unique constraint if another request sneaked in.
 		LogUserAction(h.db, actorUserID, "INST_SCHOOL_SELECT_FAIL_SAVE", uint(schoolID), "School", err.Error(), c)
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "This school was just mapped by another institution. Please try another."})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to select school: " + err.Error()})
+	}
+
+	// Update school to mark as having a member institution
+	school.Member = true
+	if err := tx.Save(&school).Error; err != nil {
+		tx.Rollback()
+		LogUserAction(h.db, actorUserID, "INST_SCHOOL_SELECT_FAIL_UPDATE_SCHOOL", uint(schoolID), "School", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update school membership status: " + err.Error()})
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		LogUserAction(h.db, actorUserID, "INST_SCHOOL_SELECT_FAIL_COMMIT", uint(schoolID), "School", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to complete school selection: " + err.Error()})
 	}
 
 	LogUserAction(h.db, actorUserID, "INST_SCHOOL_SELECT_SUCCESS", uint(schoolID), "School", "School selected", c)
@@ -228,6 +246,8 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 		Website:         req.Url,
 		UploadedByAdmin: false,
 		CreatedByUserID: &actorUserID, // Link to the institution user who created it
+		Member:          true,         // Institution creating the school is automatically a member
+		Hiring:          false,        // Default to false, will be updated when jobs are posted
 	}
 
 	tx := h.db.Begin() // Start transaction
@@ -312,9 +332,33 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 		ExpiresAt:            expiresAtTime,
 	}
 
-	if err := h.db.Create(&job).Error; err != nil {
+	// Start transaction to create job and update school hiring status
+	tx := h.db.Begin()
+
+	if err := tx.Create(&job).Error; err != nil {
+		tx.Rollback()
 		LogUserAction(h.db, actorUserID, "INST_JOB_POST_FAIL_DB", 0, "Job", err.Error(), c)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to post job: " + err.Error()})
+	}
+
+	// Update school to mark as hiring
+	var school models.School
+	if err := tx.First(&school, *institutionProfile.SchoolID).Error; err != nil {
+		tx.Rollback()
+		LogUserAction(h.db, actorUserID, "INST_JOB_POST_FAIL_SCHOOL_FETCH", 0, "School", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch school for hiring update: " + err.Error()})
+	}
+
+	school.Hiring = true
+	if err := tx.Save(&school).Error; err != nil {
+		tx.Rollback()
+		LogUserAction(h.db, actorUserID, "INST_JOB_POST_FAIL_SCHOOL_UPDATE", *institutionProfile.SchoolID, "School", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update school hiring status: " + err.Error()})
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		LogUserAction(h.db, actorUserID, "INST_JOB_POST_FAIL_COMMIT", 0, "Job", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to complete job posting: " + err.Error()})
 	}
 
 	LogUserAction(h.db, actorUserID, "INST_JOB_POST_SUCCESS", job.ID, "Job", "Job posted", c)
@@ -415,15 +459,50 @@ func (h *InstitutionHandler) DeleteJob(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Institution profile not found."})
 	}
 
+	// Start transaction to delete job and update school hiring status
+	tx := h.db.Begin()
+
 	// Soft delete the job, ensuring it belongs to the institution.
-	result := h.db.Where("id = ? AND institution_profile_id = ?", uint(jobID), institutionProfile.ID).Delete(&models.Job{})
+	result := tx.Where("id = ? AND institution_profile_id = ?", uint(jobID), institutionProfile.ID).Delete(&models.Job{})
 	if result.Error != nil {
+		tx.Rollback()
 		LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_FAIL_DB", uint(jobID), "Job", result.Error.Error(), c)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete job: " + result.Error.Error()})
 	}
 	if result.RowsAffected == 0 {
+		tx.Rollback()
 		LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_FAIL_NOTFOUND", uint(jobID), "Job", "Job not found or no permission", c)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Job not found or you do not have permission to delete it."})
+	}
+
+	// Check if any active jobs remain for this institution
+	if institutionProfile.SchoolID != nil && *institutionProfile.SchoolID != 0 {
+		var activeJobCount int64
+		if err := tx.Model(&models.Job{}).Where("institution_profile_id = ? AND is_active = ?", institutionProfile.ID, true).Count(&activeJobCount).Error; err != nil {
+			tx.Rollback()
+			LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_FAIL_COUNT", uint(jobID), "Job", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check remaining jobs: " + err.Error()})
+		}
+
+		// Update school hiring status based on remaining active jobs
+		var school models.School
+		if err := tx.First(&school, *institutionProfile.SchoolID).Error; err != nil {
+			tx.Rollback()
+			LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_FAIL_SCHOOL_FETCH", uint(jobID), "School", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch school for hiring update: " + err.Error()})
+		}
+
+		school.Hiring = activeJobCount > 0
+		if err := tx.Save(&school).Error; err != nil {
+			tx.Rollback()
+			LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_FAIL_SCHOOL_UPDATE", *institutionProfile.SchoolID, "School", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update school hiring status: " + err.Error()})
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_FAIL_COMMIT", uint(jobID), "Job", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to complete job deletion: " + err.Error()})
 	}
 
 	LogUserAction(h.db, actorUserID, "INST_JOB_DELETE_SUCCESS", uint(jobID), "Job", "Job deleted", c)
@@ -464,41 +543,41 @@ func (h *InstitutionHandler) GetJobApplicants(c *fiber.Ctx) error {
 	}
 
 	var applications []models.JobApplication
-	// Preload Educator profile and the User model associated with the Educator
-	if err := h.db.Preload("Educator.User").Where("job_id = ?", uint(jobID)).Find(&applications).Error; err != nil {
+	// Preload MontessoriProfessional profile and the User model associated with the MontessoriProfessional
+	if err := h.db.Preload("MontessoriProfessional.User").Where("job_id = ?", uint(jobID)).Find(&applications).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve job applicants: " + err.Error()})
 	}
 
 	// Transform response to include necessary details
 	type ApplicantResponse struct {
-		ApplicationID  uint      `json:"application_id"`
-		EducatorID     uint      `json:"educator_id"` // User ID of the educator
-		EducatorName   string    `json:"educator_name"`
-		EducatorEmail  string    `json:"educator_email"`
-		Bio            string    `json:"bio"`
-		Qualifications string    `json:"qualifications"`
-		CoverLetter    string    `json:"cover_letter"`
-		ResumeURL      string    `json:"resume_url"`
-		AppliedAt      time.Time `json:"applied_at"`
-		Status         string    `json:"status"`
+		ApplicationID               uint      `json:"application_id"`
+		MontessoriProfessionalID    uint      `json:"montessori_professional_id"` // User ID of the montessori professional
+		MontessoriProfessionalName  string    `json:"montessori_professional_name"`
+		MontessoriProfessionalEmail string    `json:"montessori_professional_email"`
+		Bio                         string    `json:"bio"`
+		Qualifications              string    `json:"qualifications"`
+		CoverLetter                 string    `json:"cover_letter"`
+		ResumeURL                   string    `json:"resume_url"`
+		AppliedAt                   time.Time `json:"applied_at"`
+		Status                      string    `json:"status"`
 	}
 	var response []ApplicantResponse
 	for _, app := range applications {
-		if app.Educator.User.ID == 0 { // Check if User was correctly preloaded
-			log.Printf("Warning: Educator User data not loaded for application ID %d, EducatorProfileID %d", app.ID, app.EducatorProfileID)
+		if app.MontessoriProfessional.User.ID == 0 { // Check if User was correctly preloaded
+			log.Printf("Warning: MontessoriProfessional User data not loaded for application ID %d, MontessoriProfessionalProfileID %d", app.ID, app.MontessoriProfessionalProfileID)
 			// Optionally fetch the user separately if this happens, though Preload should handle it.
 		}
 		response = append(response, ApplicantResponse{
-			ApplicationID:  app.ID,
-			EducatorID:     app.Educator.UserID, // This is the User.ID from EducatorProfile.User
-			EducatorName:   app.Educator.User.FirstName + " " + app.Educator.User.LastName,
-			EducatorEmail:  app.Educator.User.Email,
-			Bio:            app.Educator.Bio,
-			Qualifications: app.Educator.Qualifications,
-			CoverLetter:    app.CoverLetter,
-			ResumeURL:      app.ResumeURL,
-			AppliedAt:      app.AppliedAt,
-			Status:         app.Status,
+			ApplicationID:               app.ID,
+			MontessoriProfessionalID:    app.MontessoriProfessional.UserID, // This is the User.ID from MontessoriProfessionalProfile.User
+			MontessoriProfessionalName:  app.MontessoriProfessional.User.FirstName + " " + app.MontessoriProfessional.User.LastName,
+			MontessoriProfessionalEmail: app.MontessoriProfessional.User.Email,
+			Bio:                         app.MontessoriProfessional.Bio,
+			Qualifications:              app.MontessoriProfessional.Qualifications,
+			CoverLetter:                 app.CoverLetter,
+			ResumeURL:                   app.ResumeURL,
+			AppliedAt:                   app.AppliedAt,
+			Status:                      app.Status,
 		})
 	}
 	LogUserAction(h.db, actorUserID, "INST_JOB_VIEW_APPLICANTS", uint(jobID), "Job", fmt.Sprintf("Viewed %d applicants", len(response)), c)
@@ -702,11 +781,11 @@ func (h *InstitutionHandler) GetInstitutionPublicDetails(c *fiber.Ctx) error {
 		contactEmail = institutionProfile.School.ContactEmail
 		contactPhone = institutionProfile.School.ContactPhone
 		contactWebsite = institutionProfile.School.Website
-		contactAddress = fmt.Sprintf("%s, %s, %s %s, %s", 
-			institutionProfile.School.Address, 
-			institutionProfile.School.City, 
-			institutionProfile.School.State, 
-			institutionProfile.School.ZipCode, 
+		contactAddress = fmt.Sprintf("%s, %s, %s %s, %s",
+			institutionProfile.School.Address,
+			institutionProfile.School.City,
+			institutionProfile.School.State,
+			institutionProfile.School.ZipCode,
 			institutionProfile.School.Country)
 	} else {
 		// Use institution name as fallback
@@ -715,7 +794,7 @@ func (h *InstitutionHandler) GetInstitutionPublicDetails(c *fiber.Ctx) error {
 
 	// For now, these fields might not exist in the database, so we'll use placeholder values
 	// In a real implementation, these would come from the database
-	schoolLogo = "https://example.com/school_logo.png" // Placeholder
+	schoolLogo = "https://example.com/school_logo.png"                                    // Placeholder
 	about = "A leading educational institution dedicated to providing quality education." // Placeholder
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -745,15 +824,15 @@ type UserResponse struct {
 
 // SchoolResponse represents school information in the institution details response
 type SchoolResponse struct {
-	ID       uint   `json:"id" example:"5"`
-	Name     string `json:"name" example:"Montessori Academy Main Campus"`
-	Address  string `json:"address" example:"123 Education St"`
-	City     string `json:"city" example:"Springfield"`
-	State    string `json:"state" example:"IL"`
-	ZipCode  string `json:"zip_code" example:"62701"`
-	Country  string `json:"country" example:"USA"`
-	Phone    string `json:"phone" example:"555-123-4567"`
-	Website  string `json:"website" example:"https://montessoriacademy.example.com"`
+	ID      uint   `json:"id" example:"5"`
+	Name    string `json:"name" example:"Montessori Academy Main Campus"`
+	Address string `json:"address" example:"123 Education St"`
+	City    string `json:"city" example:"Springfield"`
+	State   string `json:"state" example:"IL"`
+	ZipCode string `json:"zip_code" example:"62701"`
+	Country string `json:"country" example:"USA"`
+	Phone   string `json:"phone" example:"555-123-4567"`
+	Website string `json:"website" example:"https://montessoriacademy.example.com"`
 }
 
 // JobResponse represents job information in the institution details response
@@ -795,18 +874,18 @@ type InstitutionDetailsResponse struct {
 		Name        string `json:"name" example:"Early Childhood Program"`
 		Description string `json:"description" example:"For children ages 3-6, focusing on sensorial development and practical life skills."`
 	} `json:"programs"`
-	Activities      []struct {
+	Activities []struct {
 		Name        string `json:"name" example:"Music and Movement"`
 		Description string `json:"description" example:"Weekly music classes incorporating movement and rhythm."`
 	} `json:"activities"`
-	Philosophy      string         `json:"philosophy" example:"We believe in the Montessori method of education, which emphasizes independence, freedom within limits, and respect for a child's natural psychological, physical, and social development."`
-	Map             struct {
+	Philosophy string `json:"philosophy" example:"We believe in the Montessori method of education, which emphasizes independence, freedom within limits, and respect for a child's natural psychological, physical, and social development."`
+	Map        struct {
 		Latitude  float64 `json:"latitude" example:"39.78373"`
 		Longitude float64 `json:"longitude" example:"-89.65063"`
 		Address   string  `json:"address" example:"123 Education St, Springfield, IL 62701, USA"`
 	} `json:"map"`
-	Jobs            []JobResponse   `json:"jobs"`
-	Reviews         []ReviewResponse `json:"reviews"`
+	Jobs    []JobResponse    `json:"jobs"`
+	Reviews []ReviewResponse `json:"reviews"`
 }
 
 // GetInstitutionDetails retrieves detailed information about an institution.
@@ -890,31 +969,31 @@ func (h *InstitutionHandler) GetInstitutionDetails(c *fiber.Ctx) error {
 	if institutionProfile.School != nil {
 		// In a real implementation, these would come from the database
 		// For now, using placeholder values
-		latitude = 39.78373  // Placeholder
+		latitude = 39.78373   // Placeholder
 		longitude = -89.65063 // Placeholder
 
-		address = fmt.Sprintf("%s, %s, %s %s, %s", 
-			institutionProfile.School.Address, 
-			institutionProfile.School.City, 
-			institutionProfile.School.State, 
-			institutionProfile.School.ZipCode, 
+		address = fmt.Sprintf("%s, %s, %s %s, %s",
+			institutionProfile.School.Address,
+			institutionProfile.School.City,
+			institutionProfile.School.State,
+			institutionProfile.School.ZipCode,
 			institutionProfile.School.Country)
 	}
 
 	// For now, these fields might not exist in the database, so we'll use placeholder values
 	// In a real implementation, these would come from the database
-	schoolLogo := "https://example.com/school_logo.png" // Placeholder
-	about := "A leading educational institution dedicated to providing quality education." // Placeholder
+	schoolLogo := "https://example.com/school_logo.png"                                                              // Placeholder
+	about := "A leading educational institution dedicated to providing quality education."                           // Placeholder
 	philosophy := "We believe in providing a nurturing environment where students can develop their full potential." // Placeholder
 
 	// Example programs
 	programs := []fiber.Map{
 		{
-			"name": "Early Childhood Program",
+			"name":        "Early Childhood Program",
 			"description": "For children ages 3-6, focusing on sensorial development and practical life skills.",
 		},
 		{
-			"name": "Elementary Program",
+			"name":        "Elementary Program",
 			"description": "For children ages 6-12, focusing on academic excellence and social development.",
 		},
 	}
@@ -922,11 +1001,11 @@ func (h *InstitutionHandler) GetInstitutionDetails(c *fiber.Ctx) error {
 	// Example activities
 	activities := []fiber.Map{
 		{
-			"name": "Music and Movement",
+			"name":        "Music and Movement",
 			"description": "Weekly music classes incorporating movement and rhythm.",
 		},
 		{
-			"name": "Art Studio",
+			"name":        "Art Studio",
 			"description": "Creative expression through various art mediums.",
 		},
 	}
