@@ -1,14 +1,6 @@
 package main
 
 import (
-	"github.com/MarceloPetrucio/go-scalar-api-reference"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/joho/godotenv"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 	"log"
 	"mwc_backend/config"
 	"mwc_backend/internal/api"
@@ -17,6 +9,15 @@ import (
 	"mwc_backend/internal/queue"
 	"mwc_backend/internal/store"
 	"os"
+
+	"github.com/MarceloPetrucio/go-scalar-api-reference"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // createDefaultAdminIfNeeded checks if an admin user exists and creates one if not
@@ -144,9 +145,9 @@ func main() {
 	}))
 	// General CORS for most API endpoints
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000,http://localhost:8080,https://montessoriworldconnect.com,https://api.montessoriworldconnect.com,https://search.montessoriworldconnect.com",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowOrigins:     "http://localhost:3000,http://localhost:8080,https://montessoriworldconnect.com,http://api.montessoriworldconnect.com,https://api.montessoriworldconnect.com,https://search.montessoriworldconnect.com",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
 	}))
 
