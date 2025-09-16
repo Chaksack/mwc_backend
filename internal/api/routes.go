@@ -3,15 +3,16 @@ package api
 import (
 	"log"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
-	"gorm.io/gorm"
 	"mwc_backend/config"
 	"mwc_backend/internal/api/handlers"
 	"mwc_backend/internal/api/middleware"
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
+	"gorm.io/gorm"
 )
 
 // SetupRoutes initializes all the API routes.
@@ -37,8 +38,8 @@ func SetupRoutes(
 	// Root route handler
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
-			"message": "Welcome to Montessori World Connect API",
-			"version": "1.0",
+			"message":       "Welcome to Montessori World Connect API",
+			"version":       "1.2",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -63,7 +64,7 @@ func SetupRoutes(
 
 	apiV1.Post("/register", authHandler.Register)
 	apiV1.Post("/login", authHandler.Login)
-	apiV1.Get("/schools/public", handlers.GetPublicSchools(db)) // Publicly searchable schools
+	apiV1.Get("/schools/public", handlers.GetPublicSchools(db))                    // Publicly searchable schools
 	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
 
 	// Auth Middleware
@@ -79,7 +80,7 @@ func SetupRoutes(
 	// Admin Routes
 	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole))
 	adminRoutes.Post("/schools/batch-upload", adminHandler.BatchUploadSchools)
-	adminRoutes.Post("/schools/create", adminHandler.CreateSchool)                // New: Manual school creation
+	adminRoutes.Post("/schools/create", adminHandler.CreateSchool)                  // New: Manual school creation
 	adminRoutes.Post("/training-centers/create", adminHandler.CreateTrainingCenter) // New: Manual training center creation
 	adminRoutes.Put("/schools/:id", adminHandler.UpdateSchool)
 	adminRoutes.Get("/schools", adminHandler.GetSchoolsByCountry) // ?country_code=US
@@ -94,7 +95,7 @@ func SetupRoutes(
 	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
 	instTcRoutes.Post("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
 	instTcRoutes.Get("/schools/available", institutionHandler.GetAvailableSchools) // Get schools available for selection
-	instTcRoutes.Post("/schools", institutionHandler.CreateSchool) // If school not in admin list
+	instTcRoutes.Post("/schools", institutionHandler.CreateSchool)                 // If school not in admin list
 	instTcRoutes.Put("/schools/select/:school_id", institutionHandler.SelectSchool)
 	instTcRoutes.Post("/jobs", institutionHandler.PostJob)
 	instTcRoutes.Put("/jobs/:job_id", institutionHandler.UpdateJob)
