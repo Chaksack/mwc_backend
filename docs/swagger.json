@@ -18,6 +18,14 @@
         },
         "version": "1.2"
     },
+            "securityDefinitions": {
+                "BearerAuth": {
+                    "type": "apiKey",
+                    "name": "Authorization",
+                    "in": "header",
+                    "description": "JWT Authorization header using the Bear scheme. Example: 'Authorization: Bear {token}'"
+                }
+            },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
     "paths": {
