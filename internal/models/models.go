@@ -73,6 +73,15 @@ type User struct {
 	Role         UserRole `gorm:"type:varchar(20);not null"`
 	IsActive     bool     `gorm:"default:true"`
 	LastLogin    *time.Time
+	
+	// Email verification fields
+	EmailVerified             bool       `gorm:"default:false"`
+	VerificationToken         *string    `gorm:"uniqueIndex"` // Token for email verification
+	VerificationTokenExpiry   *time.Time // Expiry time for verification token
+
+	// Password reset fields
+	PasswordResetToken        *string    `gorm:"uniqueIndex"` // Token for password reset
+	PasswordResetTokenExpiry  *time.Time // Expiry time for password reset token
 
 	// Relationships (depending on role)
 	InstitutionProfile            *InstitutionProfile            `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
@@ -236,6 +245,27 @@ type Event struct {
 	LocalizedDescriptions map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Description", "es": "Descripción"}
 }
 
+// BlogCategory represents a blog category
+// @Description Blog category information
+// @Schema models.BlogCategory
+type BlogCategory struct {
+	GormModel
+	Name        string `gorm:"uniqueIndex;not null"`
+	Slug        string `gorm:"uniqueIndex;not null"` // URL-friendly version of the name
+	Description string `gorm:"type:text"`
+	PostCount   int    `gorm:"default:0"` // Count of posts in this category
+}
+
+// BlogTag represents a blog tag
+// @Description Blog tag information
+// @Schema models.BlogTag
+type BlogTag struct {
+	GormModel
+	Name      string `gorm:"uniqueIndex;not null"`
+	Slug      string `gorm:"uniqueIndex;not null"` // URL-friendly version of the name
+	PostCount int    `gorm:"default:0"`            // Count of posts with this tag
+}
+
 // BlogPost represents a blog post or article
 // @Description Blog post information
 // @Schema models.BlogPost
@@ -307,6 +337,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&Message{},
 		&ActionLog{},
 		&Event{},
+		&BlogCategory{},
+		&BlogTag{},
 		&BlogPost{},
 		&Subscription{},
 		&Review{},

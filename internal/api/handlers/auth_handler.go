@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"mwc_backend/config"
@@ -35,6 +37,15 @@ func NewAuthHandler(db *gorm.DB, cfg *config.Config, emailService email.EmailSer
 		mqService:    mqService,
 		validate:     validator.New(),
 	}
+}
+
+// generateVerificationToken generates a random verification token
+func generateVerificationToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 // validateRequest validates a struct using the go-playground/validator library and returns user-friendly error messages.
@@ -131,13 +142,26 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
 	}
 
+	// Generate verification token
+	verificationToken, err := generateVerificationToken()
+	if err != nil {
+		LogUserAction(h.db, 0, "REGISTER_FAIL_TOKEN_GEN", 0, "System", "Verification token generation failed", c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate verification token"})
+	}
+
+	// Set token expiry to 24 hours from now
+	tokenExpiry := time.Now().Add(24 * time.Hour)
+
 	user := models.User{
-		Email:        req.Email,
-		PasswordHash: string(hashedPassword),
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		Role:         req.Role,
-		IsActive:     true, // Default to true, admin can deactivate. Or implement email verification.
+		Email:                   req.Email,
+		PasswordHash:            string(hashedPassword),
+		FirstName:               req.FirstName,
+		LastName:                req.LastName,
+		Role:                    req.Role,
+		IsActive:                true,
+		EmailVerified:           false, // User must verify email first
+		VerificationToken:       &verificationToken,
+		VerificationTokenExpiry: &tokenExpiry,
 	}
 
 	tx := h.db.Begin()
@@ -194,55 +218,107 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Transaction failed during registration: " + err.Error()})
 	}
 
-	// Send registration email
-	emailSubject := "Welcome to Our Platform!"
-	emailBody := fmt.Sprintf("<h1>Hello %s,</h1><p>Thank you for registering on our platform as a %s.</p><p>We are excited to have you on board!</p>", user.FirstName, user.Role)
+	// Send email verification email
+	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", h.cfg.BaseURL, verificationToken)
+	emailSubject := "Please verify your email address"
+	emailBody := fmt.Sprintf(`
+		<h1>Hello %s,</h1>
+		<p>Thank you for registering on our platform as a %s.</p>
+		<p>Please click the link below to verify your email address:</p>
+		<p><a href="%s">Verify Email Address</a></p>
+		<p>If the link doesn't work, you can copy and paste this URL into your browser:</p>
+		<p>%s</p>
+		<p>This link will expire in 24 hours.</p>
+		<p>If you didn't create an account, you can safely ignore this email.</p>
+	`, user.FirstName, user.Role, verificationURL, verificationURL)
+	
 	if err := h.emailService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
-		log.Printf("Failed to send registration email to %s: %v. Registration still successful.", user.Email, err)
+		log.Printf("Failed to send verification email to %s: %v. Registration still successful.", user.Email, err)
 		// Log this to action log as well for tracking email failures
-		LogUserAction(h.db, user.ID, "REGISTER_EMAIL_FAIL", user.ID, "Email", err.Error(), c)
+		LogUserAction(h.db, user.ID, "REGISTER_VERIFICATION_EMAIL_FAIL", user.ID, "Email", err.Error(), c)
 	} else {
-		LogUserAction(h.db, user.ID, "REGISTER_EMAIL_SENT", user.ID, "Email", "Registration email sent", c)
+		LogUserAction(h.db, user.ID, "REGISTER_VERIFICATION_EMAIL_SENT", user.ID, "Email", "Verification email sent", c)
 	}
 
 	logDetails := fmt.Sprintf("User %s registered as %s. %s", user.Email, user.Role, profileDetails)
 	LogUserAction(h.db, user.ID, "USER_REGISTER_SUCCESS", user.ID, "User", logDetails, c)
 
-	// Generate JWT token for automatic login
-	expiresIn := time.Hour * time.Duration(h.cfg.JwtExpirationHours)
-	token, err := middleware.GenerateJWT(user.ID, user.Email, user.Role, h.cfg.JWTSecret, expiresIn)
-	if err != nil {
-		LogUserAction(h.db, user.ID, "REGISTER_WARN_JWT_GEN", user.ID, "System", err.Error(), c)
-		log.Printf("Failed to generate token for newly registered user %d: %v", user.ID, err)
-		// Continue without token, registration is still successful
-		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-			"message": "User registered successfully, but automatic login failed",
-			"user_id": user.ID,
-			"email":   user.Email,
-			"role":    user.Role,
-		})
-	}
-
-	// Update LastLogin
-	now := time.Now()
-	user.LastLogin = &now
-	if err := h.db.Save(&user).Error; err != nil {
-		// Log this error but don't fail the registration
-		log.Printf("Failed to update last login for newly registered user %d: %v", user.ID, err)
-		LogUserAction(h.db, user.ID, "REGISTER_WARN_LASTLOGIN_FAIL", user.ID, "System", err.Error(), c)
-	}
-
-	LogUserAction(h.db, user.ID, "USER_AUTO_LOGIN_SUCCESS", user.ID, "User", "User automatically logged in after registration", c)
-
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "User registered and logged in successfully",
-		"token":   token,
+		"message": "User registered successfully. Please check your email to verify your account.",
 		"user": fiber.Map{
 			"id":        user.ID,
 			"email":     user.Email,
 			"firstName": user.FirstName,
 			"lastName":  user.LastName,
 			"role":      user.Role,
+			"email_verified": user.EmailVerified,
+		},
+	})
+}
+
+// VerifyEmail handles email verification
+// @Summary Verify user email address
+// @Description Verifies a user's email address using the verification token sent to their email
+// @Tags auth,public
+// @Accept json
+// @Produce json
+// @Param token query string true "Verification token"
+// @Success 200 {object} map[string]interface{} "Email verified successfully"
+// @Failure 400 {object} map[string]string "Bad request - missing or invalid token"
+// @Failure 404 {object} map[string]string "Invalid or expired token"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /verify-email [get]
+func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
+	token := c.Query("token")
+	if token == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Verification token is required"})
+	}
+
+	// Find user with this verification token
+	var user models.User
+	err := h.db.Where("verification_token = ? AND verification_token_expiry > ?", token, time.Now()).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			LogUserAction(h.db, 0, "EMAIL_VERIFICATION_INVALID_TOKEN", 0, "User", fmt.Sprintf("Invalid or expired verification token: %s", token), c)
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Invalid or expired verification token"})
+		}
+		LogUserAction(h.db, 0, "EMAIL_VERIFICATION_DB_ERROR", 0, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify email"})
+	}
+
+	// Check if email is already verified
+	if user.EmailVerified {
+		LogUserAction(h.db, user.ID, "EMAIL_VERIFICATION_ALREADY_VERIFIED", user.ID, "User", "Email already verified", c)
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message": "Email is already verified",
+			"user": fiber.Map{
+				"id":             user.ID,
+				"email":          user.Email,
+				"email_verified": user.EmailVerified,
+			},
+		})
+	}
+
+	// Update user's email verification status
+	user.EmailVerified = true
+	user.VerificationToken = nil       // Clear the token
+	user.VerificationTokenExpiry = nil // Clear the expiry
+
+	if err := h.db.Save(&user).Error; err != nil {
+		LogUserAction(h.db, user.ID, "EMAIL_VERIFICATION_UPDATE_FAIL", user.ID, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update email verification status"})
+	}
+
+	LogUserAction(h.db, user.ID, "EMAIL_VERIFICATION_SUCCESS", user.ID, "User", fmt.Sprintf("Email verified for user: %s", user.Email), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Email verified successfully! You can now log in to your account.",
+		"user": fiber.Map{
+			"id":             user.ID,
+			"email":          user.Email,
+			"firstName":      user.FirstName,
+			"lastName":       user.LastName,
+			"email_verified": user.EmailVerified,
 		},
 	})
 }
@@ -288,6 +364,15 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	if !user.IsActive {
 		LogUserAction(h.db, user.ID, "LOGIN_FAIL_INACTIVE", user.ID, "User", fmt.Sprintf("Attempt for email: %s", req.Email), c)
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User account is inactive. Please contact support."})
+	}
+
+	// Check if email is verified
+	if !user.EmailVerified {
+		LogUserAction(h.db, user.ID, "LOGIN_FAIL_EMAIL_NOT_VERIFIED", user.ID, "User", fmt.Sprintf("Login attempt with unverified email: %s", req.Email), c)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Please verify your email address before logging in. Check your inbox for a verification link.",
+			"email_verified": false,
+		})
 	}
 
 	// Generate JWT
@@ -421,5 +506,195 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	// Return user information with profile
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": userMap,
+	})
+}
+
+// ForgotPasswordRequest is the request body for forgot password.
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResetPasswordRequest is the request body for reset password.
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
+}
+
+// generatePasswordResetToken generates a random password reset token
+func generatePasswordResetToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+// ForgotPassword handles forgot password requests
+// @Summary Request password reset
+// @Description Sends a password reset link to the user's email address
+// @Tags auth,public
+// @Accept json
+// @Produce json
+// @Param request body ForgotPasswordRequest true "Email address"
+// @Success 200 {object} map[string]interface{} "Password reset email sent"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 404 {object} map[string]string "Email not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /forgot-password [post]
+func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
+	req := new(ForgotPasswordRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	}
+
+	// Validate request
+	if err := h.validateRequest(c, req); err != nil {
+		return err
+	}
+
+	// Find user by email
+	var user models.User
+	if err := h.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// For security, don't reveal if email exists or not
+			LogUserAction(h.db, 0, "FORGOT_PASSWORD_EMAIL_NOT_FOUND", 0, "User", fmt.Sprintf("Password reset requested for non-existent email: %s", req.Email), c)
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "If your email address is registered, you will receive a password reset link shortly."})
+		}
+		LogUserAction(h.db, 0, "FORGOT_PASSWORD_DB_ERROR", 0, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error during password reset"})
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		LogUserAction(h.db, user.ID, "FORGOT_PASSWORD_INACTIVE_USER", user.ID, "User", fmt.Sprintf("Password reset requested for inactive user: %s", req.Email), c)
+		// For security, don't reveal account status
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "If your email address is registered, you will receive a password reset link shortly."})
+	}
+
+	// Generate password reset token
+	resetToken, err := generatePasswordResetToken()
+	if err != nil {
+		LogUserAction(h.db, user.ID, "FORGOT_PASSWORD_TOKEN_GEN_FAIL", user.ID, "System", "Password reset token generation failed", c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate reset token"})
+	}
+
+	// Set token expiry to 1 hour from now
+	tokenExpiry := time.Now().Add(1 * time.Hour)
+
+	// Update user with reset token
+	user.PasswordResetToken = &resetToken
+	user.PasswordResetTokenExpiry = &tokenExpiry
+
+	if err := h.db.Save(&user).Error; err != nil {
+		LogUserAction(h.db, user.ID, "FORGOT_PASSWORD_UPDATE_FAIL", user.ID, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save reset token"})
+	}
+
+	// Send password reset email
+	resetURL := fmt.Sprintf("https://montessoriworldconnect.com/reset-password?token=%s", resetToken)
+	emailSubject := "Password Reset Request"
+	emailBody := fmt.Sprintf(`
+		<h1>Hello %s,</h1>
+		<p>You have requested to reset your password for your Montessori World Connect account.</p>
+		<p>Please click the link below to reset your password:</p>
+		<p><a href="%s">Reset Password</a></p>
+		<p>If the link doesn't work, you can copy and paste this URL into your browser:</p>
+		<p>%s</p>
+		<p>This link will expire in 1 hour for security reasons.</p>
+		<p>If you didn't request a password reset, you can safely ignore this email.</p>
+		<p>Best regards,<br>The Montessori World Connect Team</p>
+	`, user.FirstName, resetURL, resetURL)
+
+	if err := h.emailService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
+		log.Printf("Failed to send password reset email to %s: %v", user.Email, err)
+		LogUserAction(h.db, user.ID, "FORGOT_PASSWORD_EMAIL_FAIL", user.ID, "Email", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send reset email"})
+	}
+
+	LogUserAction(h.db, user.ID, "FORGOT_PASSWORD_SUCCESS", user.ID, "User", fmt.Sprintf("Password reset email sent to: %s", user.Email), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "If your email address is registered, you will receive a password reset link shortly.",
+	})
+}
+
+// ResetPassword handles password reset requests
+// @Summary Reset password using token
+// @Description Resets the user's password using a valid reset token
+// @Tags auth,public
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "Reset token and new password"
+// @Success 200 {object} map[string]interface{} "Password reset successful"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 404 {object} map[string]string "Invalid or expired token"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /reset-password [post]
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	req := new(ResetPasswordRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	}
+
+	// Validate request
+	if err := h.validateRequest(c, req); err != nil {
+		return err
+	}
+
+	// Find user with valid reset token
+	var user models.User
+	err := h.db.Where("password_reset_token = ? AND password_reset_token_expiry > ?", req.Token, time.Now()).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			LogUserAction(h.db, 0, "RESET_PASSWORD_INVALID_TOKEN", 0, "User", fmt.Sprintf("Invalid or expired reset token: %s", req.Token), c)
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Invalid or expired reset token"})
+		}
+		LogUserAction(h.db, 0, "RESET_PASSWORD_DB_ERROR", 0, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error during password reset"})
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		LogUserAction(h.db, user.ID, "RESET_PASSWORD_INACTIVE_USER", user.ID, "User", fmt.Sprintf("Password reset attempted for inactive user: %s", user.Email), c)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User account is inactive. Please contact support."})
+	}
+
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		LogUserAction(h.db, user.ID, "RESET_PASSWORD_HASH_FAIL", user.ID, "System", "Password hashing failed", c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash new password"})
+	}
+
+	// Update user password and clear reset token
+	user.PasswordHash = string(hashedPassword)
+	user.PasswordResetToken = nil
+	user.PasswordResetTokenExpiry = nil
+
+	if err := h.db.Save(&user).Error; err != nil {
+		LogUserAction(h.db, user.ID, "RESET_PASSWORD_UPDATE_FAIL", user.ID, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update password"})
+	}
+
+	LogUserAction(h.db, user.ID, "RESET_PASSWORD_SUCCESS", user.ID, "User", fmt.Sprintf("Password successfully reset for user: %s", user.Email), c)
+
+	// Send confirmation email
+	emailSubject := "Password Reset Successful"
+	emailBody := fmt.Sprintf(`
+		<h1>Hello %s,</h1>
+		<p>Your password has been successfully reset for your Montessori World Connect account.</p>
+		<p>You can now log in with your new password.</p>
+		<p>If you didn't reset your password, please contact our support team immediately.</p>
+		<p>Best regards,<br>The Montessori World Connect Team</p>
+	`, user.FirstName)
+
+	if err := h.emailService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
+		log.Printf("Failed to send password reset confirmation email to %s: %v", user.Email, err)
+		LogUserAction(h.db, user.ID, "RESET_PASSWORD_CONFIRMATION_EMAIL_FAIL", user.ID, "Email", err.Error(), c)
+		// Don't fail the request if email fails, password was already reset
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Password reset successful. You can now log in with your new password.",
 	})
 }

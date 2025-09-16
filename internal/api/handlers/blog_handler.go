@@ -674,3 +674,581 @@ func generateExcerpt(content string, maxLength int) string {
 	}
 	return content
 }
+
+// --- Category Management Functions (Admin Only) ---
+
+// CreateBlogCategoryRequest represents the request structure for creating a blog category
+type CreateBlogCategoryRequest struct {
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description"`
+}
+
+// UpdateBlogCategoryRequest represents the request structure for updating a blog category
+type UpdateBlogCategoryRequest struct {
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description"`
+}
+
+// CreateBlogCategory creates a new blog category (admin only)
+// @Summary Create a new blog category
+// @Description Creates a new blog category. Only admins can create categories.
+// @Tags admin,blog
+// @Accept json
+// @Produce json
+// @Param request body CreateBlogCategoryRequest true "Category information"
+// @Success 201 {object} map[string]interface{} "Category created successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can create categories"
+// @Failure 409 {object} map[string]string "Category already exists"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/categories [post]
+func (h *BlogHandler) CreateBlogCategory(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can create categories
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create categories"})
+	}
+
+	// Parse request
+	var req CreateBlogCategoryRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Validate request
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Category name is required"})
+	}
+
+	// Generate slug from name
+	categorySlug := slug.Make(req.Name)
+
+	// Check if category with same name or slug already exists
+	var existingCategory models.BlogCategory
+	err := h.db.Where("name = ? OR slug = ?", req.Name, categorySlug).First(&existingCategory).Error
+	if err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Category with this name already exists"})
+	} else if err != gorm.ErrRecordNotFound {
+		log.Printf("Error checking existing category: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check existing category"})
+	}
+
+	// Create category
+	category := models.BlogCategory{
+		Name:        req.Name,
+		Slug:        categorySlug,
+		Description: req.Description,
+		PostCount:   0,
+	}
+
+	if err := h.db.Create(&category).Error; err != nil {
+		log.Printf("Error creating blog category: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create category"})
+	}
+
+	LogUserAction(h.db, userID, "BLOG_CATEGORY_CREATED", category.ID, "BlogCategory", fmt.Sprintf("Blog category created: %s", req.Name), c)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Category created successfully",
+		"category": fiber.Map{
+			"id":          category.ID,
+			"name":        category.Name,
+			"slug":        category.Slug,
+			"description": category.Description,
+			"post_count":  category.PostCount,
+			"created_at":  category.CreatedAt,
+		},
+	})
+}
+
+// GetBlogCategoriesAdmin gets all blog categories for admin
+// @Summary Get all blog categories (admin)
+// @Description Retrieves all blog categories with detailed information for admin
+// @Tags admin,blog
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List of blog categories"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can access this endpoint"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/categories [get]
+func (h *BlogHandler) GetBlogCategoriesAdmin(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can access this endpoint
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can access this endpoint"})
+	}
+
+	var categories []models.BlogCategory
+	if err := h.db.Order("name ASC").Find(&categories).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve categories"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"categories": categories,
+	})
+}
+
+// UpdateBlogCategory updates a blog category (admin only)
+// @Summary Update a blog category
+// @Description Updates an existing blog category. Only admins can update categories.
+// @Tags admin,blog
+// @Accept json
+// @Produce json
+// @Param category_id path int true "Category ID"
+// @Param request body UpdateBlogCategoryRequest true "Updated category information"
+// @Success 200 {object} map[string]interface{} "Category updated successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can update categories"
+// @Failure 404 {object} map[string]string "Category not found"
+// @Failure 409 {object} map[string]string "Category name already exists"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/categories/{category_id} [put]
+func (h *BlogHandler) UpdateBlogCategory(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can update categories
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can update categories"})
+	}
+
+	// Get category ID from URL params
+	categoryID := c.Params("category_id")
+	if categoryID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Category ID is required"})
+	}
+
+	// Parse request
+	var req UpdateBlogCategoryRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Validate request
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Category name is required"})
+	}
+
+	// Find existing category
+	var category models.BlogCategory
+	if err := h.db.First(&category, categoryID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Category not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve category"})
+	}
+
+	// Generate new slug from name
+	newSlug := slug.Make(req.Name)
+
+	// Check if another category with same name or slug already exists (excluding current category)
+	var existingCategory models.BlogCategory
+	err := h.db.Where("(name = ? OR slug = ?) AND id != ?", req.Name, newSlug, category.ID).First(&existingCategory).Error
+	if err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Another category with this name already exists"})
+	} else if err != gorm.ErrRecordNotFound {
+		log.Printf("Error checking existing category: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check existing category"})
+	}
+
+	// Update category
+	category.Name = req.Name
+	category.Slug = newSlug
+	category.Description = req.Description
+
+	if err := h.db.Save(&category).Error; err != nil {
+		log.Printf("Error updating blog category: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update category"})
+	}
+
+	LogUserAction(h.db, userID, "BLOG_CATEGORY_UPDATED", category.ID, "BlogCategory", fmt.Sprintf("Blog category updated: %s", req.Name), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Category updated successfully",
+		"category": fiber.Map{
+			"id":          category.ID,
+			"name":        category.Name,
+			"slug":        category.Slug,
+			"description": category.Description,
+			"post_count":  category.PostCount,
+			"updated_at":  category.UpdatedAt,
+		},
+	})
+}
+
+// DeleteBlogCategory deletes a blog category (admin only)
+// @Summary Delete a blog category
+// @Description Deletes a blog category. Only admins can delete categories.
+// @Tags admin,blog
+// @Produce json
+// @Param category_id path int true "Category ID"
+// @Success 200 {object} map[string]string "Category deleted successfully"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can delete categories"
+// @Failure 404 {object} map[string]string "Category not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/categories/{category_id} [delete]
+func (h *BlogHandler) DeleteBlogCategory(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can delete categories
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can delete categories"})
+	}
+
+	// Get category ID from URL params
+	categoryID := c.Params("category_id")
+	if categoryID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Category ID is required"})
+	}
+
+	// Find existing category
+	var category models.BlogCategory
+	if err := h.db.First(&category, categoryID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Category not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve category"})
+	}
+
+	// Delete category
+	if err := h.db.Delete(&category).Error; err != nil {
+		log.Printf("Error deleting blog category: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete category"})
+	}
+
+	LogUserAction(h.db, userID, "BLOG_CATEGORY_DELETED", category.ID, "BlogCategory", fmt.Sprintf("Blog category deleted: %s", category.Name), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Category deleted successfully",
+	})
+}
+
+// --- Tag Management Functions (Admin Only) ---
+
+// CreateBlogTagRequest represents the request structure for creating a blog tag
+type CreateBlogTagRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
+// UpdateBlogTagRequest represents the request structure for updating a blog tag
+type UpdateBlogTagRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
+// CreateBlogTag creates a new blog tag (admin only)
+// @Summary Create a new blog tag
+// @Description Creates a new blog tag. Only admins can create tags.
+// @Tags admin,blog
+// @Accept json
+// @Produce json
+// @Param request body CreateBlogTagRequest true "Tag information"
+// @Success 201 {object} map[string]interface{} "Tag created successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can create tags"
+// @Failure 409 {object} map[string]string "Tag already exists"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/tags [post]
+func (h *BlogHandler) CreateBlogTag(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can create tags
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create tags"})
+	}
+
+	// Parse request
+	var req CreateBlogTagRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Validate request
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Tag name is required"})
+	}
+
+	// Generate slug from name
+	tagSlug := slug.Make(req.Name)
+
+	// Check if tag with same name or slug already exists
+	var existingTag models.BlogTag
+	err := h.db.Where("name = ? OR slug = ?", req.Name, tagSlug).First(&existingTag).Error
+	if err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Tag with this name already exists"})
+	} else if err != gorm.ErrRecordNotFound {
+		log.Printf("Error checking existing tag: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check existing tag"})
+	}
+
+	// Create tag
+	tag := models.BlogTag{
+		Name:      req.Name,
+		Slug:      tagSlug,
+		PostCount: 0,
+	}
+
+	if err := h.db.Create(&tag).Error; err != nil {
+		log.Printf("Error creating blog tag: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create tag"})
+	}
+
+	LogUserAction(h.db, userID, "BLOG_TAG_CREATED", tag.ID, "BlogTag", fmt.Sprintf("Blog tag created: %s", req.Name), c)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Tag created successfully",
+		"tag": fiber.Map{
+			"id":         tag.ID,
+			"name":       tag.Name,
+			"slug":       tag.Slug,
+			"post_count": tag.PostCount,
+			"created_at": tag.CreatedAt,
+		},
+	})
+}
+
+// GetBlogTagsAdmin gets all blog tags for admin
+// @Summary Get all blog tags (admin)
+// @Description Retrieves all blog tags with detailed information for admin
+// @Tags admin,blog
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List of blog tags"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can access this endpoint"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/tags [get]
+func (h *BlogHandler) GetBlogTagsAdmin(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can access this endpoint
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can access this endpoint"})
+	}
+
+	var tags []models.BlogTag
+	if err := h.db.Order("name ASC").Find(&tags).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve tags"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"tags": tags,
+	})
+}
+
+// UpdateBlogTag updates a blog tag (admin only)
+// @Summary Update a blog tag
+// @Description Updates an existing blog tag. Only admins can update tags.
+// @Tags admin,blog
+// @Accept json
+// @Produce json
+// @Param tag_id path int true "Tag ID"
+// @Param request body UpdateBlogTagRequest true "Updated tag information"
+// @Success 200 {object} map[string]interface{} "Tag updated successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can update tags"
+// @Failure 404 {object} map[string]string "Tag not found"
+// @Failure 409 {object} map[string]string "Tag name already exists"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/tags/{tag_id} [put]
+func (h *BlogHandler) UpdateBlogTag(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can update tags
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can update tags"})
+	}
+
+	// Get tag ID from URL params
+	tagID := c.Params("tag_id")
+	if tagID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Tag ID is required"})
+	}
+
+	// Parse request
+	var req UpdateBlogTagRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Validate request
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Tag name is required"})
+	}
+
+	// Find existing tag
+	var tag models.BlogTag
+	if err := h.db.First(&tag, tagID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Tag not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve tag"})
+	}
+
+	// Generate new slug from name
+	newSlug := slug.Make(req.Name)
+
+	// Check if another tag with same name or slug already exists (excluding current tag)
+	var existingTag models.BlogTag
+	err := h.db.Where("(name = ? OR slug = ?) AND id != ?", req.Name, newSlug, tag.ID).First(&existingTag).Error
+	if err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Another tag with this name already exists"})
+	} else if err != gorm.ErrRecordNotFound {
+		log.Printf("Error checking existing tag: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check existing tag"})
+	}
+
+	// Update tag
+	tag.Name = req.Name
+	tag.Slug = newSlug
+
+	if err := h.db.Save(&tag).Error; err != nil {
+		log.Printf("Error updating blog tag: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update tag"})
+	}
+
+	LogUserAction(h.db, userID, "BLOG_TAG_UPDATED", tag.ID, "BlogTag", fmt.Sprintf("Blog tag updated: %s", req.Name), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Tag updated successfully",
+		"tag": fiber.Map{
+			"id":         tag.ID,
+			"name":       tag.Name,
+			"slug":       tag.Slug,
+			"post_count": tag.PostCount,
+			"updated_at": tag.UpdatedAt,
+		},
+	})
+}
+
+// DeleteBlogTag deletes a blog tag (admin only)
+// @Summary Delete a blog tag
+// @Description Deletes a blog tag. Only admins can delete tags.
+// @Tags admin,blog
+// @Produce json
+// @Param tag_id path int true "Tag ID"
+// @Success 200 {object} map[string]string "Tag deleted successfully"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Only admins can delete tags"
+// @Failure 404 {object} map[string]string "Tag not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/blog/tags/{tag_id} [delete]
+func (h *BlogHandler) DeleteBlogTag(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	// Get user role
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
+	}
+
+	// Only admins can delete tags
+	if user.Role != models.AdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can delete tags"})
+	}
+
+	// Get tag ID from URL params
+	tagID := c.Params("tag_id")
+	if tagID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Tag ID is required"})
+	}
+
+	// Find existing tag
+	var tag models.BlogTag
+	if err := h.db.First(&tag, tagID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Tag not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve tag"})
+	}
+
+	// Delete tag
+	if err := h.db.Delete(&tag).Error; err != nil {
+		log.Printf("Error deleting blog tag: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete tag"})
+	}
+
+	LogUserAction(h.db, userID, "BLOG_TAG_DELETED", tag.ID, "BlogTag", fmt.Sprintf("Blog tag deleted: %s", tag.Name), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Tag deleted successfully",
+	})
+}

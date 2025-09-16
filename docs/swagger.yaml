@@ -1,9 +1,17 @@
-basePath: /api/v1
 definitions:
   handlers.CancelRequest:
     properties:
       reason:
         type: string
+    type: object
+  handlers.CreateBlogCategoryRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - name
     type: object
   handlers.CreateBlogPostRequest:
     properties:
@@ -34,6 +42,13 @@ definitions:
     - category
     - content
     - title
+    type: object
+  handlers.CreateBlogTagRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
     type: object
   handlers.CreateEventRequest:
     properties:
@@ -94,6 +109,13 @@ definitions:
     properties:
       featured:
         type: boolean
+    type: object
+  handlers.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
     type: object
   handlers.InstitutionDetailsResponse:
     properties:
@@ -385,6 +407,17 @@ definitions:
     - password
     - role
     type: object
+  handlers.ResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
   handlers.ReviewResponse:
     properties:
       comment:
@@ -560,6 +593,22 @@ definitions:
         type: integer
       sender_id:
         type: integer
+    type: object
+  handlers.UpdateBlogCategoryRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  handlers.UpdateBlogTagRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
     type: object
   handlers.UserResponse:
     properties:
@@ -912,6 +961,9 @@ definitions:
         type: string
       email:
         type: string
+      emailVerified:
+        description: Email verification fields
+        type: boolean
       firstName:
         type: string
       id:
@@ -938,10 +990,22 @@ definitions:
       passwordHash:
         description: Store hashed passwords only
         type: string
+      passwordResetToken:
+        description: Password reset fields
+        type: string
+      passwordResetTokenExpiry:
+        description: Expiry time for password reset token
+        type: string
       role:
         $ref: '#/definitions/models.UserRole'
       updated_at:
         example: "2023-01-01T00:00:00Z"
+        type: string
+      verificationToken:
+        description: Token for email verification
+        type: string
+      verificationTokenExpiry:
+        description: Expiry time for verification token
         type: string
     type: object
   models.UserRole:
@@ -958,34 +1022,8 @@ definitions:
     - MontessoriProfessionalRole
     - TrainingCenterRole
     - ParentRole
-host: https://api.montessoriworldconnect.com
 info:
-  contact:
-    email: support@montessoriworldconnect.com
-    name: API Support
-  description: 'API for the Montessori World Connect platform. Introduction: Welcome
-    to the Montessori World Connect API documentation. This API provides access to
-    various resources and functionalities of the Montessori World Connect platform,
-    including schools, educators, institutions, events, blogs, and more. The API is
-    designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE)
-    for operations. Responses are returned in JSON format. Getting Started: Authentication
-    - Most endpoints require authentication using JWT (JSON Web Token). To authenticate,
-    you need to: 1) Register a new account or login with existing credentials, 2)
-    Include the received token directly in the Authorization header of your requests.
-    Public Endpoints - Some endpoints are publicly accessible without authentication:
-    /api/v1/register (Register a new user), /api/v1/login (Login and get authentication
-    token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get
-    list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get
-    list of blog posts). Rate Limiting - API requests are subject to rate limiting
-    to ensure fair usage. Please design your applications to handle rate limit responses
-    (HTTP 429) gracefully. Pagination - List endpoints support pagination using ''page''
-    and ''limit'' query parameters.'
-  license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
-  termsOfService: http://swagger.io/terms/
-  title: Montessori World Connect API
-  version: "1.0"
+  contact: {}
 paths:
   /admin/action-logs:
     get:
@@ -1199,6 +1237,414 @@ paths:
       tags:
       - blog
       - admin
+  /admin/blog/categories:
+    get:
+      description: Retrieves all blog categories with detailed information for admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of blog categories
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can access this endpoint
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all blog categories (admin)
+      tags:
+      - admin
+      - blog
+    post:
+      consumes:
+      - application/json
+      description: Creates a new blog category. Only admins can create categories.
+      parameters:
+      - description: Category information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBlogCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Category created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can create categories
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Category already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new blog category
+      tags:
+      - admin
+      - blog
+  /admin/blog/categories/{category_id}:
+    delete:
+      description: Deletes a blog category. Only admins can delete categories.
+      parameters:
+      - description: Category ID
+        in: path
+        name: category_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can delete categories
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Category not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a blog category
+      tags:
+      - admin
+      - blog
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing blog category. Only admins can update categories.
+      parameters:
+      - description: Category ID
+        in: path
+        name: category_id
+        required: true
+        type: integer
+      - description: Updated category information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateBlogCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can update categories
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Category not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Category name already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a blog category
+      tags:
+      - admin
+      - blog
+  /admin/blog/tags:
+    get:
+      description: Retrieves all blog tags with detailed information for admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of blog tags
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can access this endpoint
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all blog tags (admin)
+      tags:
+      - admin
+      - blog
+    post:
+      consumes:
+      - application/json
+      description: Creates a new blog tag. Only admins can create tags.
+      parameters:
+      - description: Tag information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBlogTagRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tag created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can create tags
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Tag already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new blog tag
+      tags:
+      - admin
+      - blog
+  /admin/blog/tags/{tag_id}:
+    delete:
+      description: Deletes a blog tag. Only admins can delete tags.
+      parameters:
+      - description: Tag ID
+        in: path
+        name: tag_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tag deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can delete tags
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Tag not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a blog tag
+      tags:
+      - admin
+      - blog
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing blog tag. Only admins can update tags.
+      parameters:
+      - description: Tag ID
+        in: path
+        name: tag_id
+        required: true
+        type: integer
+      - description: Updated tag information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateBlogTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tag updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Only admins can update tags
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Tag not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Tag name already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a blog tag
+      tags:
+      - admin
+      - blog
   /admin/events/{event_id}/feature:
     put:
       consumes:
@@ -2104,6 +2550,48 @@ paths:
       summary: Get featured events
       tags:
       - events
+  /forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset link to the user's email address
+      parameters:
+      - description: Email address
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset email sent
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Email not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Request password reset
+      tags:
+      - auth
+      - public
   /institution/events:
     get:
       description: Retrieves all events created by the current institution
@@ -3686,6 +4174,48 @@ paths:
       tags:
       - auth
       - public
+  /reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets the user's password using a valid reset token
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset successful
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Invalid or expired token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Reset password using token
+      tags:
+      - auth
+      - public
   /reviews:
     post:
       consumes:
@@ -4106,6 +4636,48 @@ paths:
       summary: Get user subscription
       tags:
       - subscription
+  /verify-email:
+    get:
+      consumes:
+      - application/json
+      description: Verifies a user's email address using the verification token sent
+        to their email
+      parameters:
+      - description: Verification token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email verified successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request - missing or invalid token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Invalid or expired token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Verify user email address
+      tags:
+      - auth
+      - public
   /webhooks/notify-unread-message:
     post:
       consumes:
@@ -4282,19 +4854,4 @@ paths:
       summary: Send notification to user
       tags:
       - websocket
-schemes:
-- http
-- https
-securityDefinitions:
-  BearerAuth:
-    description: Provide your JWT token directly in the Authorization header without
-      any prefix.
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"
-tags:
-- description: Public endpoints that don't require authentication
-  name: public
-- description: Endpoints that require authentication
-  name: authenticated

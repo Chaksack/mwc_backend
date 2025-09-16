@@ -64,6 +64,9 @@ func SetupRoutes(
 
 	apiV1.Post("/register", authHandler.Register)
 	apiV1.Post("/login", authHandler.Login)
+	apiV1.Get("/verify-email", authHandler.VerifyEmail) // Email verification endpoint
+	apiV1.Post("/forgot-password", authHandler.ForgotPassword) // Forgot password endpoint
+	apiV1.Post("/reset-password", authHandler.ResetPassword)   // Reset password endpoint
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db))                    // Publicly searchable schools
 	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
 
@@ -176,8 +179,22 @@ func SetupRoutes(
 	// Admin blog routes
 	adminBlogRoutes := apiV1.Group("/admin/blog", authMw, middleware.RoleAuth(models.AdminRole))
 	adminBlogRoutes.Post("/", blogHandler.CreateBlogPost)
+	adminBlogRoutes.Get("/", blogHandler.GetBlogPosts)                // Admin can list all blog posts
+	adminBlogRoutes.Get("/:post_id", blogHandler.GetBlogPost)         // Admin can get individual blog post by ID
 	adminBlogRoutes.Put("/:post_id", blogHandler.UpdateBlogPost)
 	adminBlogRoutes.Delete("/:post_id", blogHandler.DeleteBlogPost)
+	
+	// Admin category management routes
+	adminBlogRoutes.Post("/categories", blogHandler.CreateBlogCategory)
+	adminBlogRoutes.Get("/categories", blogHandler.GetBlogCategoriesAdmin)
+	adminBlogRoutes.Put("/categories/:category_id", blogHandler.UpdateBlogCategory)
+	adminBlogRoutes.Delete("/categories/:category_id", blogHandler.DeleteBlogCategory)
+	
+	// Admin tag management routes
+	adminBlogRoutes.Post("/tags", blogHandler.CreateBlogTag)
+	adminBlogRoutes.Get("/tags", blogHandler.GetBlogTagsAdmin)
+	adminBlogRoutes.Put("/tags/:tag_id", blogHandler.UpdateBlogTag)
+	adminBlogRoutes.Delete("/tags/:tag_id", blogHandler.DeleteBlogTag)
 
 	// WebSocket Routes
 	if cfg.WebSocketEnabled {
