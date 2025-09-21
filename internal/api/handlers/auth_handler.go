@@ -366,8 +366,8 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User account is inactive. Please contact support."})
 	}
 
-	// Check if email is verified
-	if !user.EmailVerified {
+	// Check if email is verified (skip verification for admin users)
+	if !user.EmailVerified && user.Role != models.AdminRole {
 		LogUserAction(h.db, user.ID, "LOGIN_FAIL_EMAIL_NOT_VERIFIED", user.ID, "User", fmt.Sprintf("Login attempt with unverified email: %s", req.Email), c)
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Please verify your email address before logging in. Check your inbox for a verification link.",
