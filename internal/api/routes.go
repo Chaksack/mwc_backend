@@ -180,21 +180,23 @@ func SetupRoutes(
 	adminBlogRoutes := apiV1.Group("/admin/blog", authMw, middleware.RoleAuth(models.AdminRole))
 	adminBlogRoutes.Post("/", blogHandler.CreateBlogPost)
 	adminBlogRoutes.Get("/", blogHandler.GetBlogPosts)                // Admin can list all blog posts
-	adminBlogRoutes.Get("/:post_id", blogHandler.GetBlogPost)         // Admin can get individual blog post by ID
-	adminBlogRoutes.Put("/:post_id", blogHandler.UpdateBlogPost)
-	adminBlogRoutes.Delete("/:post_id", blogHandler.DeleteBlogPost)
 	
-	// Admin category management routes
+	// Admin category management routes - must come before /:post_id routes
 	adminBlogRoutes.Post("/categories", blogHandler.CreateBlogCategory)
 	adminBlogRoutes.Get("/categories", blogHandler.GetBlogCategoriesAdmin)
 	adminBlogRoutes.Put("/categories/:category_id", blogHandler.UpdateBlogCategory)
 	adminBlogRoutes.Delete("/categories/:category_id", blogHandler.DeleteBlogCategory)
 	
-	// Admin tag management routes
+	// Admin tag management routes - must come before /:post_id routes
 	adminBlogRoutes.Post("/tags", blogHandler.CreateBlogTag)
 	adminBlogRoutes.Get("/tags", blogHandler.GetBlogTagsAdmin)
 	adminBlogRoutes.Put("/tags/:tag_id", blogHandler.UpdateBlogTag)
 	adminBlogRoutes.Delete("/tags/:tag_id", blogHandler.DeleteBlogTag)
+	
+	// Admin post management routes - must come after specific routes like /categories and /tags
+	adminBlogRoutes.Get("/:post_id", blogHandler.GetBlogPost)         // Admin can get individual blog post by ID
+	adminBlogRoutes.Put("/:post_id", blogHandler.UpdateBlogPost)
+	adminBlogRoutes.Delete("/:post_id", blogHandler.DeleteBlogPost)
 
 	// WebSocket Routes
 	if cfg.WebSocketEnabled {

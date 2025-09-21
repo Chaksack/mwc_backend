@@ -119,6 +119,12 @@ func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 		}
 	}
 
+	// Initialize tags to empty slice if nil to prevent database errors
+	tags := req.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
 	// Create blog post
 	blogPost := models.BlogPost{
 		AuthorID:          userID,
@@ -127,7 +133,7 @@ func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 		Content:           req.Content,
 		Excerpt:           req.Excerpt,
 		Category:          req.Category,
-		Tags:              req.Tags,
+		Tags:              tags,
 		IsPublished:       req.IsPublished,
 		IsFeatured:        req.IsFeatured,
 		LocalizedTitles:   localizedTitles,
@@ -436,12 +442,18 @@ func (h *BlogHandler) UpdateBlogPost(c *fiber.Ctx) error {
 		}
 	}
 
+	// Initialize tags to empty slice if nil to prevent database errors
+	tags := req.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
 	// Update blog post
 	blogPost.Title = req.Title
 	blogPost.Content = req.Content
 	blogPost.Excerpt = req.Excerpt
 	blogPost.Category = req.Category
-	blogPost.Tags = req.Tags
+	blogPost.Tags = tags
 	blogPost.LocalizedTitles = localizedTitles
 	blogPost.LocalizedContents = localizedContents
 	blogPost.LocalizedExcerpts = localizedExcerpts
