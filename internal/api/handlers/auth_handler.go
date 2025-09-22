@@ -219,7 +219,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Send email verification email
-	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", h.cfg.BaseURL, verificationToken)
+	verificationURL := fmt.Sprintf("https://montessoriworldconnect.com/verify-email?token=%s", verificationToken)
 	emailSubject := "Please verify your email address"
 	emailBody := fmt.Sprintf(`
 		<h1>Hello %s,</h1>
