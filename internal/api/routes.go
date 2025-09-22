@@ -120,6 +120,7 @@ func SetupRoutes(
 	parentRoutes := apiV1.Group("/parent", authMw, middleware.RoleAuth(models.ParentRole))
 	parentRoutes.Post("/profile", parentHandler.CreateOrUpdateParentProfile)
 	parentRoutes.Get("/schools/search", parentHandler.SearchSchools) // Can reuse educator's or have its own
+	parentRoutes.Get("/schools/:school_id/details", parentHandler.GetSchoolDetails) // Get school details with public parent profiles
 	parentRoutes.Post("/schools/save/:school_id", parentHandler.SaveSchool)
 	parentRoutes.Delete("/schools/save/:school_id", parentHandler.DeleteSavedSchool)
 	parentRoutes.Get("/schools/saved", parentHandler.GetSavedSchools)

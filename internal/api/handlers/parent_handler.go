@@ -67,8 +67,10 @@ func NewParentHandler(db *gorm.DB, mq queue.MessageQueueService, emailSvc email.
 }
 
 type ParentProfileRequest struct {
-	PhoneNumber string `json:"phone_number,omitempty"`
-	// Add other parent-specific profile fields here
+	PhoneNumber       string   `json:"phone_number,omitempty"`
+	ProfileVisibility string   `json:"profile_visibility,omitempty"` // "public" or "private"
+	ParentAge         int      `json:"parent_age,omitempty"`
+	SchoolIDs         []uint   `json:"school_ids,omitempty"` // Schools the parent's children attend
 }
 
 type MessageRequest struct {
@@ -101,10 +103,13 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
 	}
-	// TODO: Validate req
+	// Validate profile visibility
+	if req.ProfileVisibility != "" && req.ProfileVisibility != "public" && req.ProfileVisibility != "private" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Profile visibility must be 'public' or 'private'"})
+	}
 
 	var profile models.ParentProfile
-	err := h.db.Where("user_id = ?", actorUserID).First(&profile).Error
+	err := h.db.Preload("Schools").Where("user_id = ?", actorUserID).First(&profile).Error
 	isNewProfile := false
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -115,7 +120,40 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
 		}
 	}
-	// Update fields from req, e.g., profile.PhoneNumber = req.PhoneNumber
+
+	// Update fields from request
+	if req.ProfileVisibility != "" {
+		profile.ProfileVisibility = req.ProfileVisibility
+	}
+	if req.ParentAge > 0 {
+		profile.ParentAge = req.ParentAge
+	}
+
+	// Handle schools relationship
+	if len(req.SchoolIDs) > 0 {
+		// Clear existing schools and add new ones
+		if err := h.db.Model(&profile).Association("Schools").Clear(); err != nil {
+			LogUserAction(h.db, actorUserID, "PARENT_PROFILE_SCHOOLS_CLEAR_FAIL", actorUserID, "ParentProfile", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to clear schools: " + err.Error()})
+		}
+
+		// Fetch and validate schools
+		var schools []models.School
+		if err := h.db.Where("id IN ?", req.SchoolIDs).Find(&schools).Error; err != nil {
+			LogUserAction(h.db, actorUserID, "PARENT_PROFILE_SCHOOLS_FETCH_FAIL", actorUserID, "School", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch schools: " + err.Error()})
+		}
+
+		if len(schools) != len(req.SchoolIDs) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Some school IDs are invalid"})
+		}
+
+		// Associate schools with profile
+		if err := h.db.Model(&profile).Association("Schools").Append(schools); err != nil {
+			LogUserAction(h.db, actorUserID, "PARENT_PROFILE_SCHOOLS_APPEND_FAIL", actorUserID, "ParentProfile", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to associate schools: " + err.Error()})
+		}
+	}
 
 	if err := h.db.Save(&profile).Error; err != nil {
 		actionType := "PARENT_PROFILE_UPDATE_FAIL"
@@ -131,6 +169,77 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 	}
 	LogUserAction(h.db, actorUserID, actionType, profile.ID, "ParentProfile", "Profile saved", c)
 	return c.Status(fiber.StatusOK).JSON(profile)
+}
+
+// GetSchoolDetails returns school details with public parent profiles
+// @Summary Get school details with parent profiles
+// @Description Get detailed information about a school including public parent profiles whose children attend this school
+// @Tags parent,schools
+// @Produce json
+// @Param school_id path int true "School ID"
+// @Success 200 {object} map[string]interface{} "School details with parent profiles"
+// @Failure 400 {object} map[string]string "Bad request or invalid school ID"
+// @Failure 404 {object} map[string]string "School not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /parent/schools/{school_id}/details [get]
+func (h *ParentHandler) GetSchoolDetails(c *fiber.Ctx) error {
+	schoolIDStr := c.Params("school_id")
+	schoolID, err := strconv.ParseUint(schoolIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid school ID format"})
+	}
+
+	// Get school details
+	var school models.School
+	if err := h.db.First(&school, uint(schoolID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "School not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch school: " + err.Error()})
+	}
+
+	// Get public parent profiles whose children attend this school
+	var parentProfiles []models.ParentProfile
+	if err := h.db.Joins("JOIN parent_children_schools ON parent_children_schools.parent_profile_id = parent_profiles.id").
+		Where("parent_children_schools.school_id = ? AND parent_profiles.profile_visibility = ?", uint(schoolID), "public").
+		Preload("User").
+		Find(&parentProfiles).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch parent profiles: " + err.Error()})
+	}
+
+	// Format parent profiles for response
+	var publicParents []map[string]interface{}
+	for _, profile := range parentProfiles {
+		parentInfo := map[string]interface{}{
+			"id":         profile.ID,
+			"user_id":    profile.UserID,
+			"first_name": profile.User.FirstName,
+			"last_name":  profile.User.LastName,
+			"parent_age": profile.ParentAge,
+		}
+		publicParents = append(publicParents, parentInfo)
+	}
+
+	response := map[string]interface{}{
+		"school": map[string]interface{}{
+			"id":           school.ID,
+			"name":         school.Name,
+			"category":     school.Category,
+			"address":      school.Address,
+			"city":         school.City,
+			"state":        school.State,
+			"country":      school.Country,
+			"country_code": school.CountryCode,
+			"zip_code":     school.ZipCode,
+			"contact_email": school.ContactEmail,
+			"contact_phone": school.ContactPhone,
+			"website":      school.Website,
+		},
+		"public_parents": publicParents,
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
 }
 
 // SearchSchools for parents (can reuse EducatorHandler.SearchSchools or GetPublicSchools)

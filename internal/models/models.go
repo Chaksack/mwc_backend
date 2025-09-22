@@ -147,11 +147,13 @@ type MontessoriProfessionalProfile struct {
 // @Description Parent profile information
 // @Schema models.ParentProfile
 type ParentProfile struct {
-	GormModel              // Use GormModel for Swagger documentation
-	UserID       uint      `gorm:"uniqueIndex;not null"`
-	User         User      // Eager load user details
-	SavedSchools []*School `gorm:"many2many:parent_saved_schools;"`
-	// Other parent-specific fields
+	GormModel                        // Use GormModel for Swagger documentation
+	UserID           uint            `gorm:"uniqueIndex;not null"`
+	User             User            // Eager load user details
+	ProfileVisibility string         `gorm:"default:'public'"` // "public" or "private"
+	ParentAge        int             // Age of the parent
+	SavedSchools     []*School       `gorm:"many2many:parent_saved_schools;"`
+	Schools          []*School       `gorm:"many2many:parent_children_schools;"` // Schools the parent's children attend
 }
 
 // Job posted by an Institution or Training Center
