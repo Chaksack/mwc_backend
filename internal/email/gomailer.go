@@ -3,7 +3,8 @@ package email
 import (
 	"fmt"
 	"log"
-	// "strconv" // No longer needed here
+	"net/mail"
+	"strings"
 
 	"gopkg.in/gomail.v2"
 )
@@ -19,15 +20,43 @@ type GoMailerService struct {
 	fromAddr string
 }
 
+// parseEmailAddress parses and formats an email address to be RFC 5322 compliant
+func parseEmailAddress(emailAddr string) (string, error) {
+	// Remove any surrounding quotes that might cause issues
+	cleanAddr := strings.Trim(emailAddr, `"`)
+	
+	// Try to parse the address using Go's mail package
+	addr, err := mail.ParseAddress(cleanAddr)
+	if err != nil {
+		// If parsing fails, try with the original address
+		addr, err = mail.ParseAddress(emailAddr)
+		if err != nil {
+			// If both fail, return the original address and log a warning
+			log.Printf("Warning: Could not parse email address '%s': %v. Using as-is.", emailAddr, err)
+			return emailAddr, nil
+		}
+	}
+	
+	// Return the properly formatted address
+	return addr.String(), nil
+}
+
 // NewGoMailerService creates a new GoMailerService.
 func NewGoMailerService(host string, port int, username, password, from string) EmailService {
 	if host == "" || port == 0 || from == "" {
 		log.Println("Warning: SMTP host, port, or fromAddress not configured. Email service will be a no-op.")
 		return &noopEmailService{} // Return a no-op service
 	}
+	
+	// Parse and format the from address
+	formattedFrom, err := parseEmailAddress(from)
+	if err != nil {
+		log.Printf("Warning: Email from address formatting issue: %v", err)
+	}
+	
 	d := gomail.NewDialer(host, port, username, password)
 	// TODO: Add d.TLSConfig for TLS, especially if not using standard port 465 (SMTPS) or 587 (STARTTLS)
-	return &GoMailerService{dialer: d, fromAddr: from}
+	return &GoMailerService{dialer: d, fromAddr: formattedFrom}
 }
 
 // SendEmail sends an email.
