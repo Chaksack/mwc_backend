@@ -9,6 +9,7 @@ import (
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -29,11 +30,17 @@ func SetupRoutes(
 	institutionHandler := handlers.NewInstitutionHandler(db, mqService)
 	montessoriProfessionalHandler := handlers.NewMontessoriProfessionalHandler(db, mqService)
 	parentHandler := handlers.NewParentHandler(db, mqService, emailService)
-	subscriptionHandler := handlers.NewSubscriptionHandler(db, cfg, mqService)
+	subscriptionHandler := handlers.NewSubscriptionHandler(db, cfg, mqService, emailService)
 	websocketHandler := handlers.NewWebSocketHandler(db, cfg)
 	reviewHandler := handlers.NewReviewHandler(db, mqService)
 	eventHandler := handlers.NewEventHandler(db, cfg, mqService)
 	blogHandler := handlers.NewBlogHandler(db, cfg, mqService)
+
+	// Initialize and start notification scheduler
+	notificationService := services.NewNotificationService(db, emailService)
+	schedulerService := services.NewSchedulerService(notificationService)
+	go schedulerService.Start()
+	log.Println("Notification scheduler service started")
 
 	// Root route handler
 	app.Get("/", func(c *fiber.Ctx) error {

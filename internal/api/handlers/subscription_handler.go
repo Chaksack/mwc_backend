@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"mwc_backend/config"
+	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/services"
 	"strconv"
 	"time"
 
@@ -21,16 +23,23 @@ import (
 
 // SubscriptionHandler handles subscription-related requests
 type SubscriptionHandler struct {
-	db        *gorm.DB
-	cfg       *config.Config
-	mqService queue.MessageQueueService
+	db                  *gorm.DB
+	cfg                 *config.Config
+	mqService           queue.MessageQueueService
+	notificationService *services.NotificationService
 }
 
 // NewSubscriptionHandler creates a new SubscriptionHandler
-func NewSubscriptionHandler(db *gorm.DB, cfg *config.Config, mqService queue.MessageQueueService) *SubscriptionHandler {
+func NewSubscriptionHandler(db *gorm.DB, cfg *config.Config, mqService queue.MessageQueueService, emailService email.EmailService) *SubscriptionHandler {
 	// Initialize Stripe with the API key
 	stripe.Key = cfg.StripeSecretKey
-	return &SubscriptionHandler{db: db, cfg: cfg, mqService: mqService}
+	notificationService := services.NewNotificationService(db, emailService)
+	return &SubscriptionHandler{
+		db:                  db,
+		cfg:                 cfg,
+		mqService:           mqService,
+		notificationService: notificationService,
+	}
 }
 
 // CreateCheckoutSession creates a Stripe checkout session for subscription
@@ -234,6 +243,15 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 		if err := h.db.Create(&subscription).Error; err != nil {
 			log.Printf("Error creating subscription record: %v", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create subscription record"})
+		}
+
+		// Send subscription completion notification
+		if err := h.db.Preload("User").First(&subscription, subscription.ID).Error; err == nil {
+			if err := h.notificationService.SendSubscriptionCompletedEmail(subscription); err != nil {
+				log.Printf("Failed to send subscription completion notification to user %d: %v", subscription.UserID, err)
+			} else {
+				log.Printf("Sent subscription completion notification to %s", subscription.User.Email)
+			}
 		}
 
 		LogUserAction(h.db, uint(userID), "SUBSCRIPTION_CREATED", uint(userID), "User", fmt.Sprintf("Subscription created for %s plan", plan), c)
