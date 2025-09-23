@@ -221,16 +221,44 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	// Send email verification email
 	verificationURL := fmt.Sprintf("https://montessoriworldconnect.com/verify-email?token=%s", verificationToken)
 	emailSubject := "Please verify your email address"
+	
+	// Check if user has any subscription information
+	var subscription models.Subscription
+	subscriptionInfo := ""
+	err = h.db.Where("user_id = ? AND status = ?", user.ID, models.SubscriptionActive).First(&subscription).Error
+	if err == nil {
+		// User has an active subscription
+		planName := string(subscription.Plan)
+		if planName == "monthly" {
+			planName = "Monthly"
+		} else if planName == "annual" {
+			planName = "Annual"
+		}
+		subscriptionInfo = fmt.Sprintf(`
+		<h2>Your Subscription Information</h2>
+		<p><strong>Plan:</strong> %s Plan</p>
+		<p><strong>Status:</strong> %s</p>
+		<p><strong>Start Date:</strong> %s</p>
+		<p><strong>End Date:</strong> %s</p>
+		<p><strong>Auto Renewal:</strong> %s</p>
+		`, planName, string(subscription.Status), subscription.StartDate.Format("January 2, 2006"), 
+		subscription.EndDate.Format("January 2, 2006"), 
+		func() string { if subscription.AutoRenew { return "Enabled" } else { return "Disabled" } }())
+	} else if err != gorm.ErrRecordNotFound {
+		// Log database error but don't fail the registration
+		log.Printf("Error checking subscription for user %d: %v", user.ID, err)
+	}
+	
 	emailBody := fmt.Sprintf(`
 		<h1>Hello %s,</h1>
-		<p>Thank you for registering on our platform as a %s.</p>
+		<p>Thank you for registering on our platform as a %s.</p>%s
 		<p>Please click the link below to verify your email address:</p>
 		<p><a href="%s">Verify Email Address</a></p>
 		<p>If the link doesn't work, you can copy and paste this URL into your browser:</p>
 		<p>%s</p>
 		<p>This link will expire in 24 hours.</p>
 		<p>If you didn't create an account, you can safely ignore this email.</p>
-	`, user.FirstName, user.Role, verificationURL, verificationURL)
+	`, user.FirstName, user.Role, subscriptionInfo, verificationURL, verificationURL)
 	
 	if err := h.emailService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
 		log.Printf("Failed to send verification email to %s: %v. Registration still successful.", user.Email, err)
