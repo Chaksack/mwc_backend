@@ -89,7 +89,7 @@ type RegisterRequest struct {
 	Password  string          `json:"password" validate:"required,min=8"`
 	FirstName string          `json:"first_name" validate:"required"`
 	LastName  string          `json:"last_name" validate:"required"`
-	Role      models.UserRole `json:"role" validate:"required,oneof=institution montessori_professional parent training_center admin"` // Added admin for potential setup
+	Role      models.UserRole `json:"role" validate:"required,oneof=institution montessori_professional parent training_center"` // Admin role removed - only superadmin can create admins
 	// Role-specific fields
 	InstitutionName string `json:"institution_name,omitempty"` // For institution/training_center
 }
@@ -123,18 +123,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Prevent non-admin from registering as admin
-	authClaims, _ := c.Locals("user_claims").(*middleware.Claims)
-	if req.Role == models.AdminRole && (authClaims == nil || authClaims.Role != models.AdminRole) {
-		// Check if any admin user exists. If not, allow first admin registration.
-		var adminCount int64
-		h.db.Model(&models.User{}).Where("role = ?", models.AdminRole).Count(&adminCount)
-		if adminCount > 0 {
-			LogUserAction(h.db, 0, "REGISTER_ATTEMPT_AS_ADMIN_DENIED", 0, "User", fmt.Sprintf("Attempt to register as admin by %s", req.Email), c)
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only existing admins can register new admins."})
-		}
-		log.Println("First admin user registration allowed.")
-	}
+	// Admin role registration is completely disabled - only superadmin can create admin users
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -213,6 +202,33 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		profileDetails = "Admin user registered."
 	}
 
+	// Create free trial subscription for non-admin users
+	if user.Role != models.AdminRole {
+		// Create 60-day free trial subscription
+		startDate := time.Now()
+		endDate := startDate.AddDate(0, 0, 60) // 60 days from now
+		
+		subscription := models.Subscription{
+			UserID:               user.ID,
+			Plan:                 models.FreePlan,
+			Status:               models.SubscriptionActive,
+			StartDate:            startDate,
+			EndDate:              endDate,
+			AutoRenew:            false, // Free trial doesn't auto-renew
+			StripeCustomerID:     "",    // No Stripe customer for free trial
+			StripeSubscriptionID: "",    // No Stripe subscription for free trial
+		}
+		
+		if err := tx.Create(&subscription).Error; err != nil {
+			tx.Rollback()
+			LogUserAction(h.db, user.ID, "REGISTER_FAIL_FREE_TRIAL", user.ID, "Subscription", err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create free trial subscription: " + err.Error()})
+		}
+		
+		profileDetails += " Free trial subscription (60 days) created."
+		LogUserAction(h.db, user.ID, "FREE_TRIAL_CREATED", user.ID, "Subscription", "60-day free trial subscription created", c)
+	}
+
 	if err := tx.Commit().Error; err != nil {
 		LogUserAction(h.db, user.ID, "REGISTER_FAIL_TX_COMMIT", user.ID, "System", err.Error(), c)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Transaction failed during registration: " + err.Error()})
@@ -222,31 +238,29 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	verificationURL := fmt.Sprintf("https://montessoriworldconnect.com/verify-email?token=%s", verificationToken)
 	emailSubject := "Please verify your email address"
 	
-	// Check if user has any subscription information
-	var subscription models.Subscription
-	subscriptionInfo := ""
-	err = h.db.Where("user_id = ? AND status = ?", user.ID, models.SubscriptionActive).First(&subscription).Error
-	if err == nil {
-		// User has an active subscription
-		planName := string(subscription.Plan)
-		if planName == "monthly" {
-			planName = "Monthly"
-		} else if planName == "annual" {
-			planName = "Annual"
-		}
-		subscriptionInfo = fmt.Sprintf(`
-		<h2>Your Subscription Information</h2>
-		<p><strong>Plan:</strong> %s Plan</p>
-		<p><strong>Status:</strong> %s</p>
-		<p><strong>Start Date:</strong> %s</p>
-		<p><strong>End Date:</strong> %s</p>
-		<p><strong>Auto Renewal:</strong> %s</p>
-		`, planName, string(subscription.Status), subscription.StartDate.Format("January 2, 2006"), 
-		subscription.EndDate.Format("January 2, 2006"), 
-		func() string { if subscription.AutoRenew { return "Enabled" } else { return "Disabled" } }())
-	} else if err != gorm.ErrRecordNotFound {
-		// Log database error but don't fail the registration
-		log.Printf("Error checking subscription for user %d: %v", user.ID, err)
+	// Build free trial information for non-admin users
+	freeTrialInfo := ""
+	if user.Role != models.AdminRole {
+		freeTrialEndDate := time.Now().AddDate(0, 0, 60).Format("January 2, 2006")
+		freeTrialInfo = fmt.Sprintf(`
+		<h2>🎉 Your Free Trial is Active!</h2>
+		<p><strong>Congratulations!</strong> You've been granted a <strong>60-day free trial</strong> with full access to all premium features:</p>
+		<ul>
+			<li>✓ Advanced school search and filtering</li>
+			<li>✓ Direct messaging with institutions</li>
+			<li>✓ Priority job listings and applications</li>
+			<li>✓ Exclusive educational resources</li>
+			<li>✓ Community forums and networking opportunities</li>
+		</ul>
+		<p><strong>Free Trial Details:</strong></p>
+		<ul>
+			<li>Plan: Free Trial</li>
+			<li>Status: Active</li>
+			<li>Expires on: %s</li>
+			<li>Auto-renewal: Disabled (you can upgrade anytime)</li>
+		</ul>
+		<p>Start exploring all the premium features right after verifying your email!</p>
+		`, freeTrialEndDate)
 	}
 	
 	emailBody := fmt.Sprintf(`
@@ -258,7 +272,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		<p>%s</p>
 		<p>This link will expire in 24 hours.</p>
 		<p>If you didn't create an account, you can safely ignore this email.</p>
-	`, user.FirstName, user.Role, subscriptionInfo, verificationURL, verificationURL)
+	`, user.FirstName, user.Role, freeTrialInfo, verificationURL, verificationURL)
 	
 	if err := h.emailService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
 		log.Printf("Failed to send verification email to %s: %v. Registration still successful.", user.Email, err)

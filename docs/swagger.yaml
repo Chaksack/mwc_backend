@@ -51,6 +51,23 @@ definitions:
     required:
     - name
     type: object
+  handlers.CreateAdminRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    type: object
   handlers.CreateEventRequest:
     properties:
       audience:
@@ -1121,6 +1138,55 @@ paths:
       tags:
       - admin
       - logs
+  /admin/admins:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new admin user (super admin only)
+      parameters:
+      - description: Admin user information
+        in: body
+        name: admin
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateAdminRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Admin user created successfully
+          schema:
+            $ref: '#/definitions/models.User'
+        "400":
+          description: Bad request or validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Email already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create an admin user
+      tags:
+      - admin
+      - users
   /admin/blog:
     post:
       consumes:

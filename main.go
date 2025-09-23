@@ -20,17 +20,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// createDefaultAdminIfNeeded checks if an admin user exists and creates one if not
-func createDefaultAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
-	// Check if any admin user exists
-	var adminCount int64
-	if err := db.Model(&models.User{}).Where("role = ?", models.AdminRole).Count(&adminCount).Error; err != nil {
+// createDefaultSuperAdminIfNeeded checks if a super admin user exists and creates one if not
+func createDefaultSuperAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
+	// Check if any super admin user exists
+	var superAdminCount int64
+	if err := db.Model(&models.User{}).Where("role = ?", models.SuperAdminRole).Count(&superAdminCount).Error; err != nil {
 		return err
 	}
 
-	// If admin user already exists, return
-	if adminCount > 0 {
-		log.Println("Admin user already exists, skipping default admin creation")
+	// If super admin user already exists, return
+	if superAdminCount > 0 {
+		log.Println("Super admin user already exists, skipping default super admin creation")
 		return nil
 	}
 
@@ -40,13 +40,13 @@ func createDefaultAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
-	// Create the default admin user
-	adminUser := models.User{
+	// Create the default super admin user
+	superAdminUser := models.User{
 		Email:        cfg.DefaultAdminEmail,
 		PasswordHash: string(hashedPassword),
 		FirstName:    cfg.DefaultAdminFirstName,
 		LastName:     cfg.DefaultAdminLastName,
-		Role:         models.AdminRole,
+		Role:         models.SuperAdminRole,
 		IsActive:     true,
 	}
 
@@ -56,8 +56,8 @@ func createDefaultAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
 		return tx.Error
 	}
 
-	// Create the admin user
-	if err := tx.Create(&adminUser).Error; err != nil {
+	// Create the super admin user
+	if err := tx.Create(&superAdminUser).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -67,7 +67,7 @@ func createDefaultAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
-	log.Printf("Default admin user created with email: %s", cfg.DefaultAdminEmail)
+	log.Printf("Default super admin user created with email: %s", cfg.DefaultAdminEmail)
 	return nil
 }
 
@@ -98,10 +98,10 @@ func main() {
 	}
 	log.Println("Database migration completed.")
 
-	// Create default admin user if no admin exists
-	err = createDefaultAdminIfNeeded(db, cfg)
+	// Create default super admin user if no super admin exists
+	err = createDefaultSuperAdminIfNeeded(db, cfg)
 	if err != nil {
-		log.Fatalf("Failed to create default admin user: %v", err)
+		log.Fatalf("Failed to create default super admin user: %v", err)
 	}
 
 	// Initialize RabbitMQ (Amazon MQ)

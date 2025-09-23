@@ -87,8 +87,8 @@ func SetupRoutes(
 	// Jobs endpoint - requires paid subscription
 	apiV1.Get("/jobs", authMw, subscriptionMw, institutionHandler.GetAllJobs)
 
-	// Admin Routes
-	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole))
+	// Admin Routes (accessible by both Admin and SuperAdmin)
+	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole, models.SuperAdminRole))
 	adminRoutes.Post("/schools/batch-upload", adminHandler.BatchUploadSchools)
 	adminRoutes.Post("/schools/create", adminHandler.CreateSchool)                  // New: Manual school creation
 	adminRoutes.Post("/training-centers/create", adminHandler.CreateTrainingCenter) // New: Manual training center creation
@@ -100,6 +100,10 @@ func SetupRoutes(
 	adminRoutes.Put("/users/:id/role", adminHandler.UpdateUserRole)     // New: Update user role
 	adminRoutes.Delete("/users/:id", adminHandler.DeleteUser)           // New: Delete a user
 	adminRoutes.Get("/action-logs", adminHandler.GetActionLogs)
+
+	// Super Admin only Routes (for admin user management)
+	superAdminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.SuperAdminRole))
+	superAdminRoutes.Post("/admins", adminHandler.CreateAdmin) // Create new admin users
 
 	// Institution and Training Center Routes (shared logic)
 	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))

@@ -32,6 +32,7 @@ type ReviewStatus string
 type SchoolCategory string
 
 const (
+	SuperAdminRole             UserRole = "superadmin"
 	AdminRole                  UserRole = "admin"
 	InstitutionRole            UserRole = "institution"
 	MontessoriProfessionalRole UserRole = "montessori_professional"
@@ -40,6 +41,7 @@ const (
 )
 
 const (
+	FreePlan    SubscriptionPlan = "free"
 	MonthlyPlan SubscriptionPlan = "monthly"
 	AnnualPlan  SubscriptionPlan = "annual"
 )
@@ -70,7 +72,7 @@ type User struct {
 	PasswordHash string `gorm:"not null"` // Store hashed passwords only
 	FirstName    string
 	LastName     string
-	Role         UserRole `gorm:"type:varchar(20);not null"`
+	Role         UserRole `gorm:"type:varchar(30);not null"`
 	IsActive     bool     `gorm:"default:true"`
 	LastLogin    *time.Time
 	

@@ -36,7 +36,7 @@ func (s *NotificationService) SendSubscriptionDueNotifications(daysAhead int) er
 		"status = ? AND end_date >= ? AND end_date <= ? AND auto_renew = ?",
 		models.SubscriptionActive,
 		now.Format("2006-01-02"),
-		dueDate.Format("2006-01-02 23:59:59"),
+		dueDate.Format("2006-01-02 15:04:05"),
 		true, // Only notify for auto-renewing subscriptions that might fail
 	).Find(&subscriptions).Error
 	
@@ -126,42 +126,85 @@ func (s *NotificationService) SendSubscriptionDueEmail(subscription models.Subsc
 
 // SendSubscriptionCompletedEmail sends an email notification for completed subscription
 func (s *NotificationService) SendSubscriptionCompletedEmail(subscription models.Subscription) error {
-	subject := "Welcome! Your Subscription is Now Active"
+	var subject, body string
 	
-	body := fmt.Sprintf(`
-		<h1>Welcome %s!</h1>
-		<p>Congratulations! Your <strong>%s</strong> subscription has been successfully activated.</p>
-		<p><strong>Subscription Details:</strong></p>
-		<ul>
-			<li>Plan: %s</li>
-			<li>Started on: %s</li>
-			<li>Expires on: %s</li>
-			<li>Auto-renewal: %s</li>
-		</ul>
-		<p>You now have access to all premium features of Montessori World Connect, including:</p>
-		<ul>
-			<li>Advanced school search and filtering</li>
-			<li>Direct messaging with institutions</li>
-			<li>Priority job listings and applications</li>
-			<li>Exclusive educational resources</li>
-			<li>Community forums and networking opportunities</li>
-		</ul>
-		<p>Get started by exploring your enhanced dashboard and discovering new opportunities in the Montessori community!</p>
-		<p>If you have any questions or need assistance, our support team is here to help.</p>
-		<p>Thank you for choosing Montessori World Connect!</p>
-	`,
-		subscription.User.FirstName,
-		subscription.Plan,
-		subscription.Plan,
-		subscription.StartDate.Format("January 2, 2006"),
-		subscription.EndDate.Format("January 2, 2006"),
-		func() string {
-			if subscription.AutoRenew {
-				return "Enabled"
-			}
-			return "Disabled"
-		}(),
-	)
+	// Handle free trial subscriptions differently
+	if subscription.Plan == models.FreePlan {
+		subject = "🎉 Welcome! Your Free Trial is Active"
+		
+		body = fmt.Sprintf(`
+			<h1>Welcome %s!</h1>
+			<p>🎉 <strong>Congratulations!</strong> Your <strong>60-day free trial</strong> has been successfully activated!</p>
+			<p><strong>Free Trial Details:</strong></p>
+			<ul>
+				<li>Plan: Free Trial (60 days)</li>
+				<li>Started on: %s</li>
+				<li>Expires on: %s</li>
+				<li>Auto-renewal: Disabled (you can upgrade anytime)</li>
+			</ul>
+			<p>During your free trial, you have full access to all premium features of Montessori World Connect:</p>
+			<ul>
+				<li>✓ Advanced school search and filtering</li>
+				<li>✓ Direct messaging with institutions</li>
+				<li>✓ Priority job listings and applications</li>
+				<li>✓ Exclusive educational resources</li>
+				<li>✓ Community forums and networking opportunities</li>
+			</ul>
+			<p><strong>Ready to get started?</strong> Log in to your dashboard and start exploring all the premium features available to you!</p>
+			<p><strong>Before your trial ends:</strong> We'll send you reminders so you can choose to upgrade to a paid plan if you're loving the experience.</p>
+			<p>If you have any questions or need assistance, our support team is here to help.</p>
+			<p>Enjoy your free trial and welcome to the Montessori World Connect community!</p>
+		`,
+			subscription.User.FirstName,
+			subscription.StartDate.Format("January 2, 2006"),
+			subscription.EndDate.Format("January 2, 2006"),
+		)
+	} else {
+		// Handle paid subscriptions
+		subject = "Welcome! Your Subscription is Now Active"
+		
+		planName := string(subscription.Plan)
+		if planName == "monthly" {
+			planName = "Monthly"
+		} else if planName == "annual" {
+			planName = "Annual"
+		}
+		
+		body = fmt.Sprintf(`
+			<h1>Welcome %s!</h1>
+			<p>Congratulations! Your <strong>%s</strong> subscription has been successfully activated.</p>
+			<p><strong>Subscription Details:</strong></p>
+			<ul>
+				<li>Plan: %s</li>
+				<li>Started on: %s</li>
+				<li>Expires on: %s</li>
+				<li>Auto-renewal: %s</li>
+			</ul>
+			<p>You now have access to all premium features of Montessori World Connect, including:</p>
+			<ul>
+				<li>Advanced school search and filtering</li>
+				<li>Direct messaging with institutions</li>
+				<li>Priority job listings and applications</li>
+				<li>Exclusive educational resources</li>
+				<li>Community forums and networking opportunities</li>
+			</ul>
+			<p>Get started by exploring your enhanced dashboard and discovering new opportunities in the Montessori community!</p>
+			<p>If you have any questions or need assistance, our support team is here to help.</p>
+			<p>Thank you for choosing Montessori World Connect!</p>
+		`,
+			subscription.User.FirstName,
+			planName,
+			planName,
+			subscription.StartDate.Format("January 2, 2006"),
+			subscription.EndDate.Format("January 2, 2006"),
+			func() string {
+				if subscription.AutoRenew {
+					return "Enabled"
+				}
+				return "Disabled"
+			}(),
+		)
+	}
 
 	return s.emailService.SendEmail(subscription.User.Email, subject, body)
 }

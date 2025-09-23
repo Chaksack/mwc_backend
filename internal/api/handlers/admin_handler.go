@@ -11,6 +11,7 @@ import (
 	"strings" // For string operations like ToUpper
 
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -840,4 +841,99 @@ func (h *AdminHandler) CreateTrainingCenter(c *fiber.Ctx) error {
 
 	// Call the main CreateSchool method
 	return h.CreateSchool(c)
+}
+
+type CreateAdminRequest struct {
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=8"`
+	FirstName string `json:"first_name" validate:"required"`
+	LastName  string `json:"last_name" validate:"required"`
+}
+
+// CreateAdmin allows super admin to create new admin users.
+// @Summary Create an admin user
+// @Description Creates a new admin user (super admin only)
+// @Tags admin,users
+// @Accept json
+// @Produce json
+// @Param admin body CreateAdminRequest true "Admin user information"
+// @Success 201 {object} models.User "Admin user created successfully"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 409 {object} map[string]string "Email already exists"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/admins [post]
+func (h *AdminHandler) CreateAdmin(c *fiber.Ctx) error {
+	superAdminUserID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
+	}
+
+	var req CreateAdminRequest
+	if err := c.BodyParser(&req); err != nil {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_PARSE", 0, "System", "Failed to parse request: "+err.Error(), c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body: " + err.Error()})
+	}
+
+	// Validate required fields
+	if req.Email == "" {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_VALIDATION", 0, "System", "Email is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email is required"})
+	}
+
+	if req.Password == "" {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_VALIDATION", 0, "System", "Password is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password is required"})
+	}
+
+	if len(req.Password) < 8 {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_VALIDATION", 0, "System", "Password must be at least 8 characters", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Password must be at least 8 characters"})
+	}
+
+	if req.FirstName == "" {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_VALIDATION", 0, "System", "First name is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "First name is required"})
+	}
+
+	if req.LastName == "" {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_VALIDATION", 0, "System", "Last name is required", c)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Last name is required"})
+	}
+
+	// Check if email already exists
+	var existingUser models.User
+	if err := h.db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_EMAIL_EXISTS", 0, "System", "Email already exists: "+req.Email, c)
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Email already exists"})
+	}
+
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_HASH", 0, "System", "Failed to hash password: "+err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to process password"})
+	}
+
+	// Create the admin user
+	adminUser := models.User{
+		Email:        req.Email,
+		PasswordHash: string(hashedPassword),
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		Role:         models.AdminRole,
+		IsActive:     true,
+	}
+
+	if err := h.db.Create(&adminUser).Error; err != nil {
+		LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_FAIL_DB", 0, "User", "Failed to create admin user: "+err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create admin user: " + err.Error()})
+	}
+
+	// Remove password hash from response
+	adminUser.PasswordHash = ""
+
+	LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_SUCCESS", adminUser.ID, "User", fmt.Sprintf("Created admin user: %s %s (%s)", req.FirstName, req.LastName, req.Email), c)
+	return c.Status(fiber.StatusCreated).JSON(adminUser)
 }
