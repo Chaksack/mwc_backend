@@ -42,12 +42,13 @@ func createDefaultSuperAdminIfNeeded(db *gorm.DB, cfg *config.Config) error {
 
 	// Create the default super admin user
 	superAdminUser := models.User{
-		Email:        cfg.DefaultAdminEmail,
-		PasswordHash: string(hashedPassword),
-		FirstName:    cfg.DefaultAdminFirstName,
-		LastName:     cfg.DefaultAdminLastName,
-		Role:         models.SuperAdminRole,
-		IsActive:     true,
+		Email:         cfg.DefaultAdminEmail,
+		PasswordHash:  string(hashedPassword),
+		FirstName:     cfg.DefaultAdminFirstName,
+		LastName:      cfg.DefaultAdminLastName,
+		Role:          models.SuperAdminRole,
+		IsActive:      true,
+		EmailVerified: true, // Super admin doesn't require email verification
 	}
 
 	// Start a transaction

@@ -918,12 +918,13 @@ func (h *AdminHandler) CreateAdmin(c *fiber.Ctx) error {
 
 	// Create the admin user
 	adminUser := models.User{
-		Email:        req.Email,
-		PasswordHash: string(hashedPassword),
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		Role:         models.AdminRole,
-		IsActive:     true,
+		Email:         req.Email,
+		PasswordHash:  string(hashedPassword),
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		Role:          models.AdminRole,
+		IsActive:      true,
+		EmailVerified: true, // Admin doesn't require email verification
 	}
 
 	if err := h.db.Create(&adminUser).Error; err != nil {
