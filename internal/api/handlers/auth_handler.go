@@ -484,18 +484,18 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User account is inactive"})
 	}
 
-	// Now preload the appropriate profile based on user role
+	// Now preload the appropriate profile based on user role with all related data
 	switch user.Role {
 	case models.InstitutionRole, models.TrainingCenterRole:
 		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load institution profile: " + err.Error()})
 		}
 	case models.MontessoriProfessionalRole:
-		if err := h.db.Preload("MontessoriProfessionalProfile").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("MontessoriProfessionalProfile").Preload("MontessoriProfessionalProfile.SavedSchools").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load montessori professional profile: " + err.Error()})
 		}
 	case models.ParentRole:
-		if err := h.db.Preload("ParentProfile").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("ParentProfile").Preload("ParentProfile.SavedSchools").Preload("ParentProfile.Schools").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load parent profile: " + err.Error()})
 		}
 	}
@@ -503,44 +503,57 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	// Log the action
 	LogUserAction(h.db, user.ID, "USER_GET_CURRENT", user.ID, "User", "User retrieved their full profile", c)
 
-	// Prepare response based on user role
+	// Prepare comprehensive response with all user details
 	userMap := fiber.Map{
-		"id":        user.ID,
-		"email":     user.Email,
-		"firstName": user.FirstName,
-		"lastName":  user.LastName,
-		"role":      user.Role,
-		"isActive":  user.IsActive,
-		"createdAt": user.CreatedAt,
-		"lastLogin": user.LastLogin,
+		"id":                        user.ID,
+		"email":                     user.Email,
+		"firstName":                 user.FirstName,
+		"lastName":                  user.LastName,
+		"role":                      user.Role,
+		"isActive":                  user.IsActive,
+		"emailVerified":             user.EmailVerified,
+		"createdAt":                 user.CreatedAt,
+		"updatedAt":                 user.UpdatedAt,
+		"lastLogin":                 user.LastLogin,
 	}
 
-	// Add profile information based on role
+	// Add comprehensive profile information based on role
 	switch user.Role {
 	case models.InstitutionRole, models.TrainingCenterRole:
 		if user.InstitutionProfile != nil {
 			userMap["profile"] = fiber.Map{
-				"id":              user.InstitutionProfile.ID,
-				"institutionName": user.InstitutionProfile.InstitutionName,
-				"isVerified":      user.InstitutionProfile.IsVerified,
-				"schoolId":        user.InstitutionProfile.SchoolID,
-				"school":          user.InstitutionProfile.School,
+				"id":               user.InstitutionProfile.ID,
+				"institutionName":  user.InstitutionProfile.InstitutionName,
+				"isVerified":       user.InstitutionProfile.IsVerified,
+				"schoolId":         user.InstitutionProfile.SchoolID,
+				"school":           user.InstitutionProfile.School,
+				"verificationDocs": user.InstitutionProfile.VerificationDocs,
+				"createdAt":        user.InstitutionProfile.CreatedAt,
+				"updatedAt":        user.InstitutionProfile.UpdatedAt,
 			}
 		}
 	case models.MontessoriProfessionalRole:
 		if user.MontessoriProfessionalProfile != nil {
 			userMap["profile"] = fiber.Map{
-				"id":            user.MontessoriProfessionalProfile.ID,
-				"bio":           user.MontessoriProfessionalProfile.Bio,
+				"id":             user.MontessoriProfessionalProfile.ID,
+				"bio":            user.MontessoriProfessionalProfile.Bio,
 				"qualifications": user.MontessoriProfessionalProfile.Qualifications,
-				"experience":    user.MontessoriProfessionalProfile.Experience,
+				"experience":     user.MontessoriProfessionalProfile.Experience,
+				"savedSchools":   user.MontessoriProfessionalProfile.SavedSchools,
+				"createdAt":      user.MontessoriProfessionalProfile.CreatedAt,
+				"updatedAt":      user.MontessoriProfessionalProfile.UpdatedAt,
 			}
 		}
 	case models.ParentRole:
 		if user.ParentProfile != nil {
 			userMap["profile"] = fiber.Map{
-				"id": user.ParentProfile.ID,
-				// Add any other parent profile fields here
+				"id":                user.ParentProfile.ID,
+				"profileVisibility": user.ParentProfile.ProfileVisibility,
+				"parentAge":         user.ParentProfile.ParentAge,
+				"savedSchools":      user.ParentProfile.SavedSchools,
+				"schools":           user.ParentProfile.Schools,
+				"createdAt":         user.ParentProfile.CreatedAt,
+				"updatedAt":         user.ParentProfile.UpdatedAt,
 			}
 		}
 	}
