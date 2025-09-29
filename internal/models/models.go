@@ -293,6 +293,35 @@ type BlogPost struct {
 	LocalizedExcerpts map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Excerpt", "es": "Extracto"}
 }
 
+// SubscriptionPlan represents a dynamic subscription plan
+// @Description Dynamic subscription plan information
+// @Schema models.SubscriptionPlan
+type DynamicSubscriptionPlan struct {
+	GormModel
+	Name            string  `gorm:"not null;uniqueIndex"`
+	Description     string  `gorm:"type:text"`
+	Price           float64 `gorm:"not null"`
+	Currency        string  `gorm:"default:'USD'"`
+	BillingCycle    string  `gorm:"default:'monthly'"` // monthly, annual
+	Features        string  `gorm:"type:text"`         // JSON string of features
+	IsActive        bool    `gorm:"default:true"`
+	StripePriceID   string  `gorm:"index"`
+	AllowedRoles    string  `gorm:"type:text"` // JSON array of allowed roles
+	CreatedByUserID uint    `gorm:"not null;index"`
+	CreatedBy       User    `gorm:"foreignKey:CreatedByUserID"`
+}
+
+// RoleSubscriptionMapping represents which roles can access which subscription plans
+// @Description Role-subscription mapping information
+// @Schema models.RoleSubscriptionMapping
+type RoleSubscriptionMapping struct {
+	GormModel
+	Role             UserRole `gorm:"type:varchar(30);not null;index"`
+	SubscriptionPlanID uint   `gorm:"not null;index"`
+	SubscriptionPlan   DynamicSubscriptionPlan `gorm:"foreignKey:SubscriptionPlanID"`
+	IsDefault        bool    `gorm:"default:false"` // Default plan for this role
+}
+
 // Subscription represents a premium subscription
 // @Description Subscription information
 // @Schema models.Subscription
@@ -301,6 +330,8 @@ type Subscription struct {
 	UserID               uint               `gorm:"not null;index"` // User who has the subscription
 	User                 User               `gorm:"foreignKey:UserID"`
 	Plan                 SubscriptionPlan   `gorm:"type:varchar(20);not null"`
+	DynamicPlanID        *uint              `gorm:"index"` // Reference to dynamic subscription plan
+	DynamicPlan          *DynamicSubscriptionPlan `gorm:"foreignKey:DynamicPlanID"`
 	Status               SubscriptionStatus `gorm:"type:varchar(20);not null"`
 	StartDate            time.Time          `gorm:"not null"`
 	EndDate              time.Time          `gorm:"not null"`
@@ -344,6 +375,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&BlogCategory{},
 		&BlogTag{},
 		&BlogPost{},
+		&DynamicSubscriptionPlan{},
+		&RoleSubscriptionMapping{},
 		&Subscription{},
 		&Review{},
 	)

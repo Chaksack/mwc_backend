@@ -9,6 +9,7 @@ import (
 	"mwc_backend/internal/queue"
 	"strconv" // For parsing IDs
 	"strings" // For string operations like ToUpper
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
@@ -937,4 +938,407 @@ func (h *AdminHandler) CreateAdmin(c *fiber.Ctx) error {
 
 	LogUserAction(h.db, superAdminUserID, "ADMIN_CREATE_SUCCESS", adminUser.ID, "User", fmt.Sprintf("Created admin user: %s %s (%s)", req.FirstName, req.LastName, req.Email), c)
 	return c.Status(fiber.StatusCreated).JSON(adminUser)
+}
+
+// Dynamic Subscription Plan Management
+
+type CreateSubscriptionPlanRequest struct {
+	Name         string    `json:"name"`
+	Description  string    `json:"description"`
+	Price        float64   `json:"price"`
+	Currency     string    `json:"currency"`
+	BillingCycle string    `json:"billing_cycle"`
+	Features     []string  `json:"features"`
+	AllowedRoles []string  `json:"allowed_roles"`
+	StripePriceID string   `json:"stripe_price_id,omitempty"`
+}
+
+// CreateSubscriptionPlan creates a new dynamic subscription plan
+// @Summary Create subscription plan
+// @Description Creates a new dynamic subscription plan (admin only)
+// @Tags admin,subscriptions
+// @Accept json
+// @Produce json
+// @Param request body CreateSubscriptionPlanRequest true "Subscription plan information"
+// @Success 201 {object} map[string]interface{} "Subscription plan created successfully"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/subscription-plans [post]
+func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
+	var req CreateSubscriptionPlanRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+			"error":   err.Error(),
+		})
+	}
+
+	// Validate required fields
+	if req.Name == "" || req.Price <= 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Name and price are required",
+		})
+	}
+
+	// Get current user
+	currentUser := c.Locals("user").(*models.User)
+
+	// Convert features and roles to JSON strings
+	featuresJSON, _ := json.Marshal(req.Features)
+	rolesJSON, _ := json.Marshal(req.AllowedRoles)
+
+	// Create subscription plan
+	plan := models.DynamicSubscriptionPlan{
+		Name:            req.Name,
+		Description:     req.Description,
+		Price:           req.Price,
+		Currency:        req.Currency,
+		BillingCycle:    req.BillingCycle,
+		Features:        string(featuresJSON),
+		AllowedRoles:    string(rolesJSON),
+		StripePriceID:   req.StripePriceID,
+		CreatedByUserID: currentUser.ID,
+		IsActive:        true,
+	}
+
+	if err := h.db.Create(&plan).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Error creating subscription plan",
+			"error":   err.Error(),
+		})
+	}
+
+	// Create role mappings
+	for _, roleStr := range req.AllowedRoles {
+		mapping := models.RoleSubscriptionMapping{
+			Role:               models.UserRole(roleStr),
+			SubscriptionPlanID: plan.ID,
+		}
+		h.db.Create(&mapping)
+	}
+
+	return c.Status(201).JSON(fiber.Map{
+		"success": true,
+		"message": "Subscription plan created successfully",
+		"data":    plan,
+	})
+}
+
+// GetSubscriptionPlans retrieves all subscription plans
+// @Summary Get all subscription plans
+// @Description Retrieves all dynamic subscription plans (admin only)
+// @Tags admin,subscriptions
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Subscription plans retrieved successfully"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/subscription-plans [get]
+func (h *AdminHandler) GetSubscriptionPlans(c *fiber.Ctx) error {
+	var plans []models.DynamicSubscriptionPlan
+	
+	if err := h.db.Preload("CreatedBy").Find(&plans).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Error retrieving subscription plans",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"success": true,
+		"data":    plans,
+	})
+}
+
+type UpdateSubscriptionPlanRequest struct {
+	Name         string    `json:"name"`
+	Description  string    `json:"description"`
+	Price        float64   `json:"price"`
+	Currency     string    `json:"currency"`
+	BillingCycle string    `json:"billing_cycle"`
+	Features     []string  `json:"features"`
+	AllowedRoles []string  `json:"allowed_roles"`
+	IsActive     bool      `json:"is_active"`
+	StripePriceID string   `json:"stripe_price_id,omitempty"`
+}
+
+// UpdateSubscriptionPlan updates an existing subscription plan
+// @Summary Update subscription plan
+// @Description Updates an existing dynamic subscription plan (admin only)
+// @Tags admin,subscriptions
+// @Accept json
+// @Produce json
+// @Param id path int true "Subscription plan ID"
+// @Param request body UpdateSubscriptionPlanRequest true "Updated subscription plan information"
+// @Success 200 {object} map[string]interface{} "Subscription plan updated successfully"
+// @Failure 400 {object} map[string]string "Bad request or validation error"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Subscription plan not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/subscription-plans/{id} [put]
+func (h *AdminHandler) UpdateSubscriptionPlan(c *fiber.Ctx) error {
+	planID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid plan ID",
+		})
+	}
+
+	var req UpdateSubscriptionPlanRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+			"error":   err.Error(),
+		})
+	}
+
+	var plan models.DynamicSubscriptionPlan
+	if err := h.db.First(&plan, planID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "Subscription plan not found",
+		})
+	}
+
+	// Convert features and roles to JSON strings
+	featuresJSON, _ := json.Marshal(req.Features)
+	rolesJSON, _ := json.Marshal(req.AllowedRoles)
+
+	// Update plan
+	plan.Name = req.Name
+	plan.Description = req.Description
+	plan.Price = req.Price
+	plan.Currency = req.Currency
+	plan.BillingCycle = req.BillingCycle
+	plan.Features = string(featuresJSON)
+	plan.AllowedRoles = string(rolesJSON)
+	plan.IsActive = req.IsActive
+	if req.StripePriceID != "" {
+		plan.StripePriceID = req.StripePriceID
+	}
+
+	if err := h.db.Save(&plan).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Error updating subscription plan",
+			"error":   err.Error(),
+		})
+	}
+
+	// Update role mappings
+	h.db.Where("subscription_plan_id = ?", plan.ID).Delete(&models.RoleSubscriptionMapping{})
+	for _, roleStr := range req.AllowedRoles {
+		mapping := models.RoleSubscriptionMapping{
+			Role:               models.UserRole(roleStr),
+			SubscriptionPlanID: plan.ID,
+		}
+		h.db.Create(&mapping)
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"success": true,
+		"message": "Subscription plan updated successfully",
+		"data":    plan,
+	})
+}
+
+// DeleteSubscriptionPlan deletes a subscription plan
+// @Summary Delete subscription plan
+// @Description Deletes a dynamic subscription plan if not in use (admin only)
+// @Tags admin,subscriptions
+// @Produce json
+// @Param id path int true "Subscription plan ID"
+// @Success 200 {object} map[string]interface{} "Subscription plan deleted successfully"
+// @Failure 400 {object} map[string]string "Cannot delete subscription plan that is currently in use"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Subscription plan not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/subscription-plans/{id} [delete]
+func (h *AdminHandler) DeleteSubscriptionPlan(c *fiber.Ctx) error {
+	planID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid plan ID",
+		})
+	}
+
+	var plan models.DynamicSubscriptionPlan
+	if err := h.db.First(&plan, planID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "Subscription plan not found",
+		})
+	}
+
+	// Check if plan is in use
+	var subscriptionCount int64
+	h.db.Model(&models.Subscription{}).Where("dynamic_plan_id = ?", planID).Count(&subscriptionCount)
+	if subscriptionCount > 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Cannot delete subscription plan that is currently in use",
+		})
+	}
+
+	// Delete role mappings first
+	h.db.Where("subscription_plan_id = ?", planID).Delete(&models.RoleSubscriptionMapping{})
+
+	// Delete plan
+	if err := h.db.Delete(&plan).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Error deleting subscription plan",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"success": true,
+		"message": "Subscription plan deleted successfully",
+	})
+}
+
+// GetRoleSubscriptionMappings retrieves subscription plans for a specific role
+// @Summary Get role subscription mappings
+// @Description Retrieves subscription plans available for a specific role (admin only)
+// @Tags admin,subscriptions
+// @Produce json
+// @Param role query string true "User role to filter by" Enums(parent,montessori_professional,institution,training_center)
+// @Success 200 {object} map[string]interface{} "Role subscription mappings retrieved successfully"
+// @Failure 400 {object} map[string]string "Role parameter is required"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/role-subscriptions [get]
+func (h *AdminHandler) GetRoleSubscriptionMappings(c *fiber.Ctx) error {
+	role := c.Query("role")
+	if role == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Role parameter is required",
+		})
+	}
+
+	var mappings []models.RoleSubscriptionMapping
+	if err := h.db.Preload("SubscriptionPlan").Where("role = ?", role).Find(&mappings).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Error retrieving role subscription mappings",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"success": true,
+		"data":    mappings,
+	})
+}
+
+type AssignUserSubscriptionRequest struct {
+	UserID         uint `json:"user_id"`
+	SubscriptionPlanID uint `json:"subscription_plan_id"`
+	DurationMonths int  `json:"duration_months"`
+}
+
+// AssignUserSubscription assigns a subscription plan to a user
+// @Summary Assign subscription to user
+// @Description Assigns a subscription plan to a specific user (admin only)
+// @Tags admin,subscriptions
+// @Accept json
+// @Produce json
+// @Param request body AssignUserSubscriptionRequest true "Subscription assignment information"
+// @Success 200 {object} map[string]interface{} "Subscription assigned successfully"
+// @Failure 400 {object} map[string]string "Bad request or user role not allowed for this plan"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "User or subscription plan not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/assign-subscription [post]
+func (h *AdminHandler) AssignUserSubscription(c *fiber.Ctx) error {
+	var req AssignUserSubscriptionRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request body",
+			"error":   err.Error(),
+		})
+	}
+
+	// Validate user exists
+	var user models.User
+	if err := h.db.First(&user, req.UserID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "User not found",
+		})
+	}
+
+	// Validate subscription plan exists
+	var plan models.DynamicSubscriptionPlan
+	if err := h.db.First(&plan, req.SubscriptionPlanID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "Subscription plan not found",
+		})
+	}
+
+	// Check if user role is allowed for this plan
+	var allowedRoles []string
+	json.Unmarshal([]byte(plan.AllowedRoles), &allowedRoles)
+	roleAllowed := false
+	for _, role := range allowedRoles {
+		if role == string(user.Role) {
+			roleAllowed = true
+			break
+		}
+	}
+	if !roleAllowed {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "User role is not allowed for this subscription plan",
+		})
+	}
+
+	// Create or update subscription
+	var subscription models.Subscription
+	now := time.Now()
+	endDate := now.AddDate(0, req.DurationMonths, 0)
+
+	// Check for existing subscription
+	if err := h.db.Where("user_id = ?", req.UserID).First(&subscription).Error; err != nil {
+		// Create new subscription
+		subscription = models.Subscription{
+			UserID:        req.UserID,
+			Plan:          models.SubscriptionPlan("dynamic"),
+			DynamicPlanID: &req.SubscriptionPlanID,
+			Status:        models.SubscriptionActive,
+			StartDate:     now,
+			EndDate:       endDate,
+			AutoRenew:     false,
+		}
+		h.db.Create(&subscription)
+	} else {
+		// Update existing subscription
+		subscription.DynamicPlanID = &req.SubscriptionPlanID
+		subscription.Status = models.SubscriptionActive
+		subscription.EndDate = endDate
+		h.db.Save(&subscription)
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"success": true,
+		"message": "Subscription assigned successfully",
+		"data":    subscription,
+	})
 }

@@ -1,9 +1,34 @@
-basePath: /api/v1
 definitions:
+  handlers.AssignUserSubscriptionRequest:
+    properties:
+      duration_months:
+        type: integer
+      subscription_plan_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
   handlers.CancelRequest:
     properties:
       reason:
         type: string
+    type: object
+  handlers.CreateAdminRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
     type: object
   handlers.CreateBlogCategoryRequest:
     properties:
@@ -50,23 +75,6 @@ definitions:
         type: string
     required:
     - name
-    type: object
-  handlers.CreateAdminRequest:
-    properties:
-      email:
-        type: string
-      first_name:
-        type: string
-      last_name:
-        type: string
-      password:
-        minLength: 8
-        type: string
-    required:
-    - email
-    - first_name
-    - last_name
-    - password
     type: object
   handlers.CreateEventRequest:
     properties:
@@ -121,6 +129,29 @@ definitions:
     - comment
     - rating
     - school_id
+    type: object
+  handlers.CreateSubscriptionPlanRequest:
+    properties:
+      allowed_roles:
+        items:
+          type: string
+        type: array
+      billing_cycle:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      features:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      price:
+        type: number
+      stripe_price_id:
+        type: string
     type: object
   handlers.FeatureRequest:
     description: Request to update the featured status of an event
@@ -421,13 +452,12 @@ definitions:
       role:
         allOf:
         - $ref: '#/definitions/models.UserRole'
-        description: Added admin for potential setup
+        description: Admin role removed - only superadmin can create admins
         enum:
         - institution
         - montessori_professional
         - parent
         - training_center
-        - admin
     required:
     - email
     - first_name
@@ -637,6 +667,31 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  handlers.UpdateSubscriptionPlanRequest:
+    properties:
+      allowed_roles:
+        items:
+          type: string
+        type: array
+      billing_cycle:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      features:
+        items:
+          type: string
+        type: array
+      is_active:
+        type: boolean
+      name:
+        type: string
+      price:
+        type: number
+      stripe_price_id:
+        type: string
     type: object
   handlers.UserResponse:
     properties:
@@ -1049,6 +1104,7 @@ definitions:
     type: object
   models.UserRole:
     enum:
+    - superadmin
     - admin
     - institution
     - montessori_professional
@@ -1056,39 +1112,14 @@ definitions:
     - parent
     type: string
     x-enum-varnames:
+    - SuperAdminRole
     - AdminRole
     - InstitutionRole
     - MontessoriProfessionalRole
     - TrainingCenterRole
     - ParentRole
-host: https://api.montessoriworldconnect.com
 info:
-  contact:
-    email: support@montessoriworldconnect.com
-    name: API Support
-  description: 'API for the Montessori World Connect platform. Introduction: Welcome
-    to the Montessori World Connect API documentation. This API provides access to
-    various resources and functionalities of the Montessori World Connect platform,
-    including schools, educators, institutions, events, blogs, and more. The API is
-    designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE)
-    for operations. Responses are returned in JSON format. Getting Started: Authentication
-    - Most endpoints require authentication using JWT (JSON Web Token). To authenticate,
-    you need to: 1) Register a new account or login with existing credentials, 2)
-    Include the received token directly in the Authorization header of your requests.
-    Public Endpoints - Some endpoints are publicly accessible without authentication:
-    /api/v1/register (Register a new user), /api/v1/login (Login and get authentication
-    token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get
-    list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get
-    list of blog posts). Rate Limiting - API requests are subject to rate limiting
-    to ensure fair usage. Please design your applications to handle rate limit responses
-    (HTTP 429) gracefully. Pagination - List endpoints support pagination using ''page''
-    and ''limit'' query parameters.'
-  license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
-  termsOfService: http://swagger.io/terms/
-  title: Montessori World Connect API
-  version: "1.0"
+  contact: {}
 paths:
   /admin/action-logs:
     get:
@@ -1187,6 +1218,56 @@ paths:
       tags:
       - admin
       - users
+  /admin/assign-subscription:
+    post:
+      consumes:
+      - application/json
+      description: Assigns a subscription plan to a specific user (admin only)
+      parameters:
+      - description: Subscription assignment information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AssignUserSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription assigned successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or user role not allowed for this plan
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User or subscription plan not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Assign subscription to user
+      tags:
+      - admin
+      - subscriptions
   /admin/blog:
     post:
       consumes:
@@ -1917,6 +1998,53 @@ paths:
       tags:
       - admin
       - reviews
+  /admin/role-subscriptions:
+    get:
+      description: Retrieves subscription plans available for a specific role (admin
+        only)
+      parameters:
+      - description: User role to filter by
+        enum:
+        - parent
+        - montessori_professional
+        - institution
+        - training_center
+        in: query
+        name: role
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role subscription mappings retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Role parameter is required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get role subscription mappings
+      tags:
+      - admin
+      - subscriptions
   /admin/schools:
     get:
       description: Retrieves a list of schools filtered by country code with pagination
@@ -2174,6 +2302,179 @@ paths:
       tags:
       - admin
       - schools
+  /admin/subscription-plans:
+    get:
+      description: Retrieves all dynamic subscription plans (admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription plans retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all subscription plans
+      tags:
+      - admin
+      - subscriptions
+    post:
+      consumes:
+      - application/json
+      description: Creates a new dynamic subscription plan (admin only)
+      parameters:
+      - description: Subscription plan information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateSubscriptionPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Subscription plan created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create subscription plan
+      tags:
+      - admin
+      - subscriptions
+  /admin/subscription-plans/{id}:
+    delete:
+      description: Deletes a dynamic subscription plan if not in use (admin only)
+      parameters:
+      - description: Subscription plan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription plan deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Cannot delete subscription plan that is currently in use
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Subscription plan not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete subscription plan
+      tags:
+      - admin
+      - subscriptions
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing dynamic subscription plan (admin only)
+      parameters:
+      - description: Subscription plan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated subscription plan information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateSubscriptionPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription plan updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request or validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Subscription plan not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update subscription plan
+      tags:
+      - admin
+      - subscriptions
   /admin/training-centers/create:
     post:
       consumes:
@@ -5010,19 +5311,10 @@ paths:
       summary: Send notification to user
       tags:
       - websocket
-schemes:
-- http
-- https
 securityDefinitions:
   BearerAuth:
-    description: Provide your JWT token directly in the Authorization header without
-      any prefix.
+    description: Provide your JWT token directly in the Authorization header without any prefix.
     in: header
     name: Authorization
     type: apiKey
 swagger: "2.0"
-tags:
-- description: Public endpoints that don't require authentication
-  name: public
-- description: Endpoints that require authentication
-  name: authenticated

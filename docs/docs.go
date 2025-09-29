@@ -9,15 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "email": "support@montessoriworldconnect.com"
-        },
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -77,6 +69,159 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/admins": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new admin user (super admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "users"
+                ],
+                "summary": "Create an admin user",
+                "parameters": [
+                    {
+                        "description": "Admin user information",
+                        "name": "admin",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateAdminRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Admin user created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Email already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/assign-subscription": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Assigns a subscription plan to a specific user (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "subscriptions"
+                ],
+                "summary": "Assign subscription to user",
+                "parameters": [
+                    {
+                        "description": "Subscription assignment information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AssignUserSubscriptionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Subscription assigned successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or user role not allowed for this plan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User or subscription plan not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1211,6 +1356,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/role-subscriptions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves subscription plans available for a specific role (admin only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "subscriptions"
+                ],
+                "summary": "Get role subscription mappings",
+                "parameters": [
+                    {
+                        "enum": [
+                            "parent",
+                            "montessori_professional",
+                            "institution",
+                            "training_center"
+                        ],
+                        "type": "string",
+                        "description": "User role to filter by",
+                        "name": "role",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role subscription mappings retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Role parameter is required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/schools": {
             "get": {
                 "security": [
@@ -1584,6 +1798,271 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict - school linked to institutions",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/subscription-plans": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all dynamic subscription plans (admin only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "subscriptions"
+                ],
+                "summary": "Get all subscription plans",
+                "responses": {
+                    "200": {
+                        "description": "Subscription plans retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new dynamic subscription plan (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "subscriptions"
+                ],
+                "summary": "Create subscription plan",
+                "parameters": [
+                    {
+                        "description": "Subscription plan information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateSubscriptionPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Subscription plan created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/subscription-plans/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates an existing dynamic subscription plan (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "subscriptions"
+                ],
+                "summary": "Update subscription plan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Subscription plan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated subscription plan information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.UpdateSubscriptionPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Subscription plan updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Subscription plan not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a dynamic subscription plan if not in use (admin only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "subscriptions"
+                ],
+                "summary": "Delete subscription plan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Subscription plan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Subscription plan deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Cannot delete subscription plan that is currently in use",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Subscription plan not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5913,11 +6392,49 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handlers.AssignUserSubscriptionRequest": {
+            "type": "object",
+            "properties": {
+                "duration_months": {
+                    "type": "integer"
+                },
+                "subscription_plan_id": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.CancelRequest": {
             "type": "object",
             "properties": {
                 "reason": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.CreateAdminRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "first_name",
+                "last_name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
                 }
             }
         },
@@ -6063,6 +6580,41 @@ const docTemplate = `{
                 },
                 "school_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.CreateSubscriptionPlanRequest": {
+            "type": "object",
+            "properties": {
+                "allowed_roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "billing_cycle": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "stripe_price_id": {
+                    "type": "string"
                 }
             }
         },
@@ -6499,13 +7051,12 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "role": {
-                    "description": "Added admin for potential setup",
+                    "description": "Admin role removed - only superadmin can create admins",
                     "enum": [
                         "institution",
                         "montessori_professional",
                         "parent",
-                        "training_center",
-                        "admin"
+                        "training_center"
                     ],
                     "allOf": [
                         {
@@ -6811,6 +7362,44 @@ const docTemplate = `{
             ],
             "properties": {
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.UpdateSubscriptionPlanRequest": {
+            "type": "object",
+            "properties": {
+                "allowed_roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "billing_cycle": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "stripe_price_id": {
                     "type": "string"
                 }
             }
@@ -7412,6 +8001,7 @@ const docTemplate = `{
         "models.UserRole": {
             "type": "string",
             "enum": [
+                "superadmin",
                 "admin",
                 "institution",
                 "montessori_professional",
@@ -7419,6 +8009,7 @@ const docTemplate = `{
                 "parent"
             ],
             "x-enum-varnames": [
+                "SuperAdminRole",
                 "AdminRole",
                 "InstitutionRole",
                 "MontessoriProfessionalRole",
@@ -7426,35 +8017,17 @@ const docTemplate = `{
                 "ParentRole"
             ]
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Provide your JWT token directly in the Authorization header without any prefix.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
-    },
-    "tags": [
-        {
-            "description": "Public endpoints that don't require authentication",
-            "name": "public"
-        },
-        {
-            "description": "Endpoints that require authentication",
-            "name": "authenticated"
-        }
-    ]
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
-	Host:             "https://api.montessoriworldconnect.com",
-	BasePath:         "/api/v1",
-	Schemes:          []string{"http", "https"},
-	Title:            "Montessori World Connect API",
-	Description:      "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, blogs, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format. Getting Started: Authentication - Most endpoints require authentication using JWT (JSON Web Token). To authenticate, you need to: 1) Register a new account or login with existing credentials, 2) Include the received token directly in the Authorization header of your requests. Public Endpoints - Some endpoints are publicly accessible without authentication: /api/v1/register (Register a new user), /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events (Get list of events), /api/v1/blog (Get list of blog posts). Rate Limiting - API requests are subject to rate limiting to ensure fair usage. Please design your applications to handle rate limit responses (HTTP 429) gracefully. Pagination - List endpoints support pagination using 'page' and 'limit' query parameters.",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
+	Schemes:          []string{},
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

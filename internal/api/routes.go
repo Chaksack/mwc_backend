@@ -100,6 +100,14 @@ func SetupRoutes(
 	adminRoutes.Put("/users/:id/role", adminHandler.UpdateUserRole)     // New: Update user role
 	adminRoutes.Delete("/users/:id", adminHandler.DeleteUser)           // New: Delete a user
 	adminRoutes.Get("/action-logs", adminHandler.GetActionLogs)
+	
+	// Dynamic Subscription Management Routes
+	adminRoutes.Post("/subscription-plans", adminHandler.CreateSubscriptionPlan)
+	adminRoutes.Get("/subscription-plans", adminHandler.GetSubscriptionPlans)
+	adminRoutes.Put("/subscription-plans/:id", adminHandler.UpdateSubscriptionPlan)
+	adminRoutes.Delete("/subscription-plans/:id", adminHandler.DeleteSubscriptionPlan)
+	adminRoutes.Get("/role-subscriptions", adminHandler.GetRoleSubscriptionMappings) // ?role=parent
+	adminRoutes.Post("/assign-subscription", adminHandler.AssignUserSubscription)
 
 	// Super Admin only Routes (for admin user management)
 	superAdminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.SuperAdminRole))
