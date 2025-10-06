@@ -48,7 +48,7 @@ type CreateBlogPostRequest struct {
 // @Success 201 {object} map[string]interface{} "Blog post created successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can create blog posts"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can create blog posts"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /admin/blog [post]
@@ -64,9 +64,9 @@ func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only admins can create blog posts
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create blog posts"})
+	// Only admins and superadmins can create blog posts
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can create blog posts"})
 	}
 
 	// Parse request
@@ -355,7 +355,7 @@ func (h *BlogHandler) GetBlogPost(c *fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{} "Blog post updated successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can update blog posts"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can update blog posts"
 // @Failure 404 {object} map[string]string "Blog post not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
@@ -373,8 +373,8 @@ func (h *BlogHandler) UpdateBlogPost(c *fiber.Ctx) error {
 	}
 
 	// Only admins can update blog posts
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can update blog posts"})
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can update blog posts"})
 	}
 
 	postID, err := c.ParamsInt("post_id")
@@ -501,7 +501,7 @@ func (h *BlogHandler) UpdateBlogPost(c *fiber.Ctx) error {
 // @Success 200 {object} map[string]string "Blog post deleted successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can delete blog posts"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can delete blog posts"
 // @Failure 404 {object} map[string]string "Blog post not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
@@ -519,8 +519,8 @@ func (h *BlogHandler) DeleteBlogPost(c *fiber.Ctx) error {
 	}
 
 	// Only admins can delete blog posts
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can delete blog posts"})
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can delete blog posts"})
 	}
 
 	postID, err := c.ParamsInt("post_id")
@@ -711,7 +711,7 @@ type UpdateBlogCategoryRequest struct {
 // @Success 201 {object} map[string]interface{} "Category created successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can create categories"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can create categories"
 // @Failure 409 {object} map[string]string "Category already exists"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
@@ -728,9 +728,9 @@ func (h *BlogHandler) CreateBlogCategory(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only admins can create categories
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create categories"})
+	// Only admins and superadmins can create categories
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can create categories"})
 	}
 
 	// Parse request
@@ -792,7 +792,7 @@ func (h *BlogHandler) CreateBlogCategory(c *fiber.Ctx) error {
 // @Produce json
 // @Success 200 {object} map[string]interface{} "List of blog categories"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can access this endpoint"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can access this endpoint"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /admin/blog/categories [get]
@@ -808,9 +808,9 @@ func (h *BlogHandler) GetBlogCategoriesAdmin(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only admins can access this endpoint
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can access this endpoint"})
+	// Only admins and superadmins can access this endpoint
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can access this endpoint"})
 	}
 
 	var categories []models.BlogCategory
@@ -834,7 +834,7 @@ func (h *BlogHandler) GetBlogCategoriesAdmin(c *fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{} "Category updated successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can update categories"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can update categories"
 // @Failure 404 {object} map[string]string "Category not found"
 // @Failure 409 {object} map[string]string "Category name already exists"
 // @Failure 500 {object} map[string]string "Internal server error"
@@ -852,9 +852,9 @@ func (h *BlogHandler) UpdateBlogCategory(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only admins can update categories
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can update categories"})
+	// Only admins and superadmins can update categories
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can update categories"})
 	}
 
 	// Get category ID from URL params
@@ -929,7 +929,7 @@ func (h *BlogHandler) UpdateBlogCategory(c *fiber.Ctx) error {
 // @Param category_id path int true "Category ID"
 // @Success 200 {object} map[string]string "Category deleted successfully"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can delete categories"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can delete categories"
 // @Failure 404 {object} map[string]string "Category not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
@@ -946,9 +946,9 @@ func (h *BlogHandler) DeleteBlogCategory(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only admins can delete categories
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can delete categories"})
+	// Only admins and superadmins can delete categories
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can delete categories"})
 	}
 
 	// Get category ID from URL params
@@ -1001,7 +1001,7 @@ type UpdateBlogTagRequest struct {
 // @Success 201 {object} map[string]interface{} "Tag created successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can create tags"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can create tags"
 // @Failure 409 {object} map[string]string "Tag already exists"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
@@ -1019,8 +1019,8 @@ func (h *BlogHandler) CreateBlogTag(c *fiber.Ctx) error {
 	}
 
 	// Only admins can create tags
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can create tags"})
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can create tags"})
 	}
 
 	// Parse request
@@ -1080,7 +1080,7 @@ func (h *BlogHandler) CreateBlogTag(c *fiber.Ctx) error {
 // @Produce json
 // @Success 200 {object} map[string]interface{} "List of blog tags"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can access this endpoint"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can access this endpoint"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /admin/blog/tags [get]
@@ -1097,8 +1097,8 @@ func (h *BlogHandler) GetBlogTagsAdmin(c *fiber.Ctx) error {
 	}
 
 	// Only admins can access this endpoint
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can access this endpoint"})
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can access this endpoint"})
 	}
 
 	var tags []models.BlogTag
@@ -1122,7 +1122,7 @@ func (h *BlogHandler) GetBlogTagsAdmin(c *fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{} "Tag updated successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can update tags"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can update tags"
 // @Failure 404 {object} map[string]string "Tag not found"
 // @Failure 409 {object} map[string]string "Tag name already exists"
 // @Failure 500 {object} map[string]string "Internal server error"
@@ -1141,8 +1141,8 @@ func (h *BlogHandler) UpdateBlogTag(c *fiber.Ctx) error {
 	}
 
 	// Only admins can update tags
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can update tags"})
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can update tags"})
 	}
 
 	// Get tag ID from URL params
@@ -1215,7 +1215,7 @@ func (h *BlogHandler) UpdateBlogTag(c *fiber.Ctx) error {
 // @Param tag_id path int true "Tag ID"
 // @Success 200 {object} map[string]string "Tag deleted successfully"
 // @Failure 401 {object} map[string]string "User not authenticated"
-// @Failure 403 {object} map[string]string "Only admins can delete tags"
+// @Failure 403 {object} map[string]string "Only admins and superadmins can delete tags"
 // @Failure 404 {object} map[string]string "Tag not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
@@ -1233,8 +1233,8 @@ func (h *BlogHandler) DeleteBlogTag(c *fiber.Ctx) error {
 	}
 
 	// Only admins can delete tags
-	if user.Role != models.AdminRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can delete tags"})
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can delete tags"})
 	}
 
 	// Get tag ID from URL params
