@@ -58,14 +58,8 @@ func (h *BlogHandler) CreateBlogPost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
 	}
 
-	// Get user role
-	var user models.User
-	if err := h.db.First(&user, userID).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
-	}
-
-	// Only admins and superadmins can create blog posts
-	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+	userRole, ok := c.Locals("user_role").(models.UserRole)
+	if !ok || (userRole != models.AdminRole && userRole != models.SuperAdminRole) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can create blog posts"})
 	}
 
@@ -366,14 +360,8 @@ func (h *BlogHandler) UpdateBlogPost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
 	}
 
-	// Get user role
-	var user models.User
-	if err := h.db.First(&user, userID).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
-	}
-
-	// Only admins can update blog posts
-	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+	userRole, ok := c.Locals("user_role").(models.UserRole)
+	if !ok || (userRole != models.AdminRole && userRole != models.SuperAdminRole) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can update blog posts"})
 	}
 
@@ -512,14 +500,8 @@ func (h *BlogHandler) DeleteBlogPost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
 	}
 
-	// Get user role
-	var user models.User
-	if err := h.db.First(&user, userID).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
-	}
-
-	// Only admins can delete blog posts
-	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+	userRole, ok := c.Locals("user_role").(models.UserRole)
+	if !ok || (userRole != models.AdminRole && userRole != models.SuperAdminRole) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins and superadmins can delete blog posts"})
 	}
 
