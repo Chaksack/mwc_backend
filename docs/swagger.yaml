@@ -1434,7 +1434,7 @@ paths:
       - admin
   /admin/blog/categories:
     get:
-      description: Retrieves all blog categories with detailed information for admin
+      description: Retrieves all blog categories with detailed information for admin and superadmin
       produces:
       - application/json
       responses:
@@ -1450,7 +1450,7 @@ paths:
               type: string
             type: object
         "403":
-          description: Only admins can access this endpoint
+          description: Only admins and superadmins can access this endpoint
           schema:
             additionalProperties:
               type: string
@@ -1470,7 +1470,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new blog category. Only admins can create categories.
+      description: Creates a new blog category. Only admins and superadmins can create categories.
       parameters:
       - description: Category information
         in: body
@@ -1499,7 +1499,7 @@ paths:
               type: string
             type: object
         "403":
-          description: Only admins can create categories
+          description: Only admins and superadmins can create categories
           schema:
             additionalProperties:
               type: string
@@ -1524,7 +1524,7 @@ paths:
       - blog
   /admin/blog/categories/{category_id}:
     delete:
-      description: Deletes a blog category. Only admins can delete categories.
+      description: Deletes a blog category. Only admins and superadmins can delete categories.
       parameters:
       - description: Category ID
         in: path
@@ -1547,7 +1547,7 @@ paths:
               type: string
             type: object
         "403":
-          description: Only admins can delete categories
+          description: Only admins and superadmins can delete categories
           schema:
             additionalProperties:
               type: string
@@ -1573,7 +1573,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates an existing blog category. Only admins can update categories.
+      description: Updates an existing blog category. Only admins and superadmins can update categories.
       parameters:
       - description: Category ID
         in: path
@@ -1607,7 +1607,7 @@ paths:
               type: string
             type: object
         "403":
-          description: Only admins can update categories
+          description: Only admins and superadmins can update categories
           schema:
             additionalProperties:
               type: string

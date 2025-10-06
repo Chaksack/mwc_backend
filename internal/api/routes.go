@@ -197,7 +197,7 @@ func SetupRoutes(
 	apiV1.Get("/blog/tags", blogHandler.GetBlogTags)
 
 	// Admin blog routes
-	adminBlogRoutes := apiV1.Group("/admin/blog", authMw, middleware.RoleAuth(models.AdminRole))
+	adminBlogRoutes := apiV1.Group("/admin/blog", authMw, middleware.RoleAuth(models.AdminRole, models.SuperAdminRole))
 	adminBlogRoutes.Post("/", blogHandler.CreateBlogPost)
 	adminBlogRoutes.Get("/", blogHandler.GetBlogPosts)                // Admin can list all blog posts
 	

@@ -377,7 +377,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new blog category. Only admins can create categories.",
+                "description": "Creates a new blog category. Only admins and superadmins can create categories.",
                 "consumes": [
                     "application/json"
                 ],
@@ -427,7 +427,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Only admins can create categories",
+                        "description": "Only admins and superadmins can create categories",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
