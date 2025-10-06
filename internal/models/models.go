@@ -249,49 +249,6 @@ type Event struct {
 	LocalizedDescriptions map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Description", "es": "Descripción"}
 }
 
-// BlogCategory represents a blog category
-// @Description Blog category information
-// @Schema models.BlogCategory
-type BlogCategory struct {
-	GormModel
-	Name        string `gorm:"uniqueIndex;not null"`
-	Slug        string `gorm:"uniqueIndex;not null"` // URL-friendly version of the name
-	Description string `gorm:"type:text"`
-	PostCount   int    `gorm:"default:0"` // Count of posts in this category
-}
-
-// BlogTag represents a blog tag
-// @Description Blog tag information
-// @Schema models.BlogTag
-type BlogTag struct {
-	GormModel
-	Name      string `gorm:"uniqueIndex;not null"`
-	Slug      string `gorm:"uniqueIndex;not null"` // URL-friendly version of the name
-	PostCount int    `gorm:"default:0"`            // Count of posts with this tag
-}
-
-// BlogPost represents a blog post or article
-// @Description Blog post information
-// @Schema models.BlogPost
-type BlogPost struct {
-	GormModel
-	AuthorID    uint       `gorm:"not null;index"` // User who wrote the post
-	Author      User       `gorm:"foreignKey:AuthorID"`
-	Title       string     `gorm:"not null"`
-	Slug        string     `gorm:"uniqueIndex;not null"` // URL-friendly version of the title
-	Content     string     `gorm:"type:text;not null"`
-	Excerpt     string     `gorm:"type:text"`
-	PublishedAt *time.Time `gorm:"index"`
-	IsPublished bool       `gorm:"default:false"`
-	IsFeatured  bool       `gorm:"default:false"`
-	ViewCount   int        `gorm:"default:0"`
-	Category    string     `gorm:"index"`
-	Tags        []string   `gorm:"type:text[]"`
-	// I18n support
-	LocalizedTitles   map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Title", "es": "Título"}
-	LocalizedContents map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Content", "es": "Contenido"}
-	LocalizedExcerpts map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Excerpt", "es": "Extracto"}
-}
 
 // SubscriptionPlan represents a dynamic subscription plan
 // @Description Dynamic subscription plan information
@@ -359,6 +316,25 @@ type Review struct {
 	ModeratorNotes string `gorm:"type:text"` // Notes from the moderator
 }
 
+// Blog represents a blog post
+// @Description Blog post information
+// @Schema models.Blog
+type Blog struct {
+	GormModel
+	Title        string    `gorm:"not null"` // Blog title
+	Slug         string    `gorm:"uniqueIndex;not null"` // URL-friendly identifier
+	Content      string    `gorm:"type:text;not null"` // Blog content (HTML/Markdown)
+	Summary      string    `gorm:"type:text"` // Short summary/excerpt
+	FeaturedImage string   // URL to featured image
+	Tags         string    `gorm:"type:text"` // JSON array of tags
+	AuthorID     uint      `gorm:"not null;index"` // User who created the blog
+	Author       User      `gorm:"foreignKey:AuthorID"`
+	IsPublished  bool      `gorm:"default:false;index"` // Published status
+	PublishedAt  *time.Time `gorm:"index"` // When it was published
+	ViewCount    int       `gorm:"default:0"` // Number of views
+	IsFeatured   bool      `gorm:"default:false;index"` // Featured blog posts
+}
+
 // AutoMigrate runs GORM's auto migration.
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
@@ -372,12 +348,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&Message{},
 		&ActionLog{},
 		&Event{},
-		&BlogCategory{},
-		&BlogTag{},
-		&BlogPost{},
 		&DynamicSubscriptionPlan{},
 		&RoleSubscriptionMapping{},
 		&Subscription{},
 		&Review{},
+		&Blog{},
 	)
 }

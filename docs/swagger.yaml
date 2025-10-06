@@ -8,6 +8,41 @@ definitions:
       user_id:
         type: integer
     type: object
+  handlers.BlogResponse:
+    properties:
+      author_id:
+        type: integer
+      author_name:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      featured_image:
+        type: string
+      id:
+        type: integer
+      is_featured:
+        type: boolean
+      is_published:
+        type: boolean
+      published_at:
+        type: string
+      slug:
+        type: string
+      summary:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+      view_count:
+        type: integer
+    type: object
   handlers.CancelRequest:
     properties:
       reason:
@@ -30,34 +65,20 @@ definitions:
     - last_name
     - password
     type: object
-  handlers.CreateBlogCategoryRequest:
+  handlers.CreateBlogRequest:
     properties:
-      description:
-        type: string
-      name:
-        type: string
-    required:
-    - name
-    type: object
-  handlers.CreateBlogPostRequest:
-    properties:
-      category:
-        type: string
       content:
         type: string
-      excerpt:
+      featured_image:
         type: string
       is_featured:
         type: boolean
       is_published:
         type: boolean
-      localizations:
-        additionalProperties:
-          additionalProperties:
-            type: string
-          type: object
-        description: Map of language code to localized fields
-        type: object
+      slug:
+        type: string
+      summary:
+        type: string
       tags:
         items:
           type: string
@@ -65,16 +86,9 @@ definitions:
       title:
         type: string
     required:
-    - category
     - content
+    - slug
     - title
-    type: object
-  handlers.CreateBlogTagRequest:
-    properties:
-      name:
-        type: string
-    required:
-    - name
     type: object
   handlers.CreateEventRequest:
     properties:
@@ -652,21 +666,26 @@ definitions:
       sender_id:
         type: integer
     type: object
-  handlers.UpdateBlogCategoryRequest:
+  handlers.UpdateBlogRequest:
     properties:
-      description:
+      content:
         type: string
-      name:
+      featured_image:
         type: string
-    required:
-    - name
-    type: object
-  handlers.UpdateBlogTagRequest:
-    properties:
-      name:
+      is_featured:
+        type: boolean
+      is_published:
+        type: boolean
+      slug:
         type: string
-    required:
-    - name
+      summary:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
     type: object
   handlers.UpdateSubscriptionPlanRequest:
     properties:
@@ -1268,578 +1287,140 @@ paths:
       tags:
       - admin
       - subscriptions
-  /admin/blog:
+  /admin/blogs:
     post:
       consumes:
       - application/json
-      description: Creates a new blog post (admin only)
+      description: Creates a new blog post (Admin/SuperAdmin only)
       parameters:
-      - description: Blog post information
+      - description: Blog data
         in: body
-        name: request
+        name: blog
         required: true
         schema:
-          $ref: '#/definitions/handlers.CreateBlogPostRequest'
+          $ref: '#/definitions/handlers.CreateBlogRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: Blog post created successfully
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.BlogResponse'
+        "400":
+          description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
         "401":
-          description: User not authenticated
+          description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "403":
-          description: Only admins can create blog posts
+          description: Forbidden
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "500":
-          description: Internal server error
+          description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
       security:
       - BearerAuth: []
       summary: Create a new blog post
       tags:
-      - blog
-      - admin
-  /admin/blog/{post_id}:
+      - blogs
+  /admin/blogs/{id}:
     delete:
-      description: Deletes an existing blog post (admin only)
+      description: Deletes a blog post (Admin/SuperAdmin only)
       parameters:
-      - description: Blog post ID
+      - description: Blog ID
         in: path
-        name: post_id
+        name: id
         required: true
         type: integer
-      produces:
-      - application/json
       responses:
-        "200":
-          description: Blog post deleted successfully
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+        "204":
+          description: No Content
         "401":
-          description: User not authenticated
+          description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "403":
-          description: Only admins can delete blog posts
+          description: Forbidden
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "404":
-          description: Blog post not found
+          description: Not Found
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "500":
-          description: Internal server error
+          description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
       security:
       - BearerAuth: []
-      summary: Delete a blog post
+      summary: Delete blog post
       tags:
-      - blog
-      - admin
+      - blogs
     put:
       consumes:
       - application/json
-      description: Updates an existing blog post (admin only)
+      description: Updates an existing blog post (Admin/SuperAdmin only)
       parameters:
-      - description: Blog post ID
+      - description: Blog ID
         in: path
-        name: post_id
+        name: id
         required: true
         type: integer
-      - description: Updated blog post information
+      - description: Blog data
         in: body
-        name: request
+        name: blog
         required: true
         schema:
-          $ref: '#/definitions/handlers.CreateBlogPostRequest'
+          $ref: '#/definitions/handlers.UpdateBlogRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Blog post updated successfully
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.BlogResponse'
+        "400":
+          description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
         "401":
-          description: User not authenticated
+          description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "403":
-          description: Only admins can update blog posts
+          description: Forbidden
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "404":
-          description: Blog post not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update a blog post
-      tags:
-      - blog
-      - admin
-  /admin/blog/categories:
-    get:
-      description: Retrieves all blog categories with detailed information for admin and superadmin
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of blog categories
+          description: Not Found
           schema:
             additionalProperties: true
             type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins and superadmins can access this endpoint
-          schema:
-            additionalProperties:
-              type: string
-            type: object
         "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get all blog categories (admin)
-      tags:
-      - admin
-      - blog
-    post:
-      consumes:
-      - application/json
-      description: Creates a new blog category. Only admins and superadmins can create categories.
-      parameters:
-      - description: Category information
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.CreateBlogCategoryRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Category created successfully
+          description: Internal Server Error
           schema:
             additionalProperties: true
             type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins and superadmins can create categories
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "409":
-          description: Category already exists
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
       security:
       - BearerAuth: []
-      summary: Create a new blog category
+      summary: Update blog post
       tags:
-      - admin
-      - blog
-  /admin/blog/categories/{category_id}:
-    delete:
-      description: Deletes a blog category. Only admins and superadmins can delete categories.
-      parameters:
-      - description: Category ID
-        in: path
-        name: category_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Category deleted successfully
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins and superadmins can delete categories
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Category not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete a blog category
-      tags:
-      - admin
-      - blog
-    put:
-      consumes:
-      - application/json
-      description: Updates an existing blog category. Only admins and superadmins can update categories.
-      parameters:
-      - description: Category ID
-        in: path
-        name: category_id
-        required: true
-        type: integer
-      - description: Updated category information
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.UpdateBlogCategoryRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Category updated successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins and superadmins can update categories
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Category not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "409":
-          description: Category name already exists
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update a blog category
-      tags:
-      - admin
-      - blog
-  /admin/blog/tags:
-    get:
-      description: Retrieves all blog tags with detailed information for admin
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of blog tags
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins can access this endpoint
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get all blog tags (admin)
-      tags:
-      - admin
-      - blog
-    post:
-      consumes:
-      - application/json
-      description: Creates a new blog tag. Only admins can create tags.
-      parameters:
-      - description: Tag information
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.CreateBlogTagRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Tag created successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins can create tags
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "409":
-          description: Tag already exists
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create a new blog tag
-      tags:
-      - admin
-      - blog
-  /admin/blog/tags/{tag_id}:
-    delete:
-      description: Deletes a blog tag. Only admins can delete tags.
-      parameters:
-      - description: Tag ID
-        in: path
-        name: tag_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Tag deleted successfully
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins can delete tags
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Tag not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete a blog tag
-      tags:
-      - admin
-      - blog
-    put:
-      consumes:
-      - application/json
-      description: Updates an existing blog tag. Only admins can update tags.
-      parameters:
-      - description: Tag ID
-        in: path
-        name: tag_id
-        required: true
-        type: integer
-      - description: Updated tag information
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.UpdateBlogTagRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Tag updated successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: User not authenticated
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Only admins can update tags
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Tag not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "409":
-          description: Tag name already exists
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update a blog tag
-      tags:
-      - admin
-      - blog
+      - blogs
   /admin/events/{event_id}/feature:
     put:
       consumes:
@@ -2720,140 +2301,81 @@ paths:
       tags:
       - admin
       - users
-  /blog:
+  /blogs:
     get:
-      description: Retrieves all published blog posts with optional filtering
+      description: Retrieves blogs with pagination and filtering
       parameters:
-      - description: Filter by category
+      - default: 1
+        description: Page number
         in: query
-        name: category
-        type: string
-      - description: Filter by tag
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
         in: query
-        name: tag
-        type: string
-      - description: Language for localized content
+        name: limit
+        type: integer
+      - description: Filter by published status
         in: query
-        name: language
+        name: published
+        type: boolean
+      - description: Filter by featured status
+        in: query
+        name: featured
+        type: boolean
+      - description: Filter by author ID
+        in: query
+        name: author_id
+        type: integer
+      - description: Filter by tags (comma-separated)
+        in: query
+        name: tags
         type: string
       produces:
       - application/json
       responses:
         "200":
-          description: List of blog posts
+          description: OK
           schema:
             additionalProperties: true
             type: object
         "500":
-          description: Internal server error
+          description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
-      summary: Get all published blog posts
+      summary: Get blogs
       tags:
-      - blog
-  /blog/{slug}:
+      - blogs
+  /blogs/{slug}:
     get:
-      description: Retrieves a specific blog post by its slug
+      description: Retrieves a single blog by slug and increments view count
       parameters:
-      - description: Blog post slug
+      - description: Blog slug
         in: path
         name: slug
         required: true
         type: string
-      - description: Language for localized content
-        in: query
-        name: language
-        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: Blog post details
+          description: OK
           schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/handlers.BlogResponse'
         "404":
-          description: Blog post not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get a specific blog post
-      tags:
-      - blog
-  /blog/categories:
-    get:
-      description: Retrieves all distinct categories from published blog posts
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of blog categories
+          description: Not Found
           schema:
             additionalProperties: true
             type: object
         "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get all blog categories
-      tags:
-      - blog
-  /blog/featured:
-    get:
-      description: Retrieves all featured and published blog posts
-      parameters:
-      - description: Language for localized content
-        in: query
-        name: language
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of featured blog posts
+          description: Internal Server Error
           schema:
             additionalProperties: true
             type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get featured blog posts
+      summary: Get blog by slug
       tags:
-      - blog
-  /blog/tags:
-    get:
-      description: Retrieves all unique tags from published blog posts
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of blog tags
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get all blog tags
-      tags:
-      - blog
+      - blogs
   /events:
     get:
       description: Retrieves a list of all published events with optional filtering
@@ -5311,10 +4833,4 @@ paths:
       summary: Send notification to user
       tags:
       - websocket
-securityDefinitions:
-  BearerAuth:
-    description: Provide your JWT token directly in the Authorization header without any prefix.
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

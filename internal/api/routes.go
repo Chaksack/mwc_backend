@@ -34,7 +34,7 @@ func SetupRoutes(
 	websocketHandler := handlers.NewWebSocketHandler(db, cfg)
 	reviewHandler := handlers.NewReviewHandler(db, mqService)
 	eventHandler := handlers.NewEventHandler(db, cfg, mqService)
-	blogHandler := handlers.NewBlogHandler(db, cfg, mqService)
+	blogHandler := handlers.NewBlogHandler(db)
 
 	// Initialize and start notification scheduler
 	notificationService := services.NewNotificationService(db, emailService)
@@ -63,7 +63,7 @@ func SetupRoutes(
 			"message": "Montessori World Connect API v1",
 			"endpoints": []string{
 				"/register", "/login", "/schools/public",
-				"/events", "/blog", "/schools/:school_id/reviews",
+				"/events", "/schools/:school_id/reviews",
 			},
 			"documentation": "/swagger/index.html",
 		})
@@ -76,6 +76,10 @@ func SetupRoutes(
 	apiV1.Post("/reset-password", authHandler.ResetPassword)   // Reset password endpoint
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db))                    // Publicly searchable schools
 	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
+
+	// Public Blog Routes (no auth required)
+	apiV1.Get("/blogs", blogHandler.GetBlogs)           // Get all published blogs
+	apiV1.Get("/blogs/:slug", blogHandler.GetBlogBySlug) // Get blog by slug
 
 	// Auth Middleware
 	authMw := middleware.Protected(cfg.JWTSecret)
@@ -100,6 +104,11 @@ func SetupRoutes(
 	adminRoutes.Put("/users/:id/role", adminHandler.UpdateUserRole)     // New: Update user role
 	adminRoutes.Delete("/users/:id", adminHandler.DeleteUser)           // New: Delete a user
 	adminRoutes.Get("/action-logs", adminHandler.GetActionLogs)
+	
+	// Blog Management Routes (Admin/SuperAdmin)
+	adminRoutes.Post("/blogs", blogHandler.CreateBlog)
+	adminRoutes.Put("/blogs/:id", blogHandler.UpdateBlog)
+	adminRoutes.Delete("/blogs/:id", blogHandler.DeleteBlog)
 	
 	// Dynamic Subscription Management Routes
 	adminRoutes.Post("/subscription-plans", adminHandler.CreateSubscriptionPlan)
@@ -188,35 +197,6 @@ func SetupRoutes(
 	adminEventRoutes := apiV1.Group("/admin/events", authMw, middleware.RoleAuth(models.AdminRole))
 	adminEventRoutes.Put("/:event_id/feature", eventHandler.FeatureEvent)
 
-	// Blog Routes
-	// Public blog routes
-	apiV1.Get("/blog", blogHandler.GetBlogPosts)
-	apiV1.Get("/blog/:slug", blogHandler.GetBlogPost)
-	apiV1.Get("/blog/featured", blogHandler.GetFeaturedBlogPosts)
-	apiV1.Get("/blog/categories", blogHandler.GetBlogCategories)
-	apiV1.Get("/blog/tags", blogHandler.GetBlogTags)
-
-	// Admin blog routes
-	adminBlogRoutes := apiV1.Group("/admin/blog", authMw, middleware.RoleAuth(models.AdminRole, models.SuperAdminRole))
-	adminBlogRoutes.Post("/", blogHandler.CreateBlogPost)
-	adminBlogRoutes.Get("/", blogHandler.GetBlogPosts)                // Admin can list all blog posts
-	
-	// Admin category management routes - must come before /:post_id routes
-	adminBlogRoutes.Post("/categories", blogHandler.CreateBlogCategory)
-	adminBlogRoutes.Get("/categories", blogHandler.GetBlogCategoriesAdmin)
-	adminBlogRoutes.Put("/categories/:category_id", blogHandler.UpdateBlogCategory)
-	adminBlogRoutes.Delete("/categories/:category_id", blogHandler.DeleteBlogCategory)
-	
-	// Admin tag management routes - must come before /:post_id routes
-	adminBlogRoutes.Post("/tags", blogHandler.CreateBlogTag)
-	adminBlogRoutes.Get("/tags", blogHandler.GetBlogTagsAdmin)
-	adminBlogRoutes.Put("/tags/:tag_id", blogHandler.UpdateBlogTag)
-	adminBlogRoutes.Delete("/tags/:tag_id", blogHandler.DeleteBlogTag)
-	
-	// Admin post management routes - must come after specific routes like /categories and /tags
-	adminBlogRoutes.Get("/:post_id", blogHandler.GetBlogPost)         // Admin can get individual blog post by ID
-	adminBlogRoutes.Put("/:post_id", blogHandler.UpdateBlogPost)
-	adminBlogRoutes.Delete("/:post_id", blogHandler.DeleteBlogPost)
 
 	// WebSocket Routes
 	if cfg.WebSocketEnabled {
