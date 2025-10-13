@@ -5632,6 +5632,83 @@
                 }
             }
         }
+        ,
+        "/schools/continent-counts": {
+            "get": {
+                "description": "Returns counts of schools grouped by continent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "schools",
+                    "stats"
+                ],
+                "summary": "Get school counts by continent",
+                "responses": {
+                    "200": {
+                        "description": "Counts per continent",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ,
+        "/schools/continents": {
+            "get": {
+                "description": "Returns a list of continents with their school counts.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "schools",
+                    "stats"
+                ],
+                "summary": "List continents with school counts",
+                "responses": {
+                    "200": {
+                        "description": "List of continents and counts",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "continents": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "continent": {"type": "string"},
+                                            "count": {"type": "integer"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
     },
     "definitions": {
         "handlers.AssignUserSubscriptionRequest": {
