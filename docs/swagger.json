@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.1.1"
+        "version": "2.1.2"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -6172,6 +6172,7 @@
                 }
             }
         },
+        
         "handlers.CreateReviewRequest": {
             "type": "object",
             "required": [
@@ -6610,6 +6611,10 @@
                 },
                 "qualifications": {
                     "type": "string"
+                },
+                "looking_for_job": {
+                    "type": "boolean",
+                    "description": "Optional flag indicating if the professional is looking for a job"
                 }
             }
         },
