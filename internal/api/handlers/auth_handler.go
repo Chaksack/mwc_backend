@@ -10,6 +10,8 @@ import (
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -207,7 +209,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		// Create 60-day free trial subscription
 		startDate := time.Now()
 		endDate := startDate.AddDate(0, 0, 60) // 60 days from now
-		
+
 		subscription := models.Subscription{
 			UserID:               user.ID,
 			Plan:                 models.FreePlan,
@@ -218,13 +220,13 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 			StripeCustomerID:     "",    // No Stripe customer for free trial
 			StripeSubscriptionID: "",    // No Stripe subscription for free trial
 		}
-		
+
 		if err := tx.Create(&subscription).Error; err != nil {
 			tx.Rollback()
 			LogUserAction(h.db, user.ID, "REGISTER_FAIL_FREE_TRIAL", user.ID, "Subscription", err.Error(), c)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create free trial subscription: " + err.Error()})
 		}
-		
+
 		profileDetails += " Free trial subscription (60 days) created."
 		LogUserAction(h.db, user.ID, "FREE_TRIAL_CREATED", user.ID, "Subscription", "60-day free trial subscription created", c)
 	}
@@ -237,7 +239,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	// Send email verification email
 	verificationURL := fmt.Sprintf("https://montessoriworldconnect.com/verify-email?token=%s", verificationToken)
 	emailSubject := "Please verify your email address"
-	
+
 	// Build free trial information for non-admin users
 	freeTrialInfo := ""
 	if user.Role != models.AdminRole {
@@ -262,7 +264,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		<p>Start exploring all the premium features right after verifying your email!</p>
 		`, freeTrialEndDate)
 	}
-	
+
 	emailBody := fmt.Sprintf(`
 		<h1>Hello %s,</h1>
 		<p>Thank you for registering on our platform as a %s.</p>%s
@@ -273,7 +275,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		<p>This link will expire in 24 hours.</p>
 		<p>If you didn't create an account, you can safely ignore this email.</p>
 	`, user.FirstName, user.Role, freeTrialInfo, verificationURL, verificationURL)
-	
+
 	if err := h.emailService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
 		log.Printf("Failed to send verification email to %s: %v. Registration still successful.", user.Email, err)
 		// Log this to action log as well for tracking email failures
@@ -288,11 +290,11 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "User registered successfully. Please check your email to verify your account.",
 		"user": fiber.Map{
-			"id":        user.ID,
-			"email":     user.Email,
-			"firstName": user.FirstName,
-			"lastName":  user.LastName,
-			"role":      user.Role,
+			"id":             user.ID,
+			"email":          user.Email,
+			"firstName":      user.FirstName,
+			"lastName":       user.LastName,
+			"role":           user.Role,
 			"email_verified": user.EmailVerified,
 		},
 	})
@@ -412,7 +414,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	if !user.EmailVerified && user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
 		LogUserAction(h.db, user.ID, "LOGIN_FAIL_EMAIL_NOT_VERIFIED", user.ID, "User", fmt.Sprintf("Login attempt with unverified email: %s", req.Email), c)
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Please verify your email address before logging in. Check your inbox for a verification link.",
+			"error":          "Please verify your email address before logging in. Check your inbox for a verification link.",
 			"email_verified": false,
 		})
 	}
@@ -505,16 +507,16 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 
 	// Prepare comprehensive response with all user details
 	userMap := fiber.Map{
-		"id":                        user.ID,
-		"email":                     user.Email,
-		"firstName":                 user.FirstName,
-		"lastName":                  user.LastName,
-		"role":                      user.Role,
-		"isActive":                  user.IsActive,
-		"emailVerified":             user.EmailVerified,
-		"createdAt":                 user.CreatedAt,
-		"updatedAt":                 user.UpdatedAt,
-		"lastLogin":                 user.LastLogin,
+		"id":            user.ID,
+		"email":         user.Email,
+		"firstName":     user.FirstName,
+		"lastName":      user.LastName,
+		"role":          user.Role,
+		"isActive":      user.IsActive,
+		"emailVerified": user.EmailVerified,
+		"createdAt":     user.CreatedAt,
+		"updatedAt":     user.UpdatedAt,
+		"lastLogin":     user.LastLogin,
 	}
 
 	// Add comprehensive profile information based on role
@@ -562,6 +564,187 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": userMap,
 	})
+}
+
+// ensureDir creates a directory if it doesn't exist
+func ensureDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return os.MkdirAll(dir, 0755)
+	}
+	return nil
+}
+
+// UploadProfilePicture handles uploading a new profile picture for the authenticated user
+// @Summary Upload profile picture
+// @Description Uploads a new profile picture for the current user
+// @Tags auth,profile
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Profile picture file"
+// @Security BearerAuth
+// @Success 201 {object} models.UserProfilePicture
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /me/profile/pictures [post]
+func (h *AuthHandler) UploadProfilePicture(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "File is required"})
+	}
+
+	// Ensure uploads directory exists
+	uploadDir := "./uploads/profile_pictures"
+	if err := ensureDir(uploadDir); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create upload directory"})
+	}
+
+	// Save file
+	dst := fmt.Sprintf("%s/%d_%s", uploadDir, userID, fileHeader.Filename)
+	if err := c.SaveFile(fileHeader, dst); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file: " + err.Error()})
+	}
+
+	urlPath := "/uploads/profile_pictures/" + fmt.Sprintf("%d_%s", userID, fileHeader.Filename)
+
+	picture := models.UserProfilePicture{
+		UserID:    userID,
+		URL:       urlPath,
+		FileName:  fileHeader.Filename,
+		IsPrimary: false,
+	}
+
+	if err := h.db.Create(&picture).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save picture record: " + err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(picture)
+}
+
+// ListProfilePictures returns all profile pictures for the authenticated user
+// @Summary List profile pictures
+// @Description Lists all profile pictures for the current user
+// @Tags auth,profile
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} models.UserProfilePicture
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /me/profile/pictures [get]
+func (h *AuthHandler) ListProfilePictures(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	var pics []models.UserProfilePicture
+	if err := h.db.Where("user_id = ?", userID).Find(&pics).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load pictures: " + err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(pics)
+}
+
+// DeleteProfilePicture deletes a profile picture by ID for the authenticated user
+// @Summary Delete profile picture
+// @Description Deletes a specific profile picture
+// @Tags auth,profile
+// @Produce json
+// @Param picture_id path int true "Picture ID"
+// @Security BearerAuth
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /me/profile/pictures/{picture_id} [delete]
+func (h *AuthHandler) DeleteProfilePicture(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	picIDStr := c.Params("picture_id")
+	picID, err := strconv.ParseUint(picIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid picture ID"})
+	}
+
+	var pic models.UserProfilePicture
+	if err := h.db.First(&pic, uint(picID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Picture not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+
+	if pic.UserID != userID {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authorized to delete this picture"})
+	}
+
+	// Delete file from disk (best-effort)
+	// Map URL back to path
+	filePath := "." + pic.URL
+	_ = os.Remove(filePath)
+
+	if err := h.db.Delete(&pic).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete picture record: " + err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Picture deleted"})
+}
+
+// SetPrimaryProfilePicture sets a specific picture as primary for the authenticated user
+// @Summary Set primary profile picture
+// @Description Marks a given profile picture as the primary picture
+// @Tags auth,profile
+// @Produce json
+// @Param picture_id path int true "Picture ID"
+// @Security BearerAuth
+// @Success 200 {object} models.UserProfilePicture
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /me/profile/pictures/{picture_id}/primary [put]
+func (h *AuthHandler) SetPrimaryProfilePicture(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	picIDStr := c.Params("picture_id")
+	picID, err := strconv.ParseUint(picIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid picture ID"})
+	}
+
+	var pic models.UserProfilePicture
+	if err := h.db.First(&pic, uint(picID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Picture not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+	if pic.UserID != userID {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authorized to modify this picture"})
+	}
+
+	// Unset other primary flags for this user
+	if err := h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", userID).Update("is_primary", false).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to unset previous primary pictures: " + err.Error()})
+	}
+
+	pic.IsPrimary = true
+	if err := h.db.Save(&pic).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to set primary picture: " + err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(pic)
 }
 
 // ForgotPasswordRequest is the request body for forgot password.

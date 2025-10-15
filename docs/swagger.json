@@ -3377,6 +3377,75 @@
                 }
             }
         },
+        "/me/profile/pictures": {
+            "post": {
+                "security": [
+                    { "BearerAuth": [] }
+                ],
+                "consumes": ["multipart/form-data"],
+                "produces": ["application/json"],
+                "tags": ["auth","profile"],
+                "summary": "Upload profile picture",
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "formData",
+                        "type": "file",
+                        "required": true,
+                        "description": "Profile picture file"
+                    }
+                ],
+                "responses": {
+                    "201": { "description": "Created", "schema": { "$ref": "#/definitions/models.UserProfilePicture" } },
+                    "400": { "description": "Bad request" },
+                    "401": { "description": "Unauthorized" },
+                    "500": { "description": "Internal server error" }
+                }
+            },
+            "get": {
+                "security": [ { "BearerAuth": [] } ],
+                "produces": ["application/json"],
+                "tags": ["auth","profile"],
+                "summary": "List profile pictures",
+                "responses": {
+                    "200": { "description": "OK", "schema": { "type": "array", "items": { "$ref": "#/definitions/models.UserProfilePicture" } } },
+                    "401": { "description": "Unauthorized" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/me/profile/pictures/{picture_id}": {
+            "delete": {
+                "security": [ { "BearerAuth": [] } ],
+                "produces": ["application/json"],
+                "tags": ["auth","profile"],
+                "summary": "Delete profile picture",
+                "parameters": [ { "name": "picture_id", "in": "path", "required": true, "type": "integer" } ],
+                "responses": {
+                    "200": { "description": "Deleted" },
+                    "400": { "description": "Bad request" },
+                    "401": { "description": "Unauthorized" },
+                    "404": { "description": "Not found" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/me/profile/pictures/{picture_id}/primary": {
+            "put": {
+                "security": [ { "BearerAuth": [] } ],
+                "produces": ["application/json"],
+                "tags": ["auth","profile"],
+                "summary": "Set primary profile picture",
+                "parameters": [ { "name": "picture_id", "in": "path", "required": true, "type": "integer" } ],
+                "responses": {
+                    "200": { "description": "OK", "schema": { "$ref": "#/definitions/models.UserProfilePicture" } },
+                    "400": { "description": "Bad request" },
+                    "401": { "description": "Unauthorized" },
+                    "404": { "description": "Not found" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
         "/montessori-professional/jobs/applied": {
             "get": {
                 "security": [
@@ -3755,12 +3824,7 @@
         },
         "/institution/montessori-professionals/looking-for-jobs": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve a list of montessori professionals who are actively looking for jobs (for institutions/training centers)",
+                "description": "Retrieve a public list of montessori professionals who are actively looking for jobs",
                 "produces": [
                     "application/json"
                 ],
@@ -7581,6 +7645,19 @@
                     "description": "Expiry time for verification token",
                     "type": "string"
                 }
+            }
+        },
+        "models.UserProfilePicture": {
+            "description": "User profile picture information",
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer" },
+                "userID": { "type": "integer" },
+                "url": { "type": "string" },
+                "fileName": { "type": "string" },
+                "isPrimary": { "type": "boolean" },
+                "created_at": { "type": "string" },
+                "updated_at": { "type": "string" }
             }
         },
         "models.UserRole": {

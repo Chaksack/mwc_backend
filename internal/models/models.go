@@ -89,6 +89,8 @@ type User struct {
 	InstitutionProfile            *InstitutionProfile            `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
 	MontessoriProfessionalProfile *MontessoriProfessionalProfile `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Montessori Professional
 	ParentProfile                 *ParentProfile                 `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Parent
+	// Profile pictures uploaded by the user
+	ProfilePictures []*UserProfilePicture `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 // School represents a school
@@ -206,6 +208,17 @@ type Message struct {
 	IsRead      bool `gorm:"default:false;index"` // Index for faster querying of unread messages
 	Sender      User `gorm:"foreignKey:SenderID"`
 	Recipient   User `gorm:"foreignKey:RecipientID"`
+}
+
+// UserProfilePicture represents a profile picture uploaded by a user
+// @Description User profile picture information
+// @Schema models.UserProfilePicture
+type UserProfilePicture struct {
+	GormModel
+	UserID    uint   `gorm:"index;not null"`
+	URL       string `gorm:"not null"`
+	FileName  string
+	IsPrimary bool `gorm:"default:false;index"`
 }
 
 // ActionLog for admin to track user actions
@@ -344,6 +357,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&InstitutionProfile{},
 		&MontessoriProfessionalProfile{},
 		&ParentProfile{},
+		&UserProfilePicture{},
 		&Job{},
 		&JobApplication{},
 		&Message{},

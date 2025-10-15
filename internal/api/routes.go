@@ -90,6 +90,11 @@ func SetupRoutes(
 
 	// User Routes
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
+	// Profile picture management for authenticated users
+	apiV1.Post("/me/profile/pictures", authMw, authHandler.UploadProfilePicture)
+	apiV1.Get("/me/profile/pictures", authMw, authHandler.ListProfilePictures)
+	apiV1.Delete("/me/profile/pictures/:picture_id", authMw, authHandler.DeleteProfilePicture)
+	apiV1.Put("/me/profile/pictures/:picture_id/primary", authMw, authHandler.SetPrimaryProfilePicture)
 
 	// Jobs endpoint - requires paid subscription
 	apiV1.Get("/jobs", authMw, subscriptionMw, institutionHandler.GetAllJobs)
@@ -137,8 +142,8 @@ func SetupRoutes(
 	instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
 	instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
 
-	// Allow institutions and training centers to discover montessori professionals actively looking for jobs
-	instTcRoutes.Get("/montessori-professionals/looking-for-jobs", montessoriProfessionalHandler.ListLookingForJobs)
+	// Allow anyone to discover montessori professionals actively looking for jobs (public)
+	apiV1.Get("/institution/montessori-professionals/looking-for-jobs", montessoriProfessionalHandler.ListLookingForJobs)
 	// Allow institutions/training centers to view a professional's public profile and contact them
 	instTcRoutes.Get("/montessori-professionals/:id", montessoriProfessionalHandler.GetPublicProfessional)
 	instTcRoutes.Post("/montessori-professionals/:id/contact", montessoriProfessionalHandler.ContactProfessional)
