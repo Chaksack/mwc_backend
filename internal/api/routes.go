@@ -28,7 +28,7 @@ func SetupRoutes(
 	authHandler := handlers.NewAuthHandler(db, cfg, emailService, mqService) // Pass full cfg
 	adminHandler := handlers.NewAdminHandler(db, mqService)
 	institutionHandler := handlers.NewInstitutionHandler(db, mqService)
-	montessoriProfessionalHandler := handlers.NewMontessoriProfessionalHandler(db, mqService)
+	montessoriProfessionalHandler := handlers.NewMontessoriProfessionalHandler(db, mqService, emailService)
 	parentHandler := handlers.NewParentHandler(db, mqService, emailService)
 	subscriptionHandler := handlers.NewSubscriptionHandler(db, cfg, mqService, emailService)
 	websocketHandler := handlers.NewWebSocketHandler(db, cfg)
@@ -46,7 +46,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "1.9.0",
+			"version":       "2.0.0",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -136,6 +136,12 @@ func SetupRoutes(
 	instTcRoutes.Delete("/jobs/:job_id", institutionHandler.DeleteJob)
 	instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
 	instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
+
+	// Allow institutions and training centers to discover montessori professionals actively looking for jobs
+	instTcRoutes.Get("/montessori-professionals/looking-for-jobs", montessoriProfessionalHandler.ListLookingForJobs)
+	// Allow institutions/training centers to view a professional's public profile and contact them
+	instTcRoutes.Get("/montessori-professionals/:id", montessoriProfessionalHandler.GetPublicProfessional)
+	instTcRoutes.Post("/montessori-professionals/:id/contact", montessoriProfessionalHandler.ContactProfessional)
 
 	// Montessori Professional Routes
 	montessoriProfessionalRoutes := apiV1.Group("/montessori-professional", authMw, middleware.RoleAuth(models.MontessoriProfessionalRole))

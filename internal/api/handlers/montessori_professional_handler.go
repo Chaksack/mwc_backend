@@ -1,26 +1,36 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
+	"fmt"
+	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type MontessoriProfessionalHandler struct {
 	db        *gorm.DB
 	mqService queue.MessageQueueService
+	emailSvc  email.EmailService
 }
 
-func NewMontessoriProfessionalHandler(db *gorm.DB, mq queue.MessageQueueService) *MontessoriProfessionalHandler {
-	return &MontessoriProfessionalHandler{db: db, mqService: mq}
+func NewMontessoriProfessionalHandler(db *gorm.DB, mq queue.MessageQueueService, emailSvc email.EmailService) *MontessoriProfessionalHandler {
+	return &MontessoriProfessionalHandler{db: db, mqService: mq, emailSvc: emailSvc}
 }
 
 type MontessoriProfessionalProfileRequest struct {
 	Bio            string `json:"bio"`
 	Qualifications string `json:"qualifications"`
 	Experience     string `json:"experience"`
+	LookingForJob  *bool  `json:"looking_for_job"`
+}
+
+type ContactProfessionalRequest struct {
+	Subject string `json:"subject"`
+	Message string `json:"message"`
 }
 
 type JobApplicationRequest struct {
@@ -66,6 +76,9 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 	profile.Bio = req.Bio
 	profile.Qualifications = req.Qualifications
 	profile.Experience = req.Experience
+	if req.LookingForJob != nil {
+		profile.LookingForJob = *req.LookingForJob
+	}
 
 	if err := h.db.Save(&profile).Error; err != nil {
 		actionType := "MONT_PROF_PROFILE_UPDATE_FAIL"
@@ -82,6 +95,158 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 	}
 	LogUserAction(h.db, actorUserID, actionType, profile.ID, "MontessoriProfessionalProfile", "Profile saved", c)
 	return c.Status(fiber.StatusOK).JSON(profile)
+}
+
+// ListLookingForJobs returns Montessori Professional profiles that are actively looking for jobs.
+// This endpoint is intended to be consumed by institutions and training centers to discover candidates.
+// @Summary List montessori professionals looking for jobs
+// @Description Returns a list of public montessori professional profiles where LookingForJob=true
+// @Tags montessori-professional,jobs
+// @Produce json
+// @Success 200 {array} models.MontessoriProfessionalProfile
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /institution/montessori-professionals/looking-for-jobs [get]
+func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
+	var profiles []models.MontessoriProfessionalProfile
+	if err := h.db.Preload("User").Where("looking_for_job = ?", true).Find(&profiles).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve profiles: " + err.Error()})
+	}
+
+	// For privacy, return a trimmed view exposing only non-sensitive fields
+	type PublicProfile struct {
+		ID             uint   `json:"id"`
+		UserID         uint   `json:"user_id"`
+		FirstName      string `json:"first_name"`
+		LastName       string `json:"last_name"`
+		Bio            string `json:"bio"`
+		Qualifications string `json:"qualifications"`
+		Experience     string `json:"experience"`
+		LookingForJob  bool   `json:"looking_for_job"`
+	}
+
+	out := make([]PublicProfile, 0, len(profiles))
+	for _, p := range profiles {
+		out = append(out, PublicProfile{
+			ID:             p.ID,
+			UserID:         p.UserID,
+			FirstName:      p.User.FirstName,
+			LastName:       p.User.LastName,
+			Bio:            p.Bio,
+			Qualifications: p.Qualifications,
+			Experience:     p.Experience,
+			LookingForJob:  p.LookingForJob,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(out)
+}
+
+// GetPublicProfessional returns a public view of a montessori professional profile by ID
+// @Summary Get montessori professional public profile
+// @Description Returns public details for a montessori professional profile
+// @Tags montessori-professional
+// @Produce json
+// @Param id path int true "Profile ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string "Not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /institution/montessori-professionals/{id} [get]
+func (h *MontessoriProfessionalHandler) GetPublicProfessional(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid profile ID"})
+	}
+
+	var profile models.MontessoriProfessionalProfile
+	if err := h.db.Preload("User").First(&profile, uint(id)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Profile not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+
+	out := fiber.Map{
+		"id":              profile.ID,
+		"user_id":         profile.UserID,
+		"first_name":      profile.User.FirstName,
+		"last_name":       profile.User.LastName,
+		"bio":             profile.Bio,
+		"qualifications":  profile.Qualifications,
+		"experience":      profile.Experience,
+		"looking_for_job": profile.LookingForJob,
+	}
+
+	return c.Status(fiber.StatusOK).JSON(out)
+}
+
+// ContactProfessional allows an institution or training center to send a message (email) to a montessori professional.
+// @Summary Contact a montessori professional
+// @Description Send an email to the montessori professional from the requesting institution/training center
+// @Tags montessori-professional,jobs
+// @Accept json
+// @Produce json
+// @Param id path int true "Profile ID"
+// @Param body body ContactProfessionalRequest true "Contact message"
+// @Success 200 {object} map[string]string "Email sent"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /institution/montessori-professionals/{id}/contact [post]
+func (h *MontessoriProfessionalHandler) ContactProfessional(c *fiber.Ctx) error {
+	actorUserID, _ := c.Locals("user_id").(uint)
+
+	idStr := c.Params("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid profile ID"})
+	}
+
+	var req ContactProfessionalRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	}
+	if req.Subject == "" || req.Message == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Subject and message are required"})
+	}
+
+	var profile models.MontessoriProfessionalProfile
+	if err := h.db.Preload("User").First(&profile, uint(id)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Profile not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+
+	recipient := profile.User.Email
+	if recipient == "" {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Recipient email not found"})
+	}
+
+	// Get sender info (institution/training center user)
+	var sender models.User
+	_ = h.db.First(&sender, actorUserID).Error // ignore error; we'll still build the email
+
+	// Try to get institution name if available
+	var inst models.InstitutionProfile
+	instName := ""
+	if err := h.db.Where("user_id = ?", actorUserID).First(&inst).Error; err == nil {
+		instName = inst.InstitutionName
+	}
+
+	subject := fmt.Sprintf("%s (via Montessori World Connect)", req.Subject)
+	htmlBody := fmt.Sprintf(`<p>You have received a message via Montessori World Connect from <strong>%s %s</strong> (%s).</p><p>Institution/Training Center: %s</p><p><strong>Message:</strong></p><p>%s</p><p>Please reply to: %s</p>`, sender.FirstName, sender.LastName, sender.Email, instName, req.Message, sender.Email)
+
+	if err := h.emailSvc.SendEmail(recipient, subject, htmlBody); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send email: " + err.Error()})
+	}
+
+	LogUserAction(h.db, actorUserID, "INST_CONTACT_MONT_PROF", profile.ID, "MontessoriProfessionalProfile", "Contact email sent", c)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Email sent successfully"})
 }
 
 // SearchSchools allows montessori professionals (and parents) to search for schools.

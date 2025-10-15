@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "1.9"
+        "version": "2.0"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -3753,6 +3753,164 @@
                 }
             }
         },
+        "/institution/montessori-professionals/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a public montessori professional profile by ID (for institutions/training centers)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "montessori-professional"
+                ],
+                "summary": "Get montessori professional public profile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Public profile",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.PublicMontessoriProfessionalResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/institution/montessori-professionals/{id}/contact": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send an email to a montessori professional from the requesting institution/training center",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "Contact montessori professional",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Contact payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ContactProfessionalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email sent",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/montessori-professional/schools/saved": {
             "get": {
                 "security": [
@@ -6339,6 +6497,36 @@
                 "qualifications": {
                     "type": "string"
                 }
+            }
+        },
+        "handlers.ContactProfessionalRequest": {
+            "type": "object",
+            "required": [
+                "subject",
+                "message"
+            ],
+            "properties": {
+                "subject": {
+                    "type": "string",
+                    "example": "Inquiry about your profile"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "We would like to invite you to apply for a role at our school. Please reply if interested."
+                }
+            }
+        },
+        "handlers.PublicMontessoriProfessionalResponse": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer" },
+                "user_id": { "type": "integer" },
+                "first_name": { "type": "string" },
+                "last_name": { "type": "string" },
+                "bio": { "type": "string" },
+                "qualifications": { "type": "string" },
+                "experience": { "type": "string" },
+                "looking_for_job": { "type": "boolean" }
             }
         },
         "handlers.ParentProfileRequest": {

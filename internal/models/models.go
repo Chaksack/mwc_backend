@@ -75,15 +75,15 @@ type User struct {
 	Role         UserRole `gorm:"type:varchar(30);not null"`
 	IsActive     bool     `gorm:"default:true"`
 	LastLogin    *time.Time
-	
+
 	// Email verification fields
-	EmailVerified             bool       `gorm:"default:false"`
-	VerificationToken         *string    `gorm:"uniqueIndex"` // Token for email verification
-	VerificationTokenExpiry   *time.Time // Expiry time for verification token
+	EmailVerified           bool       `gorm:"default:false"`
+	VerificationToken       *string    `gorm:"uniqueIndex"` // Token for email verification
+	VerificationTokenExpiry *time.Time // Expiry time for verification token
 
 	// Password reset fields
-	PasswordResetToken        *string    `gorm:"uniqueIndex"` // Token for password reset
-	PasswordResetTokenExpiry  *time.Time // Expiry time for password reset token
+	PasswordResetToken       *string    `gorm:"uniqueIndex"` // Token for password reset
+	PasswordResetTokenExpiry *time.Time // Expiry time for password reset token
 
 	// Relationships (depending on role)
 	InstitutionProfile            *InstitutionProfile            `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"` // For Institution/TrainingCenter
@@ -141,21 +141,23 @@ type MontessoriProfessionalProfile struct {
 	Bio            string
 	Qualifications string
 	Experience     string
-	SavedSchools   []*School        `gorm:"many2many:montessori_professional_saved_schools;"`
-	Applications   []JobApplication `gorm:"foreignKey:MontessoriProfessionalProfileID"`
+	// LookingForJob indicates whether this professional is actively looking for job opportunities
+	LookingForJob bool             `gorm:"default:false;index" json:"looking_for_job"`
+	SavedSchools  []*School        `gorm:"many2many:montessori_professional_saved_schools;"`
+	Applications  []JobApplication `gorm:"foreignKey:MontessoriProfessionalProfileID"`
 }
 
 // ParentProfile for Parent users
 // @Description Parent profile information
 // @Schema models.ParentProfile
 type ParentProfile struct {
-	GormModel                        // Use GormModel for Swagger documentation
-	UserID           uint            `gorm:"uniqueIndex;not null"`
-	User             User            // Eager load user details
-	ProfileVisibility string         `gorm:"default:'public'"` // "public" or "private"
-	ParentAge        int             // Age of the parent
-	SavedSchools     []*School       `gorm:"many2many:parent_saved_schools;"`
-	Schools          []*School       `gorm:"many2many:parent_children_schools;"` // Schools the parent's children attend
+	GormModel                   // Use GormModel for Swagger documentation
+	UserID            uint      `gorm:"uniqueIndex;not null"`
+	User              User      // Eager load user details
+	ProfileVisibility string    `gorm:"default:'public'"` // "public" or "private"
+	ParentAge         int       // Age of the parent
+	SavedSchools      []*School `gorm:"many2many:parent_saved_schools;"`
+	Schools           []*School `gorm:"many2many:parent_children_schools;"` // Schools the parent's children attend
 }
 
 // Job posted by an Institution or Training Center
@@ -249,7 +251,6 @@ type Event struct {
 	LocalizedDescriptions map[string]string `gorm:"type:jsonb"` // e.g., {"en": "Description", "es": "Descripción"}
 }
 
-
 // SubscriptionPlan represents a dynamic subscription plan
 // @Description Dynamic subscription plan information
 // @Schema models.SubscriptionPlan
@@ -273,10 +274,10 @@ type DynamicSubscriptionPlan struct {
 // @Schema models.RoleSubscriptionMapping
 type RoleSubscriptionMapping struct {
 	GormModel
-	Role             UserRole `gorm:"type:varchar(30);not null;index"`
-	SubscriptionPlanID uint   `gorm:"not null;index"`
+	Role               UserRole                `gorm:"type:varchar(30);not null;index"`
+	SubscriptionPlanID uint                    `gorm:"not null;index"`
 	SubscriptionPlan   DynamicSubscriptionPlan `gorm:"foreignKey:SubscriptionPlanID"`
-	IsDefault        bool    `gorm:"default:false"` // Default plan for this role
+	IsDefault          bool                    `gorm:"default:false"` // Default plan for this role
 }
 
 // Subscription represents a premium subscription
@@ -284,17 +285,17 @@ type RoleSubscriptionMapping struct {
 // @Schema models.Subscription
 type Subscription struct {
 	GormModel
-	UserID               uint               `gorm:"not null;index"` // User who has the subscription
-	User                 User               `gorm:"foreignKey:UserID"`
-	Plan                 SubscriptionPlan   `gorm:"type:varchar(20);not null"`
-	DynamicPlanID        *uint              `gorm:"index"` // Reference to dynamic subscription plan
+	UserID               uint                     `gorm:"not null;index"` // User who has the subscription
+	User                 User                     `gorm:"foreignKey:UserID"`
+	Plan                 SubscriptionPlan         `gorm:"type:varchar(20);not null"`
+	DynamicPlanID        *uint                    `gorm:"index"` // Reference to dynamic subscription plan
 	DynamicPlan          *DynamicSubscriptionPlan `gorm:"foreignKey:DynamicPlanID"`
-	Status               SubscriptionStatus `gorm:"type:varchar(20);not null"`
-	StartDate            time.Time          `gorm:"not null"`
-	EndDate              time.Time          `gorm:"not null"`
-	AutoRenew            bool               `gorm:"default:true"`
-	StripeCustomerID     string             `gorm:"index"`
-	StripeSubscriptionID string             `gorm:"index"`
+	Status               SubscriptionStatus       `gorm:"type:varchar(20);not null"`
+	StartDate            time.Time                `gorm:"not null"`
+	EndDate              time.Time                `gorm:"not null"`
+	AutoRenew            bool                     `gorm:"default:true"`
+	StripeCustomerID     string                   `gorm:"index"`
+	StripeSubscriptionID string                   `gorm:"index"`
 	CancelledAt          *time.Time
 	CancellationReason   string
 }
@@ -321,18 +322,18 @@ type Review struct {
 // @Schema models.Blog
 type Blog struct {
 	GormModel
-	Title        string    `gorm:"not null"` // Blog title
-	Slug         string    `gorm:"uniqueIndex;not null"` // URL-friendly identifier
-	Content      string    `gorm:"type:text;not null"` // Blog content (HTML/Markdown)
-	Summary      string    `gorm:"type:text"` // Short summary/excerpt
-	FeaturedImage string   // URL to featured image
-	Tags         string    `gorm:"type:text"` // JSON array of tags
-	AuthorID     uint      `gorm:"not null;index"` // User who created the blog
-	Author       User      `gorm:"foreignKey:AuthorID"`
-	IsPublished  bool      `gorm:"default:false;index"` // Published status
-	PublishedAt  *time.Time `gorm:"index"` // When it was published
-	ViewCount    int       `gorm:"default:0"` // Number of views
-	IsFeatured   bool      `gorm:"default:false;index"` // Featured blog posts
+	Title         string     `gorm:"not null"`             // Blog title
+	Slug          string     `gorm:"uniqueIndex;not null"` // URL-friendly identifier
+	Content       string     `gorm:"type:text;not null"`   // Blog content (HTML/Markdown)
+	Summary       string     `gorm:"type:text"`            // Short summary/excerpt
+	FeaturedImage string     // URL to featured image
+	Tags          string     `gorm:"type:text"`      // JSON array of tags
+	AuthorID      uint       `gorm:"not null;index"` // User who created the blog
+	Author        User       `gorm:"foreignKey:AuthorID"`
+	IsPublished   bool       `gorm:"default:false;index"` // Published status
+	PublishedAt   *time.Time `gorm:"index"`               // When it was published
+	ViewCount     int        `gorm:"default:0"`           // Number of views
+	IsFeatured    bool       `gorm:"default:false;index"` // Featured blog posts
 }
 
 // AutoMigrate runs GORM's auto migration.
