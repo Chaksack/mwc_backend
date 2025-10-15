@@ -3753,6 +3753,56 @@
                 }
             }
         },
+        "/institution/montessori-professionals/looking-for-jobs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a list of montessori professionals who are actively looking for jobs (for institutions/training centers)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "List montessori professionals looking for jobs",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "List of public profiles",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.PublicMontessoriProfessionalResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
         "/institution/montessori-professionals/{id}": {
             "get": {
                 "security": [
