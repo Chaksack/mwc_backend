@@ -1,0 +1,40 @@
+name: Build and Analyze with SonarCloud
+on:
+  push:
+    branches: [ mvpfeature ]
+  pull_request:
+    branches: [ mvpfeature ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for accurate analysis
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+    
+    - name: Run tests with coverage
+      run: |
+        go mod tidy
+        go test ./... -coverprofile=coverage.out
+    
+    - name: SonarCloud Scan
+      uses: sonarsource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GB_TOKEN }}  # Required for PR decoration
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          -Dsonar.sources=.
+          -Dsonar.go.coverage.reportPaths=coverage.out
+          -Dsonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/**
