@@ -3,6 +3,8 @@ name: Build and Push to AWS ECR
 on:
   push:
     branches: [ staging ]
+  pull_request:
+    branches: [ staging ]
   workflow_dispatch:
     inputs:
       environment:
@@ -22,9 +24,97 @@ env:
   SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
 jobs:
+  # Code Quality Analysis with SonarCloud
+  code-quality:
+    name: Code Quality (SonarCloud)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Source Code with Full History
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for better relevancy of analysis
+
+    - name: ⚙️ Setup Go Development Environment
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: 🧪 Execute Tests with Coverage Analysis
+      run: |
+        go mod tidy
+        go test ./... -coverprofile=coverage.out
+
+    - name: 📊 Run SonarCloud Code Quality Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          -Dsonar.sources=.
+          -Dsonar.go.coverage.reportPaths=coverage.out
+          -Dsonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/**
+
+    - name: ✅ Verify SonarCloud Quality Gate Status
+      uses: SonarSource/sonarqube-quality-gate-action@master
+      timeout-minutes: 5
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Slack notification for code quality success
+  slack-notification-quality-success:
+    name: Code Quality Success
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: success()
+    steps:
+    - name: Notify Slack - Code Quality Success
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: code-quality
+        SLACK_COLOR: good
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ✅ Code quality analysis passed for ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Commit:* ${{ github.sha }}
+          *Pushed by:* ${{ github.actor }}
+          *Check the [SonarCloud Dashboard](https://sonarcloud.io/project/overview?id=${{ secrets.SONAR_PROJECT_KEY }}) for more details*
+        SLACK_TITLE: Code Quality Analysis Success
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Slack notification for code quality failure
+  slack-notification-quality-failure:
+    name: Code Quality Failure
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: failure()
+    steps:
+    - name: Notify Slack - Code Quality Failure
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: code-quality
+        SLACK_COLOR: danger
+        SLACK_ICON: https://github.com/rtCamp.png?size=48
+        SLACK_MESSAGE: |
+          ❌ Code quality analysis failed for ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Commit:* ${{ github.sha }}
+          *Pushed by:* ${{ github.actor }}
+          *Check the [SonarCloud Dashboard](https://sonarcloud.io/project/overview?id=${{ secrets.SONAR_PROJECT_KEY }}) and [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details*
+        SLACK_TITLE: Code Quality Analysis Failure
+        SLACK_USERNAME: GitHub Actions
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
   build-and-push:
     name: Build and Push to ECR
     runs-on: ubuntu-latest
+    needs: code-quality  # Only build if code quality passes
+    if: github.event_name != 'pull_request'  # Don't build on PRs
 
     # Set environment based on trigger
     env:
@@ -32,14 +122,14 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     # Set up Docker Buildx for faster builds with caching
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v3
 
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -47,7 +137,7 @@ jobs:
 
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
 
     - name: Create ECR repository if it doesn't exist
       run: |
@@ -61,7 +151,7 @@ jobs:
 
     # Cache Docker layers to speed up builds
     - name: Cache Docker layers
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: /tmp/.buildx-cache
         key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -105,29 +195,32 @@ jobs:
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
-          --load \
+          --push \
           --file Dockerfile \
           .
 
         # Output the image URI for use in subsequent steps or jobs
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
-        # Push the Docker image to ECR with multiple tags
-        echo "Pushing Docker image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG" >> $GITHUB_OUTPUT
 
         echo "Successfully pushed image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
+
+        # Clean up cache
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+      environment: ${{ env.ENVIRONMENT }}
+
   send-deployment-notification:
     name: Send Deployment Notification
     runs-on: ubuntu-latest
     needs: build-and-push
     env:
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -135,13 +228,13 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Deployment Summary
         run: |
           echo "✅ Deployment Summary"
           echo "Environment: ${{ env.ENVIRONMENT }}"
-          echo "Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+          echo "Image: ${{ needs.build-and-push.outputs.image }}"
           echo "Commit: ${{ github.sha }}"
           echo "Pushed by: ${{ github.actor }}"
 
@@ -154,12 +247,15 @@ jobs:
           SLACK_COLOR: good
           SLACK_ICON: https://github.com/rtCamp.png?size=48
           SLACK_MESSAGE: |
-            ✅ Successfully deployed to ${{ env.ENVIRONMENT }} environment
-            *Image:* ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+            ✅ Successfully built and pushed to ECR for ${{ env.ENVIRONMENT }} environment
+            *Image:* ${{ needs.build-and-push.outputs.image }}
+            *Repository:* ${{ github.repository }}
+            *Branch:* ${{ github.ref_name }}
             *Commit:* ${{ github.sha }}
             *Pushed by:* ${{ github.actor }}
-          SLACK_TITLE: Deployment Success
+          SLACK_TITLE: Docker Build & Push Success
           SLACK_USERNAME: GitHub Actions
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
       # Send Slack notification for failed deployment
       - name: Send Slack notification - Failure
@@ -170,11 +266,13 @@ jobs:
           SLACK_COLOR: danger
           SLACK_ICON: https://github.com/rtCamp.png?size=48
           SLACK_MESSAGE: |
-            ❌ Failed to deploy to ${{ env.ENVIRONMENT }} environment
+            ❌ Failed to build and push to ECR for ${{ env.ENVIRONMENT }} environment
             *Repository:* ${{ github.repository }}
+            *Branch:* ${{ github.ref_name }}
             *Commit:* ${{ github.sha }}
             *Workflow:* ${{ github.workflow }}
             *Pushed by:* ${{ github.actor }}
             *Check the [GitHub Actions logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details*
-          SLACK_TITLE: Deployment Failure
+          SLACK_TITLE: Docker Build & Push Failure
           SLACK_USERNAME: GitHub Actions
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
