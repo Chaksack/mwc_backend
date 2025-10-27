@@ -27,7 +27,7 @@ func SetupRoutes(
 	// Create instances of handlers, passing dependencies
 	authHandler := handlers.NewAuthHandler(db, cfg, emailService, mqService) // Pass full cfg
 	adminHandler := handlers.NewAdminHandler(db, mqService)
-	institutionHandler := handlers.NewInstitutionHandler(db, mqService)
+	institutionHandler := handlers.NewInstitutionHandler(db, mqService, emailService)
 	montessoriProfessionalHandler := handlers.NewMontessoriProfessionalHandler(db, mqService, emailService)
 	parentHandler := handlers.NewParentHandler(db, mqService, emailService)
 	subscriptionHandler := handlers.NewSubscriptionHandler(db, cfg, mqService, emailService)
@@ -35,6 +35,7 @@ func SetupRoutes(
 	reviewHandler := handlers.NewReviewHandler(db, mqService)
 	eventHandler := handlers.NewEventHandler(db, cfg, mqService)
 	blogHandler := handlers.NewBlogHandler(db)
+	savedSchoolHandler := handlers.NewSavedSchoolHandler(db)
 
 	// Initialize and start notification scheduler
 	notificationService := services.NewNotificationService(db, emailService)
@@ -46,7 +47,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.1.2",
+			"version":       "2.1.3",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -90,6 +91,10 @@ func SetupRoutes(
 
 	// User Routes
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
+	// Unified Saved Schools Routes for all user roles (Parent, Montessori Professional)
+	apiV1.Post("/me/schools/saved/:school_id", authMw, savedSchoolHandler.SaveSchool)
+	apiV1.Delete("/me/schools/saved/:school_id", authMw, savedSchoolHandler.DeleteSavedSchool)
+	apiV1.Get("/me/schools/saved", authMw, savedSchoolHandler.GetSavedSchools)
 	// Profile picture management for authenticated users
 	apiV1.Post("/me/profile/pictures", authMw, authHandler.UploadProfilePicture)
 	apiV1.Get("/me/profile/pictures", authMw, authHandler.ListProfilePictures)
@@ -157,6 +162,10 @@ func SetupRoutes(
 	montessoriProfessionalRoutes.Get("/schools/saved", montessoriProfessionalHandler.GetSavedSchools)
 	montessoriProfessionalRoutes.Post("/jobs/:job_id/apply", montessoriProfessionalHandler.ApplyForJob)
 	montessoriProfessionalRoutes.Get("/jobs/applied", montessoriProfessionalHandler.GetAppliedJobs)
+	// Montessori Professional Job Preferences
+	montessoriProfessionalRoutes.Get("/job-preferences", montessoriProfessionalHandler.GetJobPreference)
+	montessoriProfessionalRoutes.Put("/job-preferences", montessoriProfessionalHandler.UpsertJobPreference)
+	montessoriProfessionalRoutes.Delete("/job-preferences", montessoriProfessionalHandler.DeleteJobPreference)
 
 	// Parent Routes
 	parentRoutes := apiV1.Group("/parent", authMw, middleware.RoleAuth(models.ParentRole))
@@ -175,6 +184,7 @@ func SetupRoutes(
 	subscriptionRoutes.Post("/checkout", subscriptionHandler.CreateCheckoutSession)
 	subscriptionRoutes.Get("/status", subscriptionHandler.GetUserSubscription)
 	subscriptionRoutes.Post("/cancel", subscriptionHandler.CancelSubscription)
+	subscriptionRoutes.Post("/portal", subscriptionHandler.CreateBillingPortalSession)
 
 	// Protected routes that require authentication
 	apiV1.Get("/institutions/:id/details", authMw, institutionHandler.GetInstitutionDetails) // Detailed institution info (requires subscription)
@@ -229,4 +239,8 @@ func SetupRoutes(
 	// Add specific security middleware for webhooks if needed, e.g., middleware.WebhookAuth(cfg.WebhookSecret)
 	webhookGroup.Post("/notify-unread-message", handlers.HandleUnreadMessageNotification(db, emailService))
 	webhookGroup.Post("/stripe", subscriptionHandler.HandleStripeWebhook)
+
+	// Additional Stripe webhook endpoints (outside /api/v1 namespace)
+	app.Post("/stripe/event", subscriptionHandler.HandleStripeSnapshotWebhook)
+	app.Post("/stripe/payload", subscriptionHandler.HandleStripeThinPayloadWebhook)
 }

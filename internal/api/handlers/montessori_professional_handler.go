@@ -6,6 +6,7 @@ import (
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -36,6 +37,16 @@ type ContactProfessionalRequest struct {
 type JobApplicationRequest struct {
 	CoverLetter string `json:"cover_letter" form:"cover_letter"`
 	// ResumeURL is now handled as a file upload, not as a URL string
+}
+
+// JobPreferenceRequest represents the job filter preference payload
+// @Description Job filter preference for alerts
+// @Schema handlers.JobPreferenceRequest
+type JobPreferenceRequest struct {
+	Location       string `json:"location"`
+	EmploymentType string `json:"employment_type"`
+	Keywords       string `json:"keywords"` // comma-separated keywords
+	Active         *bool  `json:"active"`
 }
 
 // CreateOrUpdateMontessoriProfessionalProfile creates or updates a montessori professional's profile.
@@ -375,16 +386,115 @@ func (h *MontessoriProfessionalHandler) DeleteSavedSchool(c *fiber.Ctx) error {
 // @Router /montessori-professional/schools/saved [get]
 func (h *MontessoriProfessionalHandler) GetSavedSchools(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
-
 	var professionalProfile models.MontessoriProfessionalProfile
 	if err := h.db.Preload("SavedSchools").Where("user_id = ?", actorUserID).First(&professionalProfile).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Montessori Professional profile not found."})
+	}
+	return c.Status(fiber.StatusOK).JSON(professionalProfile.SavedSchools)
+}
+
+// GetJobPreference retrieves the current user's job preference
+// @Summary Get job filter preference
+// @Description Get the Montessori Professional's job filter preference used for alerts
+// @Tags montessori-professional,jobs
+// @Produce json
+// @Success 200 {object} models.MontessoriJobPreference "Preference or empty object if not set"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Profile not found"
+// @Security BearerAuth
+// @Router /montessori-professional/job-preferences [get]
+func (h *MontessoriProfessionalHandler) GetJobPreference(c *fiber.Ctx) error {
+	actorUserID, _ := c.Locals("user_id").(uint)
+	var prof models.MontessoriProfessionalProfile
+	if err := h.db.Where("user_id = ?", actorUserID).First(&prof).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Montessori Professional profile not found."})
+	}
+	var pref models.MontessoriJobPreference
+	err := h.db.Where("montessori_professional_profile_id = ?", prof.ID).First(&pref).Error
+	if err == gorm.ErrRecordNotFound {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": fiber.Map{}})
+	} else if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+	return c.Status(fiber.StatusOK).JSON(pref)
+}
+
+// UpsertJobPreference creates or updates the job preference
+// @Summary Create or update job filter preference
+// @Description Set the Montessori Professional's job filter preference used for alerts
+// @Tags montessori-professional,jobs
+// @Accept json
+// @Produce json
+// @Param preference body JobPreferenceRequest true "Job filter preference"
+// @Success 200 {object} models.MontessoriJobPreference "Preference saved"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /montessori-professional/job-preferences [put]
+func (h *MontessoriProfessionalHandler) UpsertJobPreference(c *fiber.Ctx) error {
+	actorUserID, _ := c.Locals("user_id").(uint)
+	var prof models.MontessoriProfessionalProfile
+	if err := h.db.Where("user_id = ?", actorUserID).First(&prof).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Montessori Professional profile not found."})
+	}
+
+	req := new(JobPreferenceRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	}
+
+	var pref models.MontessoriJobPreference
+	err := h.db.Where("montessori_professional_profile_id = ?", prof.ID).First(&pref).Error
+	if err == gorm.ErrRecordNotFound {
+		pref = models.MontessoriJobPreference{MontessoriProfessionalProfileID: prof.ID}
+	}
+	pref.Location = strings.TrimSpace(req.Location)
+	pref.EmploymentType = strings.TrimSpace(req.EmploymentType)
+	pref.Keywords = strings.TrimSpace(req.Keywords)
+	if req.Active != nil {
+		pref.Active = *req.Active
+	} else if err == gorm.ErrRecordNotFound {
+		pref.Active = true
+	}
+	if saveErr := h.db.Save(&pref).Error; saveErr != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save preference: " + saveErr.Error()})
+	}
+	LogUserAction(h.db, actorUserID, "MONT_PROF_JOB_PREF_SAVE", pref.ID, "JobPreference", "Preference saved", c)
+	return c.Status(fiber.StatusOK).JSON(pref)
+}
+
+// DeleteJobPreference disables the preference (soft delete)
+// @Summary Disable job filter preference
+// @Description Disables the Montessori Professional's job filter preference
+// @Tags montessori-professional,jobs
+// @Produce json
+// @Success 200 {object} map[string]string "Preference disabled"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Profile or preference not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /montessori-professional/job-preferences [delete]
+func (h *MontessoriProfessionalHandler) DeleteJobPreference(c *fiber.Ctx) error {
+	actorUserID, _ := c.Locals("user_id").(uint)
+	var prof models.MontessoriProfessionalProfile
+	if err := h.db.Where("user_id = ?", actorUserID).First(&prof).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Montessori Professional profile not found."})
+	}
+	var pref models.MontessoriJobPreference
+	if err := h.db.Where("montessori_professional_profile_id = ?", prof.ID).First(&pref).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Montessori Professional profile not found."})
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Preference not found."})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
 	}
-
-	return c.Status(fiber.StatusOK).JSON(professionalProfile.SavedSchools)
+	pref.Active = false
+	if err := h.db.Save(&pref).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to disable preference: " + err.Error()})
+	}
+	LogUserAction(h.db, actorUserID, "MONT_PROF_JOB_PREF_DISABLED", pref.ID, "JobPreference", "Preference disabled", c)
+ return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Preference disabled"})
 }
 
 // ApplyForJob allows a montessori professional to apply for a job.

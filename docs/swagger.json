@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.1.2"
+        "version": "2.1.4"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -4666,6 +4666,118 @@
                 }
             }
         },
+        "/me/schools/saved/{school_id}": {
+            "post": {
+                "security": [
+                    {"BearerAuth": []}
+                ],
+                "description": "Adds a school to the current user's saved schools list (supports parent and montessori professional)",
+                "produces": ["application/json"],
+                "tags": ["users", "schools"],
+                "summary": "Save a school (unified)",
+                "parameters": [
+                    {"type": "integer", "description": "School ID", "name": "school_id", "in": "path", "required": true}
+                ],
+                "responses": {
+                    "200": {"description": "School saved successfully", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "400": {"description": "Bad request or invalid school ID", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "User profile or school not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "409": {"description": "School already saved", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "422": {"description": "Role not supported for saved schools", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "500": {"description": "Internal server error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                }
+            },
+            "delete": {
+                "security": [
+                    {"BearerAuth": []}
+                ],
+                "description": "Removes a school from the current user's saved schools list (supports parent and montessori professional)",
+                "produces": ["application/json"],
+                "tags": ["users", "schools"],
+                "summary": "Unsave a school (unified)",
+                "parameters": [
+                    {"type": "integer", "description": "School ID", "name": "school_id", "in": "path", "required": true}
+                ],
+                "responses": {
+                    "200": {"description": "Saved school deleted successfully", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "400": {"description": "Bad request or invalid school ID", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "User profile or school not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "422": {"description": "Role not supported for saved schools", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "500": {"description": "Internal server error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                }
+            }
+        },
+        "/me/schools/saved": {
+            "get": {
+                "security": [
+                    {"BearerAuth": []}
+                ],
+                "description": "Retrieves the list of schools saved by the current user (supports parent and montessori professional)",
+                "produces": ["application/json"],
+                "tags": ["users", "schools"],
+                "summary": "Get saved schools (unified)",
+                "responses": {
+                    "200": {"description": "List of saved schools", "schema": {"type": "array", "items": {"$ref": "#/definitions/models.School"}}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "User profile not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "422": {"description": "Role not supported for saved schools", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "500": {"description": "Internal server error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                }
+            }
+        },
+        "/montessori-professional/job-preferences": {
+            "get": {
+                "security": [
+                    {"BearerAuth": []}
+                ],
+                "description": "Get the Montessori Professional's job filter preference used for alerts",
+                "produces": ["application/json"],
+                "tags": ["montessori-professional", "jobs"],
+                "summary": "Get job filter preference",
+                "responses": {
+                    "200": {"description": "Preference or empty object if not set", "schema": {"type": "object", "additionalProperties": true}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "Profile not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                }
+            },
+            "put": {
+                "security": [
+                    {"BearerAuth": []}
+                ],
+                "consumes": ["application/json"],
+                "description": "Set the Montessori Professional's job filter preference used for alerts",
+                "produces": ["application/json"],
+                "tags": ["montessori-professional", "jobs"],
+                "summary": "Create or update job filter preference",
+                "parameters": [
+                    {"in": "body", "name": "preference", "required": true, "schema": {"type": "object", "properties": {"location": {"type": "string"}, "employment_type": {"type": "string"}, "keywords": {"type": "string"}, "active": {"type": "boolean"}}}}
+                ],
+                "responses": {
+                    "200": {"description": "Preference saved", "schema": {"type": "object", "additionalProperties": true}},
+                    "400": {"description": "Bad request", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "Profile not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "500": {"description": "Internal server error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                }
+            },
+            "delete": {
+                "security": [
+                    {"BearerAuth": []}
+                ],
+                "description": "Disables the Montessori Professional's job filter preference",
+                "produces": ["application/json"],
+                "tags": ["montessori-professional", "jobs"],
+                "summary": "Disable job filter preference",
+                "responses": {
+                    "200": {"description": "Preference disabled", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "Profile or preference not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "500": {"description": "Internal server error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                }
+            }
+        },
         "/parent/schools/search": {
             "get": {
                 "security": [
@@ -5524,6 +5636,61 @@
                 }
             }
         },
+        "/subscription/portal": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a Stripe Billing Portal session so the user can manage subscription, payment method, invoices",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscription"
+                ],
+                "summary": "Create Stripe Billing Portal session",
+                "responses": {
+                    "200": {
+                        "description": "Billing portal session created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "User not authenticated",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No Stripe customer found and cannot create",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/subscription/status": {
             "get": {
                 "security": [
@@ -5754,6 +5921,90 @@
                         }
                     }
                 }
+            }
+        },
+        "/stripe/event": {
+            "post": {
+                "description": "Stripe snapshot webhook (root-level endpoint, not under basePath). Validates Stripe-Signature and acknowledges receipt.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Stripe signature for webhook verification",
+                        "name": "Stripe-Signature",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook received",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "summary": "Stripe snapshot webhook",
+                "tags": [
+                    "webhooks",
+                    "stripe"
+                ]
+            }
+        },
+        "/stripe/payload": {
+            "post": {
+                "description": "Stripe thin payload webhook (root-level endpoint, not under basePath). Validates Stripe-Signature and acknowledges receipt.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Stripe signature for webhook verification",
+                        "name": "Stripe-Signature",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook received",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "summary": "Stripe thin payload webhook",
+                "tags": [
+                    "webhooks",
+                    "stripe"
+                ]
             }
         },
         "/ws": {

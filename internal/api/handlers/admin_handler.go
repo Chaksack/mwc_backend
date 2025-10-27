@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"os"
 	"strconv" // For parsing IDs
 	"strings" // For string operations like ToUpper
 	"time"
@@ -14,6 +15,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
+	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v72/customer"
+	"github.com/stripe/stripe-go/v72/price"
+	"github.com/stripe/stripe-go/v72/product"
+	"github.com/stripe/stripe-go/v72/sub"
 )
 
 // AdminHandler handles admin-specific requests.
@@ -983,6 +990,12 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 			"message": "Name and price are required",
 		})
 	}
+	if req.Currency == "" {
+		req.Currency = "USD"
+	}
+	if req.BillingCycle == "" {
+		req.BillingCycle = "monthly"
+	}
 
 	// Get current user
 	currentUser := c.Locals("user").(*models.User)
@@ -990,6 +1003,43 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 	// Convert features and roles to JSON strings
 	featuresJSON, _ := json.Marshal(req.Features)
 	rolesJSON, _ := json.Marshal(req.AllowedRoles)
+
+	// Optionally create Stripe Product + Price when Price ID not provided
+	stripePriceID := req.StripePriceID
+	if stripePriceID == "" {
+		// Initialize Stripe key from env
+		if stripe.Key == "" {
+			stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+		}
+		if stripe.Key == "" {
+			log.Printf("STRIPE_SECRET_KEY not configured; proceeding without Stripe price creation")
+		} else {
+			// Create Product
+			prod, pErr := product.New(&stripe.ProductParams{Name: stripe.String(req.Name)})
+			if pErr != nil {
+				log.Printf("Failed to create Stripe product: %v", pErr)
+			} else {
+				interval := "month"
+				if strings.ToLower(req.BillingCycle) == "annual" || strings.ToLower(req.BillingCycle) == "yearly" || strings.ToLower(req.BillingCycle) == "year" {
+					interval = "year"
+				}
+				unitAmount := int64(req.Price * 100)
+				pr, prErr := price.New(&stripe.PriceParams{
+					Currency:   stripe.String(strings.ToLower(req.Currency)),
+					UnitAmount: stripe.Int64(unitAmount),
+					Product:    stripe.String(prod.ID),
+					Recurring: &stripe.PriceRecurringParams{
+						Interval: stripe.String(interval),
+					},
+				})
+				if prErr != nil {
+					log.Printf("Failed to create Stripe price: %v", prErr)
+				} else {
+					stripePriceID = pr.ID
+				}
+			}
+		}
+	}
 
 	// Create subscription plan
 	plan := models.DynamicSubscriptionPlan{
@@ -1000,7 +1050,7 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 		BillingCycle:    req.BillingCycle,
 		Features:        string(featuresJSON),
 		AllowedRoles:    string(rolesJSON),
-		StripePriceID:   req.StripePriceID,
+		StripePriceID:   stripePriceID,
 		CreatedByUserID: currentUser.ID,
 		IsActive:        true,
 	}
@@ -1293,9 +1343,17 @@ func (h *AdminHandler) AssignUserSubscription(c *fiber.Ctx) error {
 		})
 	}
 
+	// Ensure plan has a Stripe Price ID
+	if strings.TrimSpace(plan.StripePriceID) == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Selected plan is not linked to Stripe (missing stripe_price_id)",
+		})
+	}
+
 	// Check if user role is allowed for this plan
 	var allowedRoles []string
-	json.Unmarshal([]byte(plan.AllowedRoles), &allowedRoles)
+	_ = json.Unmarshal([]byte(plan.AllowedRoles), &allowedRoles)
 	roleAllowed := false
 	for _, role := range allowedRoles {
 		if role == string(user.Role) {
@@ -1310,35 +1368,142 @@ func (h *AdminHandler) AssignUserSubscription(c *fiber.Ctx) error {
 		})
 	}
 
-	// Create or update subscription
-	var subscription models.Subscription
-	now := time.Now()
-	endDate := now.AddDate(0, req.DurationMonths, 0)
+	// Initialize Stripe secret if needed
+	if stripe.Key == "" {
+		stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+	}
 
-	// Check for existing subscription
-	if err := h.db.Where("user_id = ?", req.UserID).First(&subscription).Error; err != nil {
-		// Create new subscription
-		subscription = models.Subscription{
+	// Find existing local subscription (latest)
+	var subscription models.Subscription
+	err := h.db.Where("user_id = ?", req.UserID).Order("created_at DESC").First(&subscription).Error
+
+	// Determine or create Stripe customer ID
+	stripeCustomerID := subscription.StripeCustomerID
+	if stripeCustomerID == "" {
+		// Try reuse a previous customer's ID if exists in other subs
+		var anySub models.Subscription
+		if e := h.db.Where("user_id = ? AND stripe_customer_id <> ''", req.UserID).Order("created_at DESC").First(&anySub).Error; e == nil {
+			stripeCustomerID = anySub.StripeCustomerID
+		}
+	}
+	if stripeCustomerID == "" && stripe.Key != "" {
+		custParams := &stripe.CustomerParams{Email: stripe.String(user.Email), Name: stripe.String(fmt.Sprintf("%s %s", user.FirstName, user.LastName))}
+		custParams.AddMetadata("user_id", fmt.Sprintf("%d", user.ID))
+		cust, cerr := customer.New(custParams)
+		if cerr != nil {
+			log.Printf("Admin assign subscription: failed creating Stripe customer: %v", cerr)
+		} else {
+			stripeCustomerID = cust.ID
+		}
+	}
+
+	now := time.Now()
+
+	// Helper to map Stripe subscription to local fields
+	mapFromStripe := func(s *stripe.Subscription, local *models.Subscription) {
+		if s == nil || local == nil { return }
+		local.StripeSubscriptionID = s.ID
+		local.StripeCustomerID = s.Customer.ID
+		// status
+		switch s.Status {
+		case "active", "trialing":
+			local.Status = models.SubscriptionActive
+		default:
+			local.Status = models.SubscriptionInactive
+		}
+		if s.CurrentPeriodEnd > 0 {
+			local.EndDate = time.Unix(s.CurrentPeriodEnd, 0)
+		}
+		local.AutoRenew = !s.CancelAtPeriodEnd
+	}
+
+	if err == gorm.ErrRecordNotFound {
+		// Create new local subscription record and Stripe subscription
+		newSub := models.Subscription{
 			UserID:        req.UserID,
 			Plan:          models.SubscriptionPlan("dynamic"),
 			DynamicPlanID: &req.SubscriptionPlanID,
 			Status:        models.SubscriptionActive,
 			StartDate:     now,
-			EndDate:       endDate,
-			AutoRenew:     false,
+			EndDate:       now, // will be updated from Stripe below
+			AutoRenew:     true,
+			StripeCustomerID: stripeCustomerID,
 		}
-		h.db.Create(&subscription)
-	} else {
-		// Update existing subscription
-		subscription.DynamicPlanID = &req.SubscriptionPlanID
-		subscription.Status = models.SubscriptionActive
-		subscription.EndDate = endDate
-		h.db.Save(&subscription)
+		// Create Stripe subscription if possible
+		if stripe.Key != "" && plan.StripePriceID != "" {
+			params := &stripe.SubscriptionParams{
+				Customer: stripe.String(stripeCustomerID),
+				Items: []*stripe.SubscriptionItemsParams{{Price: stripe.String(plan.StripePriceID)}},
+			}
+			params.AddMetadata("user_id", fmt.Sprintf("%d", user.ID))
+			params.AddMetadata("plan_id", fmt.Sprintf("%d", plan.ID))
+			ss, sErr := sub.New(params)
+			if sErr != nil {
+				log.Printf("Admin assign subscription: failed to create Stripe subscription: %v", sErr)
+			} else {
+				mapFromStripe(ss, &newSub)
+			}
+		}
+		if e := h.db.Create(&newSub).Error; e != nil {
+			return c.Status(500).JSON(fiber.Map{"success": false, "message": "Failed to create subscription", "error": e.Error()})
+		}
+		return c.Status(200).JSON(fiber.Map{"success": true, "message": "Subscription assigned successfully", "data": newSub})
+	} else if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "message": "Failed to query subscription", "error": err.Error()})
 	}
 
-	return c.Status(200).JSON(fiber.Map{
-		"success": true,
-		"message": "Subscription assigned successfully",
-		"data":    subscription,
-	})
+	// Update existing subscription: if has Stripe subscription, switch price; otherwise create one
+	if subscription.StripeSubscriptionID != "" && stripe.Key != "" {
+		// Get Stripe subscription to obtain item ID
+		ss, gErr := sub.Get(subscription.StripeSubscriptionID, nil)
+		if gErr != nil {
+			log.Printf("Admin assign subscription: failed to fetch Stripe subscription: %v", gErr)
+		} else if len(ss.Items.Data) > 0 {
+			itemID := ss.Items.Data[0].ID
+			uParams := &stripe.SubscriptionParams{
+				Items: []*stripe.SubscriptionItemsParams{{
+					ID:    stripe.String(itemID),
+					Price: stripe.String(plan.StripePriceID),
+				}},
+			}
+			uss, uErr := sub.Update(subscription.StripeSubscriptionID, uParams)
+			if uErr != nil {
+				log.Printf("Admin assign subscription: failed to update Stripe subscription: %v", uErr)
+			} else {
+				mapFromStripe(uss, &subscription)
+			}
+		}
+	} else if stripe.Key != "" {
+		// No Stripe sub yet; create one
+		params := &stripe.SubscriptionParams{
+			Customer: stripe.String(stripeCustomerID),
+			Items: []*stripe.SubscriptionItemsParams{{Price: stripe.String(plan.StripePriceID)}},
+		}
+		params.AddMetadata("user_id", fmt.Sprintf("%d", user.ID))
+		params.AddMetadata("plan_id", fmt.Sprintf("%d", plan.ID))
+		ss, sErr := sub.New(params)
+		if sErr != nil {
+			log.Printf("Admin assign subscription: failed to create Stripe subscription: %v", sErr)
+		} else {
+			mapFromStripe(ss, &subscription)
+		}
+	}
+
+	// Update local record fields
+	subscription.DynamicPlanID = &req.SubscriptionPlanID
+	subscription.Plan = models.SubscriptionPlan("dynamic")
+	subscription.StartDate = subscription.StartDate
+	if subscription.EndDate.IsZero() {
+		// Fallback: set a nominal end date based on DurationMonths if Stripe did not set
+		subscription.EndDate = now.AddDate(0, req.DurationMonths, 0)
+	}
+	if subscription.StripeSubscriptionID == "" {
+		// If Stripe didn't create, keep autorenew off to avoid confusion
+		subscription.AutoRenew = false
+	}
+	if e := h.db.Save(&subscription).Error; e != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "message": "Failed to update subscription", "error": e.Error()})
+	}
+
+	return c.Status(200).JSON(fiber.Map{"success": true, "message": "Subscription assigned successfully", "data": subscription})
 }

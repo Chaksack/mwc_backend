@@ -180,6 +180,19 @@ type Job struct {
 	Applications         []JobApplication `gorm:"foreignKey:JobID"`
 }
 
+// MontessoriJobPreference captures job alert filters for a Montessori Professional
+// @Description Job filter preferences for Montessori Professionals
+// @Schema models.MontessoriJobPreference
+type MontessoriJobPreference struct {
+	GormModel
+	MontessoriProfessionalProfileID uint                          `gorm:"not null;index"`
+	Profile                         MontessoriProfessionalProfile `gorm:"foreignKey:MontessoriProfessionalProfileID"`
+	Location                        string                        `gorm:"index"`     // Preferred location substring
+	EmploymentType                  string                        `gorm:"index"`     // e.g., Full-time, Part-time
+	Keywords                        string                        `gorm:"type:text"` // Comma-separated keywords to match in title/description
+	Active                          bool                          `gorm:"default:true;index"`
+}
+
 // JobApplication by a Montessori Professional
 // @Description Job application information
 // @Schema models.JobApplication
@@ -368,5 +381,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&Subscription{},
 		&Review{},
 		&Blog{},
+		&MontessoriJobPreference{},
 	)
 }

@@ -28,6 +28,9 @@ type Config struct {
 	StripeSecretKey      string `mapstructure:"STRIPE_SECRET_KEY"`
 	StripePublishableKey string `mapstructure:"STRIPE_PUBLISHABLE_KEY"`
 	StripeWebhookSecret  string `mapstructure:"STRIPE_WEBHOOK_SECRET"`
+	// Additional Stripe webhook secrets
+	StripeSnapshotWebhookSecret   string `mapstructure:"STRIPE_SNAPSHOT_WEBHOOK_SECRET"`
+	StripeThinPayloadWebhookSecret string `mapstructure:"STRIPE_THINPAYLOAD_WEBHOOK_SECRET"`
 	// Subscription prices
 	StripeMonthlyPriceID string `mapstructure:"STRIPE_MONTHLY_PRICE_ID"`
 	StripeAnnualPriceID  string `mapstructure:"STRIPE_ANNUAL_PRICE_ID"`

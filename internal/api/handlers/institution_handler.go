@@ -4,6 +4,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"strconv"
@@ -17,10 +18,11 @@ import (
 type InstitutionHandler struct {
 	db        *gorm.DB
 	mqService queue.MessageQueueService
+	emailSvc  email.EmailService
 }
 
-func NewInstitutionHandler(db *gorm.DB, mq queue.MessageQueueService) *InstitutionHandler {
-	return &InstitutionHandler{db: db, mqService: mq}
+func NewInstitutionHandler(db *gorm.DB, mq queue.MessageQueueService, emailSvc email.EmailService) *InstitutionHandler {
+	return &InstitutionHandler{db: db, mqService: mq, emailSvc: emailSvc}
 }
 
 type InstitutionProfileRequest struct {
@@ -361,7 +363,9 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to complete job posting: " + err.Error()})
 	}
 
-	LogUserAction(h.db, actorUserID, "INST_JOB_POST_SUCCESS", job.ID, "Job", "Job posted", c)
+ LogUserAction(h.db, actorUserID, "INST_JOB_POST_SUCCESS", job.ID, "Job", "Job posted", c)
+	// Fire-and-forget notifications to matching Montessori Professionals
+	go h.notifyMatchingProfessionals(job)
 	return c.Status(fiber.StatusCreated).JSON(job)
 }
 
@@ -381,6 +385,85 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /institution/jobs/{job_id} [put]
+// notifyMatchingProfessionals finds active Montessori job preferences that match the posted job and sends email alerts.
+func (h *InstitutionHandler) notifyMatchingProfessionals(job models.Job) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("notifyMatchingProfessionals recovered from panic: %v", r)
+		}
+	}()
+	var prefs []models.MontessoriJobPreference
+	if err := h.db.Where("active = ?", true).Find(&prefs).Error; err != nil {
+		log.Printf("notifyMatchingProfessionals: failed fetching preferences: %v", err)
+		return
+	}
+	if len(prefs) == 0 {
+		return
+	}
+	// Prepare lowercase values for matching
+	jobLocation := strings.ToLower(job.Location)
+	titleLower := strings.ToLower(job.Title)
+	descLower := strings.ToLower(job.Description)
+	jobType := strings.ToLower(job.EmploymentType)
+
+	sent := 0
+	for _, p := range prefs {
+		// Match location if set
+		if strings.TrimSpace(p.Location) != "" {
+			if !strings.Contains(jobLocation, strings.ToLower(p.Location)) {
+				continue
+			}
+		}
+		// Match employment type if set
+		if strings.TrimSpace(p.EmploymentType) != "" {
+			if jobType != strings.ToLower(p.EmploymentType) {
+				continue
+			}
+		}
+		// Match any keyword if provided
+		if strings.TrimSpace(p.Keywords) != "" {
+			matched := false
+			for _, kw := range strings.Split(p.Keywords, ",") {
+				k := strings.TrimSpace(strings.ToLower(kw))
+				if k == "" {
+					continue
+				}
+				if strings.Contains(titleLower, k) || strings.Contains(descLower, k) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		// Load professional user email
+		var prof models.MontessoriProfessionalProfile
+		if err := h.db.Preload("User").First(&prof, p.MontessoriProfessionalProfileID).Error; err != nil {
+			log.Printf("notifyMatchingProfessionals: failed to load profile %d: %v", p.MontessoriProfessionalProfileID, err)
+			continue
+		}
+		if prof.User.Email == "" || h.emailSvc == nil {
+			continue
+		}
+		subject := "New job matches your preferences: " + job.Title
+		body := fmt.Sprintf(`<h2>A new job matches your preferences</h2>
+			<p><strong>Title:</strong> %s</p>
+			<p><strong>Location:</strong> %s</p>
+			<p><strong>Type:</strong> %s</p>
+			<p><strong>Summary:</strong> %s</p>
+			<p>Log in to Montessori World Connect to view and apply.</p>`,
+			job.Title, job.Location, job.EmploymentType, strings.TrimSpace(job.Description))
+		if err := h.emailSvc.SendEmail(prof.User.Email, subject, body); err != nil {
+			log.Printf("notifyMatchingProfessionals: email send failed to %s: %v", prof.User.Email, err)
+			continue
+		}
+		sent++
+	}
+	log.Printf("notifyMatchingProfessionals: sent %d job match emails for job %d", sent, job.ID)
+}
+
 func (h *InstitutionHandler) UpdateJob(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 	jobIDStr := c.Params("job_id")

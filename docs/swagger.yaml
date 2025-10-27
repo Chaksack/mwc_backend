@@ -4641,6 +4641,41 @@ paths:
       summary: Get user subscription
       tags:
       - subscription
+  /subscription/portal:
+    post:
+      description: Creates a Stripe Billing Portal session so the user can manage subscription, payment method, invoices
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Billing portal session created successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: No Stripe customer found and cannot create
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Stripe Billing Portal session
+      tags:
+      - subscription
   /verify-email:
     get:
       consumes:
@@ -4765,6 +4800,62 @@ paths:
       summary: Handle Stripe webhook events
       tags:
       - webhooks
+  /stripe/event:
+    post:
+      description: Stripe snapshot webhook (root-level endpoint, not under basePath). Validates Stripe-Signature and acknowledges receipt.
+      parameters:
+      - description: Stripe signature for webhook verification
+        in: header
+        name: Stripe-Signature
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook received
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stripe snapshot webhook
+      tags:
+      - webhooks
+      - stripe
+  /stripe/payload:
+    post:
+      description: Stripe thin payload webhook (root-level endpoint, not under basePath). Validates Stripe-Signature and acknowledges receipt.
+      parameters:
+      - description: Stripe signature for webhook verification
+        in: header
+        name: Stripe-Signature
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook received
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stripe thin payload webhook
+      tags:
+      - webhooks
+      - stripe
   /ws:
     get:
       description: Upgrades HTTP connection to WebSocket protocol for real-time communication
@@ -4859,6 +4950,282 @@ paths:
       summary: Send notification to user
       tags:
       - websocket
+  /me/schools/saved/{school_id}:
+    post:
+      description: Adds a school to the current user's saved schools list (supports parent and montessori professional)
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: School saved successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: School already saved
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Role not supported for saved schools
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Save a school (unified)
+      tags:
+      - users
+      - schools
+    delete:
+      description: Removes a school from the current user's saved schools list (supports parent and montessori professional)
+      parameters:
+      - description: School ID
+        in: path
+        name: school_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Saved school deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User profile or school not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Role not supported for saved schools
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Unsave a school (unified)
+      tags:
+      - users
+      - schools
+  /me/schools/saved:
+    get:
+      description: Retrieves the list of schools saved by the current user (supports parent and montessori professional)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of saved schools
+          schema:
+            items:
+              $ref: '#/definitions/models.School'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: User profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Role not supported for saved schools
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get saved schools (unified)
+      tags:
+      - users
+      - schools
+  /montessori-professional/job-preferences:
+    get:
+      description: Get the Montessori Professional's job filter preference used for alerts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Preference or empty object if not set
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get job filter preference
+      tags:
+      - montessori-professional
+      - jobs
+    put:
+      consumes:
+      - application/json
+      description: Set the Montessori Professional's job filter preference used for alerts
+      parameters:
+      - in: body
+        name: preference
+        required: true
+        schema:
+          type: object
+          properties:
+            location:
+              type: string
+            employment_type:
+              type: string
+            keywords:
+              type: string
+            active:
+              type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Preference saved
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create or update job filter preference
+      tags:
+      - montessori-professional
+      - jobs
+    delete:
+      description: Disables the Montessori Professional's job filter preference
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Preference disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Profile or preference not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Disable job filter preference
+      tags:
+      - montessori-professional
+      - jobs
 schemes:
 - http
 - https

@@ -100,6 +100,9 @@ jobs:
           --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
           --build-arg STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
           --build-arg STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+          --build-arg STRIPE_SNAPSHOT_WEBHOOK_SECRET=${{ secrets.STRIPE_SNAPSHOT_WEBHOOK_SECRET }} \
+          --build-arg STRIPE_THINPAYLOAD_WEBHOOK_SECRET=${{ secrets.STRIPE_SNAPSHOT_WEBHOOK_SECRET }} \
+
           --build-arg STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }} \
           --build-arg STRIPE_ANNUAL_PRICE_ID=${{ secrets.STRIPE_ANNUAL_PRICE_ID }} \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
