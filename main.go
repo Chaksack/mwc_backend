@@ -121,8 +121,14 @@ func main() {
 	}
 
 	// Initialize Email Service
-	emailService := email.NewGoMailerService(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.EmailFrom)
-	log.Println("Email service initialized.")
+	var emailService email.EmailService
+	if !cfg.EmailEnabled {
+		emailService = email.NewNoopEmailService()
+		log.Println("Email service disabled by configuration (EMAIL_ENABLED=false). Using no-op email service.")
+	} else {
+		emailService = email.NewGoMailerService(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.EmailFrom)
+		log.Println("Email service initialized.")
+	}
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{

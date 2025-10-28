@@ -1138,7 +1138,7 @@ definitions:
     - MontessoriProfessionalRole
     - TrainingCenterRole
     - ParentRole
-host: https://api.montessoriworldconnect.com
+host: api.montessoriworldconnect.com
 info:
   contact:
     email: support@montessoriworldconnect.com
@@ -1164,7 +1164,7 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
   title: Montessori World Connect API
-  version: "1.0"
+  version: "2.1.5"
 paths:
   /admin/action-logs:
     get:

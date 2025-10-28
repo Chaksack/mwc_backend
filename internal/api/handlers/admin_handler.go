@@ -5,6 +5,7 @@ import (
 	"fmt" // For LogUserAction details
 	"log"
 	"mime/multipart"
+	"mwc_backend/config"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"os"
@@ -24,15 +25,20 @@ import (
 )
 
 // AdminHandler handles admin-specific requests.
-type AdminHandler struct {
-	db        *gorm.DB
-	mqService queue.MessageQueueService
-}
-
-// NewAdminHandler creates a new AdminHandler.
-func NewAdminHandler(db *gorm.DB, mq queue.MessageQueueService) *AdminHandler {
-	return &AdminHandler{db: db, mqService: mq}
-}
+ type AdminHandler struct {
+	 db        *gorm.DB
+	 mqService queue.MessageQueueService
+	 cfg       *config.Config
+ }
+ 
+ // NewAdminHandler creates a new AdminHandler.
+ func NewAdminHandler(db *gorm.DB, mq queue.MessageQueueService, cfg *config.Config) *AdminHandler {
+	 // Initialize Stripe key once if provided in config
+	 if cfg != nil && cfg.StripeSecretKey != "" {
+		 stripe.Key = cfg.StripeSecretKey
+	 }
+	 return &AdminHandler{db: db, mqService: mq, cfg: cfg}
+ }
 
 // SchoolUploadData represents the structure of a school in the JSON file.
 type SchoolUploadData struct {
@@ -1006,10 +1012,15 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 
 	// Optionally create Stripe Product + Price when Price ID not provided
 	stripePriceID := req.StripePriceID
+	var stripeProductID string
 	if stripePriceID == "" {
-		// Initialize Stripe key from env
+		// Initialize Stripe key from config or env
 		if stripe.Key == "" {
-			stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+			if h.cfg != nil && h.cfg.StripeSecretKey != "" {
+				stripe.Key = h.cfg.StripeSecretKey
+			} else {
+				stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+			}
 		}
 		if stripe.Key == "" {
 			log.Printf("STRIPE_SECRET_KEY not configured; proceeding without Stripe price creation")
@@ -1018,7 +1029,9 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 			prod, pErr := product.New(&stripe.ProductParams{Name: stripe.String(req.Name)})
 			if pErr != nil {
 				log.Printf("Failed to create Stripe product: %v", pErr)
+				LogUserAction(h.db, c.Locals("user_id").(uint), "ADMIN_SUB_PLAN_STRIPE_PRODUCT_FAIL", 0, "Stripe", pErr.Error(), c)
 			} else {
+				stripeProductID = prod.ID
 				interval := "month"
 				if strings.ToLower(req.BillingCycle) == "annual" || strings.ToLower(req.BillingCycle) == "yearly" || strings.ToLower(req.BillingCycle) == "year" {
 					interval = "year"
@@ -1034,8 +1047,10 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 				})
 				if prErr != nil {
 					log.Printf("Failed to create Stripe price: %v", prErr)
+					LogUserAction(h.db, c.Locals("user_id").(uint), "ADMIN_SUB_PLAN_STRIPE_PRICE_FAIL", 0, "Stripe", prErr.Error(), c)
 				} else {
 					stripePriceID = pr.ID
+					LogUserAction(h.db, c.Locals("user_id").(uint), "ADMIN_SUB_PLAN_STRIPE_CREATED", 0, "Stripe", fmt.Sprintf("product_id=%s price_id=%s", stripeProductID, stripePriceID), c)
 				}
 			}
 		}
@@ -1076,6 +1091,8 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 		"success": true,
 		"message": "Subscription plan created successfully",
 		"data":    plan,
+		"stripe_product_id": stripeProductID,
+		"stripe_price_id":   stripePriceID,
 	})
 }
 

@@ -22,6 +22,7 @@ type Config struct {
 	SMTPUser     string `mapstructure:"SMTP_USER"`
 	SMTPPassword string `mapstructure:"SMTP_PASSWORD"`
 	EmailFrom    string `mapstructure:"EMAIL_FROM"`
+	EmailEnabled bool   `mapstructure:"EMAIL_ENABLED"`
 	// Add other configurations as needed, e.g., JWT_EXPIRATION_HOURS
 	JwtExpirationHours int `mapstructure:"JWT_EXPIRATION_HOURS"`
 	// Stripe configuration
@@ -127,6 +128,15 @@ func LoadConfig() (*Config, error) {
 
 	if config.SMTPHost == "" || config.SMTPPort == 0 || config.EmailFrom == "" {
 		log.Println("Warning: SMTP configuration is not fully set. Email functionality might be limited or disabled.")
+	}
+
+	// Email Enabled flag
+	emailEnabledStr := os.Getenv("EMAIL_ENABLED")
+	if emailEnabledStr != "" {
+		config.EmailEnabled = emailEnabledStr == "true" || emailEnabledStr == "1"
+	} else if !config.EmailEnabled {
+		// default to true when not explicitly set in struct/env
+		config.EmailEnabled = true
 	}
 
 	// JWT Expiration

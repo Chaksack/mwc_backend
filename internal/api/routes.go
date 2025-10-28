@@ -26,7 +26,7 @@ func SetupRoutes(
 ) {
 	// Create instances of handlers, passing dependencies
 	authHandler := handlers.NewAuthHandler(db, cfg, emailService, mqService) // Pass full cfg
-	adminHandler := handlers.NewAdminHandler(db, mqService)
+	adminHandler := handlers.NewAdminHandler(db, mqService, cfg)
 	institutionHandler := handlers.NewInstitutionHandler(db, mqService, emailService)
 	montessoriProfessionalHandler := handlers.NewMontessoriProfessionalHandler(db, mqService, emailService)
 	parentHandler := handlers.NewParentHandler(db, mqService, emailService)
@@ -47,7 +47,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.1.3",
+			"version":       "2.1.5",
 			"documentation": "/swagger/index.html",
 		})
 	})

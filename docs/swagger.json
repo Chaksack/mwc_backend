@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.1.4"
+        "version": "2.1.5"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",

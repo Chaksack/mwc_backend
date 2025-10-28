@@ -1,6 +1,7 @@
 package email
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/mail"
@@ -55,8 +56,14 @@ func NewGoMailerService(host string, port int, username, password, from string) 
 	}
 	
 	d := gomail.NewDialer(host, port, username, password)
-	// TODO: Add d.TLSConfig for TLS, especially if not using standard port 465 (SMTPS) or 587 (STARTTLS)
+	// Ensure TLS is configured properly for SES/SMTP
+	d.TLSConfig = &tls.Config{ServerName: host}
 	return &GoMailerService{dialer: d, fromAddr: formattedFrom}
+}
+
+// NewNoopEmailService returns a no-op email service (useful for dev/sandbox)
+func NewNoopEmailService() EmailService {
+	return &noopEmailService{}
 }
 
 // SendEmail sends an email.
@@ -66,15 +73,26 @@ func (s *GoMailerService) SendEmail(to, subject, htmlBody string) error {
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", s.fromAddr)
-	m.SetHeader("To", to)
+	// Format recipient address
+	formattedTo, err := parseEmailAddress(to)
+	if err != nil {
+		log.Printf("Warning: Email 'to' address formatting issue: %v", err)
+		formattedTo = to
+	}
+	m.SetHeader("To", formattedTo)
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/html", htmlBody)
 	// m.AddAlternative("text/plain", "Plain text version of the email...") // Good practice
 
 	if err := s.dialer.DialAndSend(m); err != nil {
-		return fmt.Errorf("could not send email to %s: %w", to, err)
+		// Provide SES sandbox friendly hint if applicable
+		errStr := err.Error()
+		if strings.Contains(errStr, "554") && strings.Contains(errStr, "Email address is not verified") {
+			log.Printf("Notice: SES rejected email to %s because the address is not verified (sandbox). Consider verifying the recipient or requesting production access, or set EMAIL_ENABLED=false for dev.", formattedTo)
+		}
+		return fmt.Errorf("could not send email to %s: %w", formattedTo, err)
 	}
-	log.Printf("Email sent successfully to %s, Subject: %s", to, subject)
+	log.Printf("Email sent successfully to %s, Subject: %s", formattedTo, subject)
 	return nil
 }
 
