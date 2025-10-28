@@ -5486,7 +5486,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ws": {
+        "/wss": {
             "get": {
                 "security": [
                     {
@@ -5526,7 +5526,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ws/broadcast": {
+        "/wss/broadcast": {
             "post": {
                 "security": [
                     {

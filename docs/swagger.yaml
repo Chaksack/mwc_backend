@@ -4856,7 +4856,7 @@ paths:
       tags:
       - webhooks
       - stripe
-  /ws:
+  /wss:
     get:
       description: Upgrades HTTP connection to WebSocket protocol for real-time communication
       responses:
@@ -4881,7 +4881,7 @@ paths:
       summary: WebSocket connection upgrade
       tags:
       - websocket
-  /ws/broadcast:
+  /wss/broadcast:
     post:
       consumes:
       - application/json
@@ -4910,7 +4910,7 @@ paths:
       summary: Broadcast notification to all users
       tags:
       - websocket
-  /ws/notify/{user_id}:
+  /wss/notify/{user_id}:
     post:
       consumes:
       - application/json

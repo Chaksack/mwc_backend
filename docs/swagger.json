@@ -6007,7 +6007,7 @@
                 ]
             }
         },
-        "/ws": {
+        "/wss": {
             "get": {
                 "security": [
                     {
@@ -6047,7 +6047,7 @@
                 }
             }
         },
-        "/ws/broadcast": {
+        "/wss/broadcast": {
             "post": {
                 "security": [
                     {
@@ -6093,7 +6093,7 @@
                 }
             }
         },
-        "/ws/notify/{user_id}": {
+        "/wss/notify/{user_id}": {
             "post": {
                 "security": [
                     {

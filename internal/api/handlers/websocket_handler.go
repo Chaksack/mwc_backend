@@ -5,6 +5,7 @@ import (
 	"log"
 	"mwc_backend/config"
 	"mwc_backend/internal/models"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,7 +47,7 @@ type WebSocketMessage struct {
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
 // @Security BearerAuth
-// @Router /ws [get]
+// @Router /wss [get]
 // HandleWebSocket handles WebSocket connections
 func (h *WebSocketHandler) HandleWebSocket(c *websocket.Conn) {
 	// Get user ID from context
@@ -207,7 +208,7 @@ func (h *WebSocketHandler) handleDirectMessage(senderID uint, payload interface{
 // @Success 200 {object} WebSocketMessage "Notification sent successfully"
 // @Failure 404 {object} map[string]string "User not connected"
 // @Security BearerAuth
-// @Router /ws/notify/{user_id} [post]
+// @Router /wss/notify/{user_id} [post]
 // SendNotification sends a notification to a specific user
 func (h *WebSocketHandler) SendNotification(userID uint, notificationType string, payload interface{}) {
 	h.clientsMux.RLock()
@@ -240,7 +241,7 @@ func (h *WebSocketHandler) SendNotification(userID uint, notificationType string
 // @Param payload body interface{} true "Notification payload"
 // @Success 200 {object} WebSocketMessage "Notification broadcasted successfully"
 // @Security BearerAuth
-// @Router /ws/broadcast [post]
+// @Router /wss/broadcast [post]
 // BroadcastNotification sends a notification to all connected users
 func (h *WebSocketHandler) BroadcastNotification(notificationType string, payload interface{}) {
 	notification := WebSocketMessage{
@@ -267,11 +268,29 @@ func (h *WebSocketHandler) BroadcastNotification(notificationType string, payloa
 // @Failure 401 {object} map[string]string "User not authenticated"
 // @Failure 426 {object} map[string]string "Upgrade Required - Client must request WebSocket upgrade"
 // @Security BearerAuth
-// @Router /ws [get]
+// @Router /wss [get]
 func WebSocketUpgradeMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// IsWebSocketUpgrade returns true if the client requested upgrade to the WebSocket protocol
 		if websocket.IsWebSocketUpgrade(c) {
+			// Enforce secure WebSocket (wss) by ensuring the underlying connection is HTTPS
+			proto := c.Protocol() // "http" or "https" (when TLS is terminated by Fiber)
+			xfp := c.Get("X-Forwarded-Proto")
+			xfprot := c.Get("X-Forwarded-Protocol")
+			xfssl := c.Get("X-Forwarded-Ssl")
+			host := c.Hostname()
+
+			isLocal := strings.Contains(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") || strings.HasPrefix(host, "[::1]")
+			isSecure := c.Secure() || proto == "https" || strings.EqualFold(xfp, "https") || strings.EqualFold(xfp, "wss") || strings.EqualFold(xfprot, "https") || strings.EqualFold(xfprot, "wss") || strings.EqualFold(xfssl, "on")
+
+			// Allow insecure only for localhost development to avoid breaking local testing
+			if !isSecure && !isLocal {
+				return c.Status(fiber.StatusUpgradeRequired).JSON(fiber.Map{
+					"error":   "Upgrade Required",
+					"message": "WebSocket connection must use a secure transport (wss). Ensure requests come via HTTPS or set X-Forwarded-Proto=https when behind a proxy.",
+				})
+			}
+
 			// Get user ID from context
 			userID, ok := c.Locals("user_id").(uint)
 			if !ok {
