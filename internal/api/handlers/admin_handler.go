@@ -1016,7 +1016,12 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 	rolesJSON, _ := json.Marshal(req.AllowedRoles)
 
 	// Optionally create Stripe Product + Price when Price ID not provided
-	stripePriceID := req.StripePriceID
+	stripePriceID := strings.TrimSpace(req.StripePriceID)
+	// Normalize placeholder or invalid Stripe price IDs from client (e.g., "string")
+	if strings.EqualFold(stripePriceID, "string") || (stripePriceID != "" && !strings.HasPrefix(strings.ToLower(stripePriceID), "price_")) {
+		log.Printf("Ignoring invalid stripe_price_id value '%s'; will attempt to create a new price in Stripe", stripePriceID)
+		stripePriceID = ""
+	}
 	var stripeProductID string
 	var usedLookupKey string
 	if stripePriceID == "" {
