@@ -4570,6 +4570,14 @@ paths:
         in: query
         name: plan
         type: string
+      - description: Dynamic subscription plan ID (overrides 'plan')
+        in: query
+        name: plan_id
+        type: integer
+      - description: Stripe price lookup key (overrides 'plan' and 'plan_id')
+        in: query
+        name: lookup
+        type: string
       produces:
       - application/json
       responses:

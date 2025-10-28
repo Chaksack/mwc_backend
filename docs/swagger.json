@@ -5587,6 +5587,18 @@
                         "description": "Subscription plan (monthly or annual)",
                         "name": "plan",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Dynamic subscription plan ID (overrides 'plan')",
+                        "name": "plan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Stripe price lookup key (overrides 'plan' and 'plan_id')",
+                        "name": "lookup",
+                        "in": "query"
                     }
                 ],
                 "responses": {
