@@ -271,8 +271,8 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /webhooks/stripe [post]
 func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
-	// Require verification using the primary STRIPE_WEBHOOK_SECRET
-	event, err := h.verifyStripeAndParseEvent(c, h.cfg.StripeWebhookSecret)
+	// Verify using the same signing secret as /stripe/event to keep signatures consistent
+	event, err := h.verifyStripeAndParseEvent(c, h.cfg.StripeSnapshotWebhookSecret)
 	if err != nil {
 		log.Printf("Stripe webhook verification failed: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})

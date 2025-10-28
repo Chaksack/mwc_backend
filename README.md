@@ -25,8 +25,8 @@ Before running the application, you need to set up the following environment var
 - `EMAIL_FROM`: Email sender address
 - `JWT_SECRET`: Secret key for JWT token generation
 - `STRIPE_SECRET_KEY`: Stripe API secret key
-- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret (primary, required for /webhooks/stripe)
-- `STRIPE_SNAPSHOT_WEBHOOK_SECRET` (optional): Separate secret for /stripe/event
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret (legacy, not used by default)
+- `STRIPE_SNAPSHOT_WEBHOOK_SECRET`: Webhook secret used by both /webhooks/stripe and /stripe/event (signatures must match)
 - `STRIPE_THINPAYLOAD_WEBHOOK_SECRET` (optional): Separate secret for /stripe/payload
 - `STRIPE_MONTHLY_PRICE_ID`: Stripe price ID for monthly subscription
 - `STRIPE_ANNUAL_PRICE_ID`: Stripe price ID for annual subscription
