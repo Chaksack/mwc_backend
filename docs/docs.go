@@ -7312,7 +7312,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+ Version:          "2.1.7",
 	Host:             "https://api.montessoriworldconnect.com",
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},

@@ -35,6 +35,8 @@ type Config struct {
 	// Subscription prices
 	StripeMonthlyPriceID string `mapstructure:"STRIPE_MONTHLY_PRICE_ID"`
 	StripeAnnualPriceID  string `mapstructure:"STRIPE_ANNUAL_PRICE_ID"`
+	// Billing portal
+	StripeBillingPortalLoginURL string `mapstructure:"STRIPE_BILLING_PORTAL_LOGIN_URL"`
 	// WebSocket configuration
 	WebSocketEnabled bool   `mapstructure:"WEBSOCKET_ENABLED"`
 	WebSocketPath    string `mapstructure:"WEBSOCKET_PATH"`

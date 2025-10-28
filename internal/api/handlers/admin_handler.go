@@ -8,6 +8,7 @@ import (
 	"mwc_backend/config"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/utils"
 	"os"
 	"strconv" // For parsing IDs
 	"strings" // For string operations like ToUpper
@@ -956,14 +957,15 @@ func (h *AdminHandler) CreateAdmin(c *fiber.Ctx) error {
 // Dynamic Subscription Plan Management
 
 type CreateSubscriptionPlanRequest struct {
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Price        float64   `json:"price"`
-	Currency     string    `json:"currency"`
-	BillingCycle string    `json:"billing_cycle"`
-	Features     []string  `json:"features"`
-	AllowedRoles []string  `json:"allowed_roles"`
-	StripePriceID string   `json:"stripe_price_id,omitempty"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Price           float64  `json:"price"`
+	Currency        string   `json:"currency"`
+	BillingCycle    string   `json:"billing_cycle"`
+	Features        []string `json:"features"`
+	AllowedRoles    []string `json:"allowed_roles"`
+	StripePriceID   string   `json:"stripe_price_id,omitempty"`
+	StripeLookupKey string   `json:"stripe_lookup_key,omitempty"`
 }
 
 // CreateSubscriptionPlan creates a new dynamic subscription plan
@@ -1003,8 +1005,11 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 		req.BillingCycle = "monthly"
 	}
 
-	// Get current user
-	currentUser := c.Locals("user").(*models.User)
+	// Get current user ID from JWT context
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok || userID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
 
 	// Convert features and roles to JSON strings
 	featuresJSON, _ := json.Marshal(req.Features)
@@ -1013,6 +1018,7 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 	// Optionally create Stripe Product + Price when Price ID not provided
 	stripePriceID := req.StripePriceID
 	var stripeProductID string
+	var usedLookupKey string
 	if stripePriceID == "" {
 		// Initialize Stripe key from config or env
 		if stripe.Key == "" {
@@ -1037,14 +1043,24 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 					interval = "year"
 				}
 				unitAmount := int64(req.Price * 100)
-				pr, prErr := price.New(&stripe.PriceParams{
+				// Determine lookup key: prefer request value; else generate from single allowed role
+				lookupKey := strings.TrimSpace(req.StripeLookupKey)
+				if lookupKey == "" && len(req.AllowedRoles) == 1 {
+					lookupKey = utils.GenerateRoleLookupKey(models.UserRole(strings.ToLower(req.AllowedRoles[0])))
+				}
+				params := &stripe.PriceParams{
 					Currency:   stripe.String(strings.ToLower(req.Currency)),
 					UnitAmount: stripe.Int64(unitAmount),
 					Product:    stripe.String(prod.ID),
 					Recurring: &stripe.PriceRecurringParams{
 						Interval: stripe.String(interval),
 					},
-				})
+				}
+				if lookupKey != "" {
+					params.LookupKey = stripe.String(lookupKey)
+					usedLookupKey = lookupKey
+				}
+				pr, prErr := price.New(params)
 				if prErr != nil {
 					log.Printf("Failed to create Stripe price: %v", prErr)
 					LogUserAction(h.db, c.Locals("user_id").(uint), "ADMIN_SUB_PLAN_STRIPE_PRICE_FAIL", 0, "Stripe", prErr.Error(), c)
@@ -1066,7 +1082,7 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 		Features:        string(featuresJSON),
 		AllowedRoles:    string(rolesJSON),
 		StripePriceID:   stripePriceID,
-		CreatedByUserID: currentUser.ID,
+		CreatedByUserID: userID,
 		IsActive:        true,
 	}
 
@@ -1093,6 +1109,7 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 		"data":    plan,
 		"stripe_product_id": stripeProductID,
 		"stripe_price_id":   stripePriceID,
+		"stripe_lookup_key": usedLookupKey,
 	})
 }
 

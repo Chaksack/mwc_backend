@@ -36,6 +36,7 @@ func SetupRoutes(
 	eventHandler := handlers.NewEventHandler(db, cfg, mqService)
 	blogHandler := handlers.NewBlogHandler(db)
 	savedSchoolHandler := handlers.NewSavedSchoolHandler(db)
+	healthHandler := handlers.NewHealthHandler(db, cfg, mqService)
 
 	// Initialize and start notification scheduler
 	notificationService := services.NewNotificationService(db, emailService)
@@ -47,7 +48,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.1.5",
+   "version":       "2.1.7",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -56,7 +57,10 @@ func SetupRoutes(
 	// Base URL is configured in config.Config.BaseURL
 	// For development: http://localhost:8080/api/v1
 	// For production: https://api.montessoriworldconnect.com/api/v1
+	// Health endpoints
+	app.Get("/health", healthHandler.GetHealth)
 	apiV1 := app.Group("/api/v1")
+	apiV1.Get("/health", healthHandler.GetHealth)
 	continentHandler := handlers.NewContinentHandler(db)
 	apiV1.Get("/schools/continent-counts", continentHandler.GetSchoolCountsByContinent)
 	apiV1.Get("/schools/continents", continentHandler.ListContinents)

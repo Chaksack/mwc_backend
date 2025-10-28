@@ -9,6 +9,7 @@ import (
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"mwc_backend/internal/services"
+	"mwc_backend/internal/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -126,12 +127,39 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check existing subscription"})
 	}
 
-	// Determine the price ID based on the plan
+	// Optional: allow specifying a Stripe Price lookup key to resolve a price dynamically
+	lookupKey := strings.TrimSpace(c.Query("lookup"))
 	var priceID string
-	if plan == string(models.MonthlyPlan) {
-		priceID = h.cfg.StripeMonthlyPriceID
+	if lookupKey != "" {
+		resolved, err := utils.ResolveStripePriceIDFromLookupKey(lookupKey)
+		if err != nil {
+			log.Printf("Error resolving Stripe price by lookup key %s: %v", lookupKey, err)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid price lookup key"})
+		}
+		if resolved == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Price not found for lookup key", "lookup": lookupKey})
+		}
+		priceID = resolved
 	} else {
-		priceID = h.cfg.StripeAnnualPriceID
+		// Determine the price ID based on the plan from config
+		if plan == string(models.MonthlyPlan) {
+			priceID = h.cfg.StripeMonthlyPriceID
+		} else {
+			priceID = h.cfg.StripeAnnualPriceID
+		}
+		// Validate price ID configuration early to avoid Stripe 400s
+		if strings.TrimSpace(priceID) == "" {
+			missingVar := "STRIPE_MONTHLY_PRICE_ID"
+			if plan == string(models.AnnualPlan) {
+				missingVar = "STRIPE_ANNUAL_PRICE_ID"
+			}
+			log.Printf("Checkout misconfiguration: missing %s for plan %s", missingVar, plan)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":           "Subscription is not configured. Please contact support.",
+				"details":         fmt.Sprintf("Missing Stripe price ID for %s plan", plan),
+				"missing_env_var": missingVar,
+			})
+		}
 	}
 
 	// Create or retrieve Stripe customer
@@ -679,6 +707,12 @@ func (h *SubscriptionHandler) CreateBillingPortalSession(c *fiber.Ctx) error {
 	// Append a sensible return path
 	returnURL = fmt.Sprintf("%s/account/billing", strings.TrimRight(returnURL, "/"))
 
+	// If a static Billing Portal login URL is configured, return it directly.
+	if u := strings.TrimSpace(h.cfg.StripeBillingPortalLoginURL); u != "" {
+		LogUserAction(h.db, userID, "SUBSCRIPTION_PORTAL_LINK_RETURNED", userID, "User", "Static Billing Portal link returned", c)
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"url": u})
+	}
+
 	bpParams := &stripe.BillingPortalSessionParams{
 		Customer:  stripe.String(stripeCustomerID),
 		ReturnURL: stripe.String(returnURL),
@@ -686,7 +720,18 @@ func (h *SubscriptionHandler) CreateBillingPortalSession(c *fiber.Ctx) error {
 	sess, perr := bpsession.New(bpParams)
 	if perr != nil {
 		log.Printf("Error creating Billing Portal session: %v", perr)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create billing portal session"})
+		// If Stripe says no default configuration, guide the user.
+		msg := "Failed to create billing portal session"
+		status := fiber.StatusInternalServerError
+		if strings.Contains(strings.ToLower(perr.Error()), "no configuration provided") {
+			msg = "Billing portal is not configured. Please contact support."
+			status = fiber.StatusServiceUnavailable
+		}
+		resp := fiber.Map{"error": msg}
+		if u := strings.TrimSpace(h.cfg.StripeBillingPortalLoginURL); u != "" {
+			resp["fallback_url"] = u
+		}
+		return c.Status(status).JSON(resp)
 	}
 
 	LogUserAction(h.db, userID, "SUBSCRIPTION_PORTAL_CREATED", userID, "User", "Billing Portal session created", c)
