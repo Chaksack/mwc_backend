@@ -42,7 +42,7 @@ func (h *HealthHandler) GetHealth(c *fiber.Ctx) error {
 	checks := make(map[string]interface{})
 
 	// App version: keep in sync with internal/api/routes.go welcome endpoint
- version := "2.1.7"
+ version := "2.1.8"
 
 	// Database check
 	dbOK := true
@@ -70,6 +70,7 @@ func (h *HealthHandler) GetHealth(c *fiber.Ctx) error {
 
 	// Webhook secrets presence (informational)
 	checks["stripe_webhooks"] = map[string]interface{}{
+		"primary_secret_configured":     h.cfg != nil && h.cfg.StripeWebhookSecret != "",
 		"snapshot_secret_configured":    h.cfg != nil && h.cfg.StripeSnapshotWebhookSecret != "",
 		"thinpayload_secret_configured": h.cfg != nil && h.cfg.StripeThinPayloadWebhookSecret != "",
 	}

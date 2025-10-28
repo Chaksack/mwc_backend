@@ -93,6 +93,8 @@ func NewSubscriptionHandler(db *gorm.DB, cfg *config.Config, mqService queue.Mes
 // @Accept json
 // @Produce json
 // @Param plan query string false "Subscription plan (monthly or annual)" Enums(monthly, annual)
+// @Param plan_id query int false "Dynamic subscription plan ID (overrides 'plan')"
+// @Param lookup query string false "Stripe price lookup key (overrides 'plan' and 'plan_id')"
 // @Success 200 {object} map[string]interface{} "Checkout session created successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "User not authenticated"
@@ -106,10 +108,10 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
 	}
 
-	// Get the plan from the request
+	// Get the plan from the request (legacy/static). If plan_id or lookup provided, this is ignored for price selection but still recorded in metadata.
 	plan := c.Query("plan", string(models.MonthlyPlan))
 	if plan != string(models.MonthlyPlan) && plan != string(models.AnnualPlan) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid plan. Must be 'monthly' or 'annual'"})
+		plan = string(models.MonthlyPlan)
 	}
 
 	// Get the user
@@ -130,6 +132,8 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 	// Optional: allow specifying a Stripe Price lookup key to resolve a price dynamically
 	lookupKey := strings.TrimSpace(c.Query("lookup"))
 	var priceID string
+	var dynamicPlanID uint
+	var dynamicPlanName string
 	if lookupKey != "" {
 		resolved, err := utils.ResolveStripePriceIDFromLookupKey(lookupKey)
 		if err != nil {
@@ -140,6 +144,28 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Price not found for lookup key", "lookup": lookupKey})
 		}
 		priceID = resolved
+	} else if planIDStr := strings.TrimSpace(c.Query("plan_id")); planIDStr != "" {
+		// When a dynamic subscription plan is explicitly selected, use its StripePriceID
+		pid64, err := strconv.ParseUint(planIDStr, 10, 64)
+		if err != nil || pid64 == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid plan_id"})
+		}
+		var dynPlan models.DynamicSubscriptionPlan
+		if err := h.db.First(&dynPlan, uint(pid64)).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Subscription plan not found"})
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve subscription plan"})
+		}
+		if !dynPlan.IsActive {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Selected subscription plan is not active"})
+		}
+		if strings.TrimSpace(dynPlan.StripePriceID) == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Selected subscription plan is not configured with a Stripe price"})
+		}
+		priceID = dynPlan.StripePriceID
+		dynamicPlanID = dynPlan.ID
+		dynamicPlanName = dynPlan.Name
 	} else {
 		// Determine the price ID based on the plan from config
 		if plan == string(models.MonthlyPlan) {
@@ -187,6 +213,19 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 	successURL := fmt.Sprintf("%s/subscription/success?session_id={CHECKOUT_SESSION_ID}", c.BaseURL())
 	cancelURL := fmt.Sprintf("%s/subscription/cancel", c.BaseURL())
 
+	// Build subscription metadata and include dynamic plan context if provided
+	meta := map[string]string{
+		"user_id": strconv.FormatUint(uint64(userID), 10),
+		"plan":    plan,
+		"price_id": priceID,
+	}
+	if dynamicPlanID != 0 {
+		meta["dynamic_plan_id"] = strconv.FormatUint(uint64(dynamicPlanID), 10)
+	}
+	if strings.TrimSpace(dynamicPlanName) != "" {
+		meta["dynamic_plan_name"] = dynamicPlanName
+	}
+
 	params := &stripe.CheckoutSessionParams{
 		Customer: stripe.String(stripeCustomerID),
 		PaymentMethodTypes: stripe.StringSlice([]string{
@@ -202,10 +241,7 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 		SuccessURL: stripe.String(successURL),
 		CancelURL:  stripe.String(cancelURL),
 		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
-			Metadata: map[string]string{
-				"user_id": strconv.FormatUint(uint64(userID), 10),
-				"plan":    plan,
-			},
+			Metadata: meta,
 		},
 	}
 
@@ -235,32 +271,11 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /webhooks/stripe [post]
 func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
-	// Get the webhook secret
-	webhookSecret := h.cfg.StripeWebhookSecret
-
-	// Get the signature from the header
-	signature := c.Get("Stripe-Signature")
-	if signature == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing Stripe signature"})
-	}
-
-	// Get the request body
-	body := c.Body()
-
-	// Verify the webhook signature
-	var event stripe.Event
-	if webhookSecret != "" {
-		var err error
-		event, err = webhook.ConstructEvent(body, signature, webhookSecret)
-		if err != nil {
-			log.Printf("Error verifying webhook signature: %v", err)
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Stripe signature"})
-		}
-	} else {
-		// If webhook secret is not set, parse the event without verification
-		if err := c.BodyParser(&event); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Stripe event"})
-		}
+	// Require verification using the primary STRIPE_WEBHOOK_SECRET
+	event, err := h.verifyStripeAndParseEvent(c, h.cfg.StripeWebhookSecret)
+	if err != nil {
+		log.Printf("Stripe webhook verification failed: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Handle the event

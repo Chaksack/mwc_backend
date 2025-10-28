@@ -25,10 +25,12 @@ Before running the application, you need to set up the following environment var
 - `EMAIL_FROM`: Email sender address
 - `JWT_SECRET`: Secret key for JWT token generation
 - `STRIPE_SECRET_KEY`: Stripe API secret key
-- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret (primary, required for /webhooks/stripe)
+- `STRIPE_SNAPSHOT_WEBHOOK_SECRET` (optional): Separate secret for /stripe/event
+- `STRIPE_THINPAYLOAD_WEBHOOK_SECRET` (optional): Separate secret for /stripe/payload
 - `STRIPE_MONTHLY_PRICE_ID`: Stripe price ID for monthly subscription
 - `STRIPE_ANNUAL_PRICE_ID`: Stripe price ID for annual subscription
-- Dynamic role-based price lookup (optional): Admins can set a `stripe_lookup_key` on prices (e.g., institution_xse3421, prof_xser4312, parent_xsde3421, training_xse3421). The checkout endpoint also accepts `?lookup=<lookup_key>` to resolve the price dynamically.
+- Dynamic role-based price lookup (optional): Admins can set a `stripe_lookup_key` on prices (e.g., institution_xse3421, prof_xser4312, parent_xsde3421, training_xse3421). The checkout endpoint also accepts `?lookup=<lookup_key>` to resolve the price dynamically. You can also pass `?plan_id=<dynamic_plan_id>` to use a dynamically created plan's Stripe price.
 - `STRIPE_BILLING_PORTAL_LOGIN_URL` (optional): Static Stripe Billing Portal login URL to use as a fallback (e.g., https://billing.stripe.com/p/login/test_...)
 - `ENVIRONMENT`: The current environment (dev, prod, etc.)
 - `BASE_URL`: The base URL for the API (defaults based on environment)
