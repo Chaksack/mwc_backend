@@ -31,93 +31,96 @@ jobs:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Set up Docker Buildx for faster builds with caching
-    - name: Set up QEMU (for multi-arch builds)
-      uses: docker/setup-qemu-action@v3
+      # Set up Docker Buildx for faster builds with caching
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Create ECR repository if it doesn't exist
+        run: |
+          # Check if repository exists
+          if ! aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null; then
+            echo "Repository ${{ env.ECR_REPOSITORY }} does not exist. Creating it..."
+            aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
+          else
+            echo "Repository ${{ env.ECR_REPOSITORY }} already exists."
+          fi
 
-    - name: Create ECR repository if it doesn't exist
-      run: |
-        # Check if repository exists
-        if ! aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null; then
-          echo "Repository ${{ env.ECR_REPOSITORY }} does not exist. Creating it..."
-          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
-        else
-          echo "Repository ${{ env.ECR_REPOSITORY }} already exists."
-        fi
+      # Cache Docker layers to speed up builds
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-    # Cache Docker layers to speed up builds
-    - name: Cache Docker layers
-      uses: actions/cache@v3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
+      # Log environment information
+      - name: Log environment information
+        run: |
+          echo "Preparing to build for ${{ env.ENVIRONMENT }} environment"
+          echo "Using environment-specific configuration from GitHub Secrets"
 
-    # Log environment information
-    - name: Log environment information
-      run: |
-        echo "Preparing to build for ${{ env.ENVIRONMENT }} environment"
-        echo "Using environment-specific configuration from GitHub Secrets"
-
-    - name: Build and tag image for Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      run: |
-        # Set environment-specific tag
-        ENV_TAG=${{ env.ENVIRONMENT }}
-
-        echo "Building Docker image for $ENV_TAG environment..."
-
-        # Build and push a multi-architecture image (amd64 + arm64) with caching and environment-specific args
-        docker buildx build \
-          --platform linux/amd64,linux/arm64 \
-          --cache-from=type=local,src=/tmp/.buildx-cache \
-          --cache-to=type=local,dest=/tmp/.buildx-cache-new \
-          --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
-          --build-arg RABBITMQ_URL=${{ secrets.RABBITMQ_URL }} \
-          --build-arg RABBITMQ_USE_TLS=true \
-          --build-arg JWT_SECRET=${{ secrets.JWT_SECRET }} \
-          --build-arg SMTP_HOST=${{ secrets.SMTP_HOST }} \
-          --build-arg SMTP_PORT=${{ secrets.SMTP_PORT }} \
-          --build-arg SMTP_USER=${{ secrets.SMTP_USER }} \
-          --build-arg SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
-          --build-arg EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
-          --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-          --build-arg STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
-          --build-arg STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-          --build-arg STRIPE_SNAPSHOT_WEBHOOK_SECRET=${{ secrets.STRIPE_SNAPSHOT_WEBHOOK_SECRET }} \
-          --build-arg STRIPE_THINPAYLOAD_WEBHOOK_SECRET=${{ secrets.STRIPE_THINPAYLOAD_WEBHOOK_SECRET }} \
-          --build-arg STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }} \
-          --build-arg STRIPE_ANNUAL_PRICE_ID=${{ secrets.STRIPE_ANNUAL_PRICE_ID }} \
-          --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-          --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-          --tag $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
-          --push \
-          --file Dockerfile \
-          .
-
-        # Output the image URI for use in subsequent steps or jobs
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
+      - name: Build and tag image for Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          # Set environment-specific tag
+          ENV_TAG=${{ env.ENVIRONMENT }}
+          
+          echo "Building Docker image for $ENV_TAG environment..."
+          
+          # Build the Docker image with caching and environment-specific args
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new \
+            --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            --build-arg RABBITMQ_URL=${{ secrets.RABBITMQ_URL }} \
+            --build-arg RABBITMQ_USE_TLS=true \
+            --build-arg JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            --build-arg SMTP_HOST=${{ secrets.SMTP_HOST }} \
+            --build-arg SMTP_PORT=${{ secrets.SMTP_PORT }} \
+            --build-arg SMTP_USER=${{ secrets.SMTP_USER }} \
+            --build-arg SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
+            --build-arg EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
+            --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+            --build-arg STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+            --build-arg STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+            --build-arg STRIPE_SNAPSHOT_WEBHOOK_SECRET=${{ secrets.STRIPE_SNAPSHOT_WEBHOOK_SECRET }} \
+            --build-arg STRIPE_THINPAYLOAD_WEBHOOK_SECRET=${{ secrets.STRIPE_SNAPSHOT_WEBHOOK_SECRET }} \
+            --build-arg STRIPE_MONTHLY_PRICE_ID=${{ secrets.STRIPE_MONTHLY_PRICE_ID }} \
+            --build-arg STRIPE_ANNUAL_PRICE_ID=${{ secrets.STRIPE_ANNUAL_PRICE_ID }} \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
+            --load \
+            --file Dockerfile \
+            .
+          
+          # Output the image URI for use in subsequent steps or jobs
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          
+          # Push the Docker image to ECR with multiple tags
+          echo "Pushing Docker image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
+          
+          echo "Successfully pushed image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
   send-deployment-notification:
     name: Send Deployment Notification
     runs-on: ubuntu-latest

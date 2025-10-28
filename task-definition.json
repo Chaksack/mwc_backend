@@ -110,6 +110,10 @@
       }
     }
   ],
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024"
