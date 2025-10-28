@@ -3,6 +3,12 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
+# Allow passing target OS/ARCH from buildx for proper cross-compilation
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG TARGETVARIANT=""
+ENV GO111MODULE=on
+
 # Copy go mod and sum files
 COPY go.mod go.sum ./
 
@@ -15,8 +21,11 @@ COPY . .
 # Update dependencies to fix missing go.sum entry for golang.org/x/sync/semaphore
 RUN go get github.com/jackc/puddle/v2@v2.2.1
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+# Build the application for the target platform
+# Set GOARM only when building for arm (32-bit). For arm64, GOARCH=arm64 is sufficient.
+RUN \
+    if [ "$TARGETARCH" = "arm" ] && [ -n "$TARGETVARIANT" ]; then export GOARM=${TARGETVARIANT#v}; fi && \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o main .
 
 # Final stage
 FROM alpine:latest

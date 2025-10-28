@@ -35,6 +35,9 @@ jobs:
       uses: actions/checkout@v3
 
     # Set up Docker Buildx for faster builds with caching
+    - name: Set up QEMU (for multi-arch builds)
+      uses: docker/setup-qemu-action@v3
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
@@ -84,8 +87,9 @@ jobs:
 
         echo "Building Docker image for $ENV_TAG environment..."
 
-        # Build the Docker image with caching and environment-specific args
+        # Build and push a multi-architecture image (amd64 + arm64) with caching and environment-specific args
         docker buildx build \
+          --platform linux/amd64,linux/arm64 \
           --cache-from=type=local,src=/tmp/.buildx-cache \
           --cache-to=type=local,dest=/tmp/.buildx-cache-new \
           --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
@@ -107,20 +111,13 @@ jobs:
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
           --tag $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
-          --load \
+          --push \
           --file Dockerfile \
           .
 
         # Output the image URI for use in subsequent steps or jobs
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-        # Push the Docker image to ECR with multiple tags
-        echo "Pushing Docker image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
-
-        echo "Successfully pushed image to ECR with tags: $IMAGE_TAG, latest, and $ENV_TAG"
   send-deployment-notification:
     name: Send Deployment Notification
     runs-on: ubuntu-latest
