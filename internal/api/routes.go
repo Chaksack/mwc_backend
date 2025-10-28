@@ -224,7 +224,7 @@ func SetupRoutes(
 	// WebSocket Routes
 	if cfg.WebSocketEnabled {
 		// Use the WebSocket middleware to upgrade HTTP connections to WebSocket
-		wsGroup := app.Group("/ws", authMw, handlers.WebSocketUpgradeMiddleware())
+		wsGroup := app.Group("/wss", authMw, handlers.WebSocketUpgradeMiddleware())
 		// Use the * pattern to handle all WebSocket connections
 		wsGroup.Get("/*", websocket.New(websocketHandler.HandleWebSocket))
 		log.Println("WebSocket server enabled at", cfg.WebSocketPath)
