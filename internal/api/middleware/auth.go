@@ -133,7 +133,7 @@ func SubscriptionAuth(db *gorm.DB) fiber.Handler {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-					"error": "This feature requires an active paid subscription. Please upgrade your account to access job listings.",
+					"error": "This feature requires an active paid subscription.",
 					"subscription_required": true,
 				})
 			}

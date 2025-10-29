@@ -32,6 +32,21 @@ type SubscriptionHandler struct {
 	notificationService *services.NotificationService
 }
 
+// PublicPlanResponse represents a public view of a subscription plan
+// @Description Public subscription plan info for display and checkout selection
+// @Schema handlers.PublicPlanResponse
+type PublicPlanResponse struct {
+	ID           uint    `json:"id"`
+	Name         string  `json:"name"`
+	Description  string  `json:"description"`
+	Price        float64 `json:"price"`
+	Currency     string  `json:"currency"`
+	BillingCycle string  `json:"billing_cycle"`
+	Features     string  `json:"features"`       // JSON string; client may parse
+	StripePrice  string  `json:"stripe_price_id"` // Use in checkout
+	AllowedRoles string  `json:"allowed_roles"`   // JSON array string (optional)
+}
+
 // verifyStripeAndParseEvent verifies the Stripe signature with the provided secret and returns the Event.
 func (h *SubscriptionHandler) verifyStripeAndParseEvent(c *fiber.Ctx, signingSecret string) (stripe.Event, error) {
 	var empty stripe.Event
@@ -84,6 +99,49 @@ func NewSubscriptionHandler(db *gorm.DB, cfg *config.Config, mqService queue.Mes
 		mqService:           mqService,
 		notificationService: notificationService,
 	}
+}
+
+// ListPublicPlans returns active subscription plans for public viewing
+// @Summary List active subscription plans (public)
+// @Description Public endpoint to fetch active subscription plans. Optionally filter by role.
+// @Tags subscription,public
+// @Produce json
+// @Param role query string false "Filter plans allowed for a specific role" Enums(parent,institution,training_center,montessori_professional,admin,super_admin)
+// @Success 200 {array} handlers.PublicPlanResponse "List of active subscription plans"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /subscription/plans [get]
+func (h *SubscriptionHandler) ListPublicPlans(c *fiber.Ctx) error {
+	role := strings.TrimSpace(c.Query("role"))
+
+	var plans []models.DynamicSubscriptionPlan
+	q := h.db.Model(&models.DynamicSubscriptionPlan{}).Where("is_active = ?", true)
+
+	if role != "" {
+		// Join with role_subscription_mappings to filter by role
+		q = q.Joins("JOIN role_subscription_mappings rsm ON rsm.subscription_plan_id = dynamic_subscription_plans.id").
+			Where("rsm.role = ?", role)
+	}
+
+	if err := q.Order("price ASC").Find(&plans).Error; err != nil {
+		log.Printf("Failed to fetch subscription plans: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch subscription plans"})
+	}
+
+	resp := make([]PublicPlanResponse, 0, len(plans))
+	for _, p := range plans {
+		resp = append(resp, PublicPlanResponse{
+			ID:           p.ID,
+			Name:         p.Name,
+			Description:  p.Description,
+			Price:        p.Price,
+			Currency:     p.Currency,
+			BillingCycle: p.BillingCycle,
+			Features:     p.Features,
+			StripePrice:  p.StripePriceID,
+			AllowedRoles: p.AllowedRoles,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(resp)
 }
 
 // CreateCheckoutSession creates a Stripe checkout session for subscription

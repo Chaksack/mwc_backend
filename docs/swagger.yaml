@@ -3296,6 +3296,54 @@ paths:
       tags:
       - jobs
       - public
+  /subscription/plans:
+    get:
+      description: Public endpoint to fetch active subscription plans. Optionally filter by role.
+      parameters:
+      - description: Filter plans allowed for a specific role
+        in: query
+        name: role
+        required: false
+        type: string
+        enum: [parent, institution, training_center, montessori_professional, admin, super_admin]
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of active subscription plans
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                currency:
+                  type: string
+                billing_cycle:
+                  type: string
+                features:
+                  type: string
+                stripe_price_id:
+                  type: string
+                allowed_roles:
+                  type: string
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List active subscription plans (public)
+      tags:
+      - subscription
+      - public
   /login:
     post:
       consumes:
@@ -3904,8 +3952,7 @@ paths:
       - profile
   /parent/schools/{school_id}/details:
     get:
-      description: Get detailed information about a school including public parent
-        profiles whose children attend this school
+      description: Get detailed information about a school including public parent profiles whose children attend this school (requires active subscription)
       parameters:
       - description: School ID
         in: path
@@ -3922,6 +3969,18 @@ paths:
             type: object
         "400":
           description: Bad request or invalid school ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Subscription required
           schema:
             additionalProperties:
               type: string

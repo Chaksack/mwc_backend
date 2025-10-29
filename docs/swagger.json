@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.1.8"
+        "version": "2.2.0"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -3257,6 +3257,60 @@
                 }
             }
         },
+        "/subscription/plans": {
+            "get": {
+                "description": "Public endpoint to fetch active subscription plans. Optionally filter by role.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscription",
+                    "public"
+                ],
+                "summary": "List active subscription plans (public)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter plans allowed for a specific role",
+                        "name": "role",
+                        "in": "query",
+                        "required": false,
+                        "enum": ["parent", "institution", "training_center", "montessori_professional", "admin", "super_admin"]
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of active subscription plans",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "integer"},
+                                    "name": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "price": {"type": "number"},
+                                    "currency": {"type": "string"},
+                                    "billing_cycle": {"type": "string"},
+                                    "features": {"type": "string"},
+                                    "stripe_price_id": {"type": "string"},
+                                    "allowed_roles": {"type": "string"}
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Authenticate a user and return a JWT token",
@@ -4870,7 +4924,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get detailed information about a school including public parent profiles whose children attend this school",
+                "description": "Get detailed information about a school including public parent profiles whose children attend this school (requires active subscription)",
                 "produces": [
                     "application/json"
                 ],
@@ -4898,6 +4952,24 @@
                     },
                     "400": {
                         "description": "Bad request or invalid school ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Subscription required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

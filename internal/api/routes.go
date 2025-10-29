@@ -48,7 +48,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-   "version":       "2.1.8",
+			"version":       "2.2.0",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -84,6 +84,8 @@ func SetupRoutes(
 	apiV1.Post("/reset-password", authHandler.ResetPassword)                       // Reset password endpoint
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db))                    // Publicly searchable schools
 	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
+	// Public subscription plans
+	apiV1.Get("/subscription/plans", subscriptionHandler.ListPublicPlans)
 
 	// Public Blog Routes (no auth required)
 	apiV1.Get("/blogs", blogHandler.GetBlogs)            // Get all published blogs
@@ -174,8 +176,8 @@ func SetupRoutes(
 	// Parent Routes
 	parentRoutes := apiV1.Group("/parent", authMw, middleware.RoleAuth(models.ParentRole))
 	parentRoutes.Post("/profile", parentHandler.CreateOrUpdateParentProfile)
-	parentRoutes.Get("/schools/search", parentHandler.SearchSchools)                // Can reuse educator's or have its own
-	parentRoutes.Get("/schools/:school_id/details", parentHandler.GetSchoolDetails) // Get school details with public parent profiles
+	parentRoutes.Get("/schools/search", parentHandler.SearchSchools)                                // Can reuse educator's or have its own
+	parentRoutes.Get("/schools/:school_id/details", subscriptionMw, parentHandler.GetSchoolDetails) // Get school details with public parent profiles (requires active subscription)
 	parentRoutes.Post("/schools/save/:school_id", parentHandler.SaveSchool)
 	parentRoutes.Delete("/schools/save/:school_id", parentHandler.DeleteSavedSchool)
 	parentRoutes.Get("/schools/saved", parentHandler.GetSavedSchools)
@@ -191,7 +193,7 @@ func SetupRoutes(
 	subscriptionRoutes.Post("/portal", subscriptionHandler.CreateBillingPortalSession)
 
 	// Protected routes that require authentication
-	apiV1.Get("/institutions/:id/details", authMw, institutionHandler.GetInstitutionDetails) // Detailed institution info (requires subscription)
+	apiV1.Get("/institutions/:id/details", authMw, subscriptionMw, institutionHandler.GetInstitutionDetails) // Detailed institution info (requires active subscription)
 
 	// Review Routes
 	reviewRoutes := apiV1.Group("/reviews", authMw)
