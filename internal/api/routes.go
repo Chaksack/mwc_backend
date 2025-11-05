@@ -48,7 +48,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.2.0",
+			"version":       "2.2.1",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -153,8 +153,8 @@ func SetupRoutes(
 	instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
 	instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
 
-	// Allow anyone to discover montessori professionals actively looking for jobs (public)
-	apiV1.Get("/institution/montessori-professionals/looking-for-jobs", montessoriProfessionalHandler.ListLookingForJobs)
+	// Montessori professionals looking for jobs - accessible by admin, institution, and training_center
+	apiV1.Get("/institution/montessori-professionals/looking-for-jobs", authMw, montessoriProfessionalHandler.ListLookingForJobs)
 	// Allow institutions/training centers to view a professional's public profile and contact them
 	instTcRoutes.Get("/montessori-professionals/:id", montessoriProfessionalHandler.GetPublicProfessional)
 	instTcRoutes.Post("/montessori-professionals/:id/contact", montessoriProfessionalHandler.ContactProfessional)

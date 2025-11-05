@@ -111,14 +111,32 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 // ListLookingForJobs returns Montessori Professional profiles that are actively looking for jobs.
 // This endpoint is intended to be consumed by institutions and training centers to discover candidates.
 // @Summary List montessori professionals looking for jobs
-// @Description Returns a list of public montessori professional profiles where LookingForJob=true
+// @Description Returns a list of public montessori professional profiles where LookingForJob=true (admin, institution, training_center only)
 // @Tags montessori-professional,jobs
 // @Produce json
 // @Success 200 {array} models.MontessoriProfessionalProfile
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - insufficient permissions"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /institution/montessori-professionals/looking-for-jobs [get]
 func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
+	// Check user role - only admin, institution, and training_center can access
+	userRole, _ := c.Locals("user_role").(string)
+	allowedRoles := []string{"admin", "superadmin", "institution", "training_center"}
+
+	isAllowed := false
+	for _, role := range allowedRoles {
+		if userRole == role {
+			isAllowed = true
+			break
+		}
+	}
+
+	if !isAllowed {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Insufficient permissions. Only admins, institutions, and training centers can view this list."})
+	}
+
 	var profiles []models.MontessoriProfessionalProfile
 	if err := h.db.Preload("User").Where("looking_for_job = ?", true).Find(&profiles).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve profiles: " + err.Error()})
@@ -494,7 +512,7 @@ func (h *MontessoriProfessionalHandler) DeleteJobPreference(c *fiber.Ctx) error 
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to disable preference: " + err.Error()})
 	}
 	LogUserAction(h.db, actorUserID, "MONT_PROF_JOB_PREF_DISABLED", pref.ID, "JobPreference", "Preference disabled", c)
- return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Preference disabled"})
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Preference disabled"})
 }
 
 // ApplyForJob allows a montessori professional to apply for a job.

@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.2.0"
+        "version": "2.2.1"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -3878,12 +3878,16 @@
         },
         "/institution/montessori-professionals/looking-for-jobs": {
             "get": {
-                "description": "Retrieve a public list of montessori professionals who are actively looking for jobs",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a list of public montessori professional profiles where LookingForJob=true (admin, institution, training_center only)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "institution",
                     "montessori-professional",
                     "jobs"
                 ],
@@ -3901,6 +3905,15 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - insufficient permissions",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
