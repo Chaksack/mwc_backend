@@ -3892,7 +3892,24 @@
                     "jobs"
                 ],
                 "summary": "List montessori professionals looking for jobs",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "type": "integer",
+                        "description": "Page number for pagination (default 1)",
+                        "required": false,
+                        "default": 1
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "type": "integer",
+                        "description": "Number of items per page (max 100, default 25)",
+                        "required": false,
+                        "default": 25
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "List of public profiles",

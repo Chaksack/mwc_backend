@@ -137,8 +137,36 @@ func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Insufficient permissions. Only admins, institutions, and training centers can view this list."})
 	}
 
-	var profiles []models.MontessoriProfessionalProfile
-	if err := h.db.Preload("User").Where("looking_for_job = ?", true).Find(&profiles).Error; err != nil {
+	// Pagination params with sane defaults
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "25")
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 25
+	}
+	offset := (page - 1) * limit
+
+	// Only select the needed fields and join with users to avoid loading full GORM structs
+	type row struct {
+		ID             uint
+		UserID         uint
+		FirstName      string
+		LastName       string
+		Bio            string
+		Qualifications string
+		Experience     string
+		LookingForJob  bool
+	}
+
+	var rows []row
+	// Use a context with timeout for the DB call to avoid long-running queries
+	// Note: GORM accepts context via WithContext if needed; assuming db has a default timeout, otherwise consider adding one at app level
+	query := h.db.Table("montessori_professional_profiles as mpp").Select("mpp.id, mpp.user_id, u.first_name, u.last_name, mpp.bio, mpp.qualifications, mpp.experience, mpp.looking_for_job").Joins("left join users u on u.id = mpp.user_id").Where("mpp.looking_for_job = ?", true).Limit(limit).Offset(offset)
+	if err := query.Scan(&rows).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve profiles: " + err.Error()})
 	}
 
@@ -154,13 +182,13 @@ func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
 		LookingForJob  bool   `json:"looking_for_job"`
 	}
 
-	out := make([]PublicProfile, 0, len(profiles))
-	for _, p := range profiles {
+	out := make([]PublicProfile, 0, len(rows))
+	for _, p := range rows {
 		out = append(out, PublicProfile{
 			ID:             p.ID,
 			UserID:         p.UserID,
-			FirstName:      p.User.FirstName,
-			LastName:       p.User.LastName,
+			FirstName:      p.FirstName,
+			LastName:       p.LastName,
 			Bio:            p.Bio,
 			Qualifications: p.Qualifications,
 			Experience:     p.Experience,
