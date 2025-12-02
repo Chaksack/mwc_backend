@@ -28,6 +28,20 @@ func NewInstitutionHandler(db *gorm.DB, mq queue.MessageQueueService, emailSvc e
 type InstitutionProfileRequest struct {
 	InstitutionName  string `json:"institution_name" validate:"required"`
 	VerificationDocs string `json:"verification_docs,omitempty"` // URL or path
+	// School details for creating or linking
+	SchoolName        string  `json:"school_name,omitempty"`
+	SchoolAddress     string  `json:"school_address,omitempty"`
+	SchoolCity        string  `json:"school_city,omitempty"`
+	SchoolState       string  `json:"school_state,omitempty"`
+	SchoolCountry     string  `json:"school_country,omitempty"`
+	SchoolCountryCode string  `json:"school_country_code,omitempty"`
+	SchoolZipCode     string  `json:"school_zip_code,omitempty"`
+	SchoolPhone       string  `json:"school_phone,omitempty"`
+	SchoolWebsite     string  `json:"school_website,omitempty"`
+	SchoolEmail       string  `json:"school_email,omitempty"`
+	SchoolLatitude    float64 `json:"school_latitude,omitempty"`
+	SchoolLongitude   float64 `json:"school_longitude,omitempty"`
+	SchoolCategory    string  `json:"school_category,omitempty"` // "school" or "training_center"
 }
 
 type JobRequest struct {
@@ -41,7 +55,7 @@ type JobRequest struct {
 
 // CreateOrUpdateInstitutionProfile for an institution/training center
 // @Summary Create or update institution profile
-// @Description Creates a new institution profile or updates an existing one
+// @Description Creates a new institution profile or updates an existing one. Can also create or link a school/training center.
 // @Tags institution,profile
 // @Accept json
 // @Produce json
@@ -58,20 +72,21 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
 	}
 
+	// Get user role to determine school category
+	userRole, _ := c.Locals("user_role").(string)
+
 	req := new(InstitutionProfileRequest)
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
 	}
-	// TODO: Validate req (e.g., using go-playground/validator)
 
 	var profile models.InstitutionProfile
-	// Use FirstOrInit or FirstOrCreate for cleaner logic if profile might not exist
 	err := h.db.Where("user_id = ?", actorUserID).First(&profile).Error
 	isNewProfile := false
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			isNewProfile = true
-			profile.UserID = actorUserID // Set UserID for new profile
+			profile.UserID = actorUserID
 		} else {
 			LogUserAction(h.db, actorUserID, "INST_PROFILE_FETCH_FAIL", actorUserID, "InstitutionProfile", err.Error(), c)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error fetching profile: " + err.Error()})
@@ -79,10 +94,126 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 	}
 
 	profile.InstitutionName = req.InstitutionName
-	if req.VerificationDocs != "" { // Allow updating verification docs
+	if req.VerificationDocs != "" {
 		profile.VerificationDocs = req.VerificationDocs
 	}
-	// IsVerified should be handled by an admin usually, not set here directly unless specific logic allows
+
+	// Handle school creation/linking/updating if school details provided
+	if req.SchoolName != "" && req.SchoolCountryCode != "" {
+		// Determine school category based on user role
+		schoolCategory := models.SchoolCategorySchool
+		if userRole == string(models.TrainingCenterRole) || req.SchoolCategory == "training_center" {
+			schoolCategory = models.SchoolCategoryTrainingCenter
+		}
+
+		if profile.SchoolID != nil {
+			// Institution already linked to a school: update school info
+			var school models.School
+			if err := h.db.First(&school, *profile.SchoolID).Error; err == nil {
+				// Only update fields if present in request
+				if req.SchoolName != "" {
+					school.Name = req.SchoolName
+				}
+				if req.SchoolAddress != "" {
+					school.Address = req.SchoolAddress
+				}
+				if req.SchoolCity != "" {
+					school.City = req.SchoolCity
+				}
+				if req.SchoolState != "" {
+					school.State = req.SchoolState
+				}
+				if req.SchoolCountry != "" {
+					school.Country = req.SchoolCountry
+				}
+				if req.SchoolCountryCode != "" {
+					school.CountryCode = req.SchoolCountryCode
+				}
+				if req.SchoolZipCode != "" {
+					school.ZipCode = req.SchoolZipCode
+				}
+				if req.SchoolPhone != "" {
+					school.ContactPhone = req.SchoolPhone
+				}
+				if req.SchoolEmail != "" {
+					school.ContactEmail = req.SchoolEmail
+				}
+				if req.SchoolWebsite != "" {
+					school.Website = req.SchoolWebsite
+				}
+				if req.SchoolLatitude != 0 {
+					school.Latitude = req.SchoolLatitude
+				}
+				if req.SchoolLongitude != 0 {
+					school.Longitude = req.SchoolLongitude
+				}
+				school.Category = schoolCategory
+				school.Member = true
+				h.db.Save(&school)
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_UPDATED", school.ID, "School", "Updated school info", c)
+			}
+		} else {
+			// Try to find existing school by name, city, and country code
+			var existingSchool models.School
+			schoolQuery := h.db.Where("LOWER(name) = LOWER(?) AND country_code = ?", req.SchoolName, req.SchoolCountryCode)
+			if req.SchoolCity != "" {
+				schoolQuery = schoolQuery.Where("LOWER(city) = LOWER(?)", req.SchoolCity)
+			}
+			err := schoolQuery.First(&existingSchool).Error
+
+			if err == nil {
+				// School exists - check if it's already claimed
+				var existingInst models.InstitutionProfile
+				claimErr := h.db.Where("school_id = ?", existingSchool.ID).First(&existingInst).Error
+				if claimErr == nil && existingInst.ID != profile.ID {
+					return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+						"error":     "This school is already claimed by another institution. Please contact admin if this is your school.",
+						"school_id": existingSchool.ID,
+					})
+				}
+				// Link to existing school
+				profile.SchoolID = &existingSchool.ID
+
+				// Update school Member status
+				existingSchool.Member = true
+				h.db.Save(&existingSchool)
+
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_LINKED", existingSchool.ID, "School", "Linked to existing school", c)
+			} else if err == gorm.ErrRecordNotFound {
+				// Create new school
+				newSchool := models.School{
+					Name:            req.SchoolName,
+					Category:        schoolCategory,
+					Address:         req.SchoolAddress,
+					City:            req.SchoolCity,
+					State:           req.SchoolState,
+					Country:         req.SchoolCountry,
+					CountryCode:     req.SchoolCountryCode,
+					ZipCode:         req.SchoolZipCode,
+					ContactPhone:    req.SchoolPhone,
+					ContactEmail:    req.SchoolEmail,
+					Website:         req.SchoolWebsite,
+					Latitude:        req.SchoolLatitude,
+					Longitude:       req.SchoolLongitude,
+					UploadedByAdmin: false,
+					CreatedByUserID: &actorUserID,
+					Member:          true,
+					Hiring:          false,
+				}
+
+				if err := h.db.Create(&newSchool).Error; err != nil {
+					LogUserAction(h.db, actorUserID, "INST_SCHOOL_CREATE_FAIL", 0, "School", err.Error(), c)
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create school: " + err.Error()})
+				}
+
+				profile.SchoolID = &newSchool.ID
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_CREATED", newSchool.ID, "School", "Created new school", c)
+			} else {
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_SEARCH_FAIL", 0, "School", err.Error(), c)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error searching for school: " + err.Error()})
+			}
+		}
+	}
 
 	if err := h.db.Save(&profile).Error; err != nil {
 		actionType := "INST_PROFILE_UPDATE_FAIL"
@@ -98,6 +229,11 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 		actionType = "INST_PROFILE_CREATE_SUCCESS"
 	}
 	LogUserAction(h.db, actorUserID, actionType, profile.ID, "InstitutionProfile", "Profile saved", c)
+
+	// Reload profile with school data for response
+	if err := h.db.Preload("School").First(&profile, profile.ID).Error; err == nil {
+		return c.Status(fiber.StatusOK).JSON(profile)
+	}
 	return c.Status(fiber.StatusOK).JSON(profile)
 }
 
@@ -363,7 +499,7 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to complete job posting: " + err.Error()})
 	}
 
- LogUserAction(h.db, actorUserID, "INST_JOB_POST_SUCCESS", job.ID, "Job", "Job posted", c)
+	LogUserAction(h.db, actorUserID, "INST_JOB_POST_SUCCESS", job.ID, "Job", "Job posted", c)
 	// Fire-and-forget notifications to matching Montessori Professionals
 	go h.notifyMatchingProfessionals(job)
 	return c.Status(fiber.StatusCreated).JSON(job)

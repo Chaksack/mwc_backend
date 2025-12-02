@@ -109,6 +109,8 @@ type School struct {
 	ContactEmail    string
 	ContactPhone    string
 	Website         string
+	Latitude        float64 `gorm:"index"` // Latitude for map display
+	Longitude       float64 `gorm:"index"` // Longitude for map display
 	SearchString    string // Search query used to find this school
 	SearchPageUrl   string // URL of the search page where this school was found
 	UploadedByAdmin bool   `gorm:"default:false"` // True if uploaded by admin batch

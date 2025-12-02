@@ -21,6 +21,51 @@
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
     "paths": {
+                "/notifications": {
+                    "get": {
+                        "security": [ { "BearerAuth": [] } ],
+                        "description": "Returns notifications for the logged-in user.",
+                        "produces": ["application/json"],
+                        "tags": ["notification"],
+                        "summary": "Get user notifications",
+                        "responses": {
+                            "200": {
+                                "description": "List of notifications",
+                                "schema": { "type": "array", "items": { "$ref": "#/definitions/models.Notification" } }
+                            },
+                            "401": {
+                                "description": "Unauthorized",
+                                "schema": { "type": "object", "additionalProperties": { "type": "string" } }
+                            }
+                        }
+                    }
+                },
+                "/notifications/{id}/read": {
+                    "put": {
+                        "security": [ { "BearerAuth": [] } ],
+                        "description": "Marks a notification as read for the logged-in user.",
+                        "produces": ["application/json"],
+                        "tags": ["notification"],
+                        "summary": "Mark notification as read",
+                        "parameters": [
+                            { "name": "id", "in": "path", "required": true, "type": "integer", "description": "Notification ID" }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Notification marked as read",
+                                "schema": { "$ref": "#/definitions/models.Notification" }
+                            },
+                            "401": {
+                                "description": "Unauthorized",
+                                "schema": { "type": "object", "additionalProperties": { "type": "string" } }
+                            },
+                            "404": {
+                                "description": "Notification not found",
+                                "schema": { "type": "object", "additionalProperties": { "type": "string" } }
+                            }
+                        }
+                    }
+                },
         "/admin/action-logs": {
             "get": {
                 "security": [
@@ -6348,6 +6393,18 @@
         }
     },
     "definitions": {
+                "models.Notification": {
+                    "description": "Notification information",
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "integer", "example": 1 },
+                        "user_id": { "type": "integer", "example": 123 },
+                        "title": { "type": "string", "example": "Welcome" },
+                        "message": { "type": "string", "example": "Your account was created." },
+                        "read": { "type": "boolean", "example": false },
+                        "created_at": { "type": "string", "example": "2023-01-01T00:00:00Z" }
+                    }
+                },
         "handlers.AssignUserSubscriptionRequest": {
             "type": "object",
             "properties": {
@@ -6743,6 +6800,61 @@
                 "verification_docs": {
                     "description": "URL or path",
                     "type": "string"
+                },
+                "school_name": {
+                    "type": "string",
+                    "description": "Name of the school or training center"
+                },
+                "school_address": {
+                    "type": "string",
+                    "description": "Physical address of the school"
+                },
+                "school_city": {
+                    "type": "string",
+                    "description": "City where the school is located"
+                },
+                "school_state": {
+                    "type": "string",
+                    "description": "State or province"
+                },
+                "school_country": {
+                    "type": "string",
+                    "description": "Full country name"
+                },
+                "school_country_code": {
+                    "type": "string",
+                    "description": "ISO country code (e.g., US, UK, CA)"
+                },
+                "school_zip_code": {
+                    "type": "string",
+                    "description": "Postal/ZIP code"
+                },
+                "school_phone": {
+                    "type": "string",
+                    "description": "Contact phone number"
+                },
+                "school_website": {
+                    "type": "string",
+                    "description": "School website URL"
+                },
+                "school_email": {
+                    "type": "string",
+                    "description": "Contact email address"
+                },
+                "school_latitude": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Latitude for map display"
+                },
+                "school_longitude": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Longitude for map display"
+                },
+                "school_category": {
+                    "type": "string",
+                    "enum": ["school", "training_center"],
+                    "description": "Type of institution (defaults to user role)"
                 }
             }
         },
@@ -7879,6 +7991,16 @@
                 "id": {
                     "type": "integer",
                     "example": 1
+                },
+                "latitude": {
+                    "description": "Latitude for map display",
+                    "type": "number",
+                    "format": "double"
+                },
+                "longitude": {
+                    "description": "Longitude for map display",
+                    "type": "number",
+                    "format": "double"
                 },
                 "member": {
                     "description": "True if an institution/training center has selected this school",
