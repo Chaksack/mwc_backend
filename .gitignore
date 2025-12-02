@@ -16,6 +16,7 @@
 
 # Environment files
 .env
+.env.prod
 .env.local
 .env.development
 .env.test
