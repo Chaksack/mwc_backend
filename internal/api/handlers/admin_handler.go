@@ -26,20 +26,20 @@ import (
 )
 
 // AdminHandler handles admin-specific requests.
- type AdminHandler struct {
-	 db        *gorm.DB
-	 mqService queue.MessageQueueService
-	 cfg       *config.Config
- }
- 
- // NewAdminHandler creates a new AdminHandler.
- func NewAdminHandler(db *gorm.DB, mq queue.MessageQueueService, cfg *config.Config) *AdminHandler {
-	 // Initialize Stripe key once if provided in config
-	 if cfg != nil && cfg.StripeSecretKey != "" {
-		 stripe.Key = cfg.StripeSecretKey
-	 }
-	 return &AdminHandler{db: db, mqService: mq, cfg: cfg}
- }
+type AdminHandler struct {
+	db        *gorm.DB
+	mqService queue.MessageQueueService
+	cfg       *config.Config
+}
+
+// NewAdminHandler creates a new AdminHandler.
+func NewAdminHandler(db *gorm.DB, mq queue.MessageQueueService, cfg *config.Config) *AdminHandler {
+	// Initialize Stripe key once if provided in config
+	if cfg != nil && cfg.StripeSecretKey != "" {
+		stripe.Key = cfg.StripeSecretKey
+	}
+	return &AdminHandler{db: db, mqService: mq, cfg: cfg}
+}
 
 // SchoolUploadData represents the structure of a school in the JSON file.
 type SchoolUploadData struct {
@@ -87,14 +87,14 @@ type SchoolUploadData struct {
 			Value bool   `json:"value"`
 		} `json:"Accessibility"`
 	} `json:"additionalInfo"`
-	GasPrices    []string `json:"gasPrices"`
-	Url          string   `json:"url"`
-	SearchPageUrl string   `json:"searchPageUrl"`
-	SearchString string   `json:"searchString"`
-	Language     string   `json:"language"`
-	IsAdvertisement bool   `json:"isAdvertisement"`
-	ImageUrl     string   `json:"imageUrl"`
-	Kgmid        string   `json:"kgmid"`
+	GasPrices       []string `json:"gasPrices"`
+	Url             string   `json:"url"`
+	SearchPageUrl   string   `json:"searchPageUrl"`
+	SearchString    string   `json:"searchString"`
+	Language        string   `json:"language"`
+	IsAdvertisement bool     `json:"isAdvertisement"`
+	ImageUrl        string   `json:"imageUrl"`
+	Kgmid           string   `json:"kgmid"`
 }
 
 // BatchUploadSchools handles batch uploading of schools from a JSON file.
@@ -164,9 +164,9 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No school data found in the file."})
 	}
 
-	var schoolsToCreate []models.School
-	// var createdCount int // Not needed if using GORM's return
 	var operationErrors []string
+	var createdCount int64 = 0
+	var updatedCount int64 = 0
 
 	for _, data := range schoolsData {
 		// If countryCode is provided, use it as a default or filter by it
@@ -227,28 +227,63 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 			ContactEmail:    "", // Not available in the new structure
 			ContactPhone:    data.Phone,
 			Website:         data.Url,
+			Latitude:        data.Location.Lat,
+			Longitude:       data.Location.Lng,
 			SearchString:    data.SearchString,
 			SearchPageUrl:   data.SearchPageUrl,
 			UploadedByAdmin: true,
 			CreatedByUserID: &adminUserID,
 		}
-		schoolsToCreate = append(schoolsToCreate, school)
-	}
 
-	var createdCount int64 = 0
-	if len(schoolsToCreate) > 0 {
-		result := h.db.Create(&schoolsToCreate) // GORM creates records and populates their IDs
-		if result.Error != nil {
-			operationErrors = append(operationErrors, "Failed to batch insert schools: "+result.Error.Error())
-			log.Printf("Error batch inserting schools: %v", result.Error)
+		// Try to find an existing school to update (match by name + country_code, and city when available)
+		var existingSchool models.School
+		query := h.db.Where("LOWER(name) = LOWER(?) AND country_code = ?", data.Title, data.CountryCode)
+		if data.City != "" {
+			query = query.Where("LOWER(city) = LOWER(?)", data.City)
 		}
-		createdCount = result.RowsAffected
+		err := query.First(&existingSchool).Error
+		if err == nil {
+			// Update existing record - preserve CreatedByUserID if already set
+			existingSchool.Name = school.Name
+			existingSchool.Address = school.Address
+			existingSchool.City = school.City
+			existingSchool.State = school.State
+			existingSchool.Country = school.Country
+			existingSchool.CountryCode = school.CountryCode
+			existingSchool.ZipCode = school.ZipCode
+			existingSchool.ContactPhone = school.ContactPhone
+			existingSchool.Website = school.Website
+			existingSchool.Latitude = school.Latitude
+			existingSchool.Longitude = school.Longitude
+			existingSchool.SearchString = school.SearchString
+			existingSchool.SearchPageUrl = school.SearchPageUrl
+			existingSchool.UploadedByAdmin = true
+
+			if err := h.db.Save(&existingSchool).Error; err != nil {
+				operationErrors = append(operationErrors, fmt.Sprintf("Failed to update existing school '%s': %s", data.Title, err.Error()))
+				continue
+			}
+			updatedCount++
+			continue
+		}
+		if err != gorm.ErrRecordNotFound {
+			operationErrors = append(operationErrors, fmt.Sprintf("DB error searching for school '%s': %s", data.Title, err.Error()))
+			continue
+		}
+
+		// Not found - create new record
+		if err := h.db.Create(&school).Error; err != nil {
+			operationErrors = append(operationErrors, fmt.Sprintf("Failed to create school '%s': %s", data.Title, err.Error()))
+			continue
+		}
+		createdCount++
 	}
 
 	actionDetail := map[string]interface{}{
 		"file_name":       file.Filename,
 		"attempted_count": len(schoolsData),
 		"created_count":   createdCount,
+		"updated_count":   updatedCount,
 		"errors":          operationErrors,
 	}
 
@@ -268,6 +303,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 		response := fiber.Map{
 			"message":       "Batch upload partially completed with errors.",
 			"created_count": createdCount,
+			"updated_count": updatedCount,
 			"errors":        operationErrors,
 		}
 
@@ -287,6 +323,7 @@ func (h *AdminHandler) BatchUploadSchools(c *fiber.Ctx) error {
 	response := fiber.Map{
 		"message":       "Schools batch uploaded successfully.",
 		"created_count": createdCount,
+		"updated_count": updatedCount,
 	}
 
 	// Add countryCode to response if it was provided
@@ -365,6 +402,9 @@ func (h *AdminHandler) UpdateSchool(c *fiber.Ctx) error {
 	school.Website = updateData.Url
 	school.SearchString = updateData.SearchString
 	school.SearchPageUrl = updateData.SearchPageUrl
+	// Update latitude/longitude if provided
+	school.Latitude = updateData.Location.Lat
+	school.Longitude = updateData.Location.Lng
 	// school.UploadedByAdmin remains true, or could be updatable
 	// school.CreatedByUserID should ideally not change, or track updater
 
@@ -735,17 +775,17 @@ func (h *AdminHandler) GetActionLogs(c *fiber.Ctx) error {
 
 // ManualSchoolCreationRequest represents the structure for manually creating a school or training center
 type ManualSchoolCreationRequest struct {
-	Name         string                  `json:"name" validate:"required"`
-	Category     models.SchoolCategory   `json:"category" validate:"required,oneof=school training_center"`
-	Address      string                  `json:"address"`
-	City         string                  `json:"city"`
-	State        string                  `json:"state"`
-	CountryCode  string                  `json:"country_code" validate:"required"`
-	Country      string                  `json:"country" validate:"required"`
-	ZipCode      string                  `json:"zip_code"`
-	ContactEmail string                  `json:"contact_email" validate:"omitempty,email"`
-	ContactPhone string                  `json:"contact_phone"`
-	Website      string                  `json:"website" validate:"omitempty,url"`
+	Name         string                `json:"name" validate:"required"`
+	Category     models.SchoolCategory `json:"category" validate:"required,oneof=school training_center"`
+	Address      string                `json:"address"`
+	City         string                `json:"city"`
+	State        string                `json:"state"`
+	CountryCode  string                `json:"country_code" validate:"required"`
+	Country      string                `json:"country" validate:"required"`
+	ZipCode      string                `json:"zip_code"`
+	ContactEmail string                `json:"contact_email" validate:"omitempty,email"`
+	ContactPhone string                `json:"contact_phone"`
+	Website      string                `json:"website" validate:"omitempty,url"`
 }
 
 // CreateSchool allows admin to manually create a school or training center.
@@ -1109,9 +1149,9 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 	}
 
 	return c.Status(201).JSON(fiber.Map{
-		"success": true,
-		"message": "Subscription plan created successfully",
-		"data":    plan,
+		"success":           true,
+		"message":           "Subscription plan created successfully",
+		"data":              plan,
 		"stripe_product_id": stripeProductID,
 		"stripe_price_id":   stripePriceID,
 		"stripe_lookup_key": usedLookupKey,
@@ -1130,7 +1170,7 @@ func (h *AdminHandler) CreateSubscriptionPlan(c *fiber.Ctx) error {
 // @Router /admin/subscription-plans [get]
 func (h *AdminHandler) GetSubscriptionPlans(c *fiber.Ctx) error {
 	var plans []models.DynamicSubscriptionPlan
-	
+
 	if err := h.db.Preload("CreatedBy").Find(&plans).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"success": false,
@@ -1146,14 +1186,14 @@ func (h *AdminHandler) GetSubscriptionPlans(c *fiber.Ctx) error {
 }
 
 type UpdateSubscriptionPlanRequest struct {
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Price        float64   `json:"price"`
-	Currency     string    `json:"currency"`
-	BillingCycle string    `json:"billing_cycle"`
-	Features     []string  `json:"features"`
-	AllowedRoles []string  `json:"allowed_roles"`
-	IsActive     bool      `json:"is_active"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	Price         float64  `json:"price"`
+	Currency      string   `json:"currency"`
+	BillingCycle  string   `json:"billing_cycle"`
+	Features      []string `json:"features"`
+	AllowedRoles  []string `json:"allowed_roles"`
+	IsActive      bool     `json:"is_active"`
 	StripePriceID string   `json:"stripe_price_id,omitempty"`
 }
 
@@ -1335,9 +1375,9 @@ func (h *AdminHandler) GetRoleSubscriptionMappings(c *fiber.Ctx) error {
 }
 
 type AssignUserSubscriptionRequest struct {
-	UserID         uint `json:"user_id"`
+	UserID             uint `json:"user_id"`
 	SubscriptionPlanID uint `json:"subscription_plan_id"`
-	DurationMonths int  `json:"duration_months"`
+	DurationMonths     int  `json:"duration_months"`
 }
 
 // AssignUserSubscription assigns a subscription plan to a user
@@ -1440,7 +1480,9 @@ func (h *AdminHandler) AssignUserSubscription(c *fiber.Ctx) error {
 
 	// Helper to map Stripe subscription to local fields
 	mapFromStripe := func(s *stripe.Subscription, local *models.Subscription) {
-		if s == nil || local == nil { return }
+		if s == nil || local == nil {
+			return
+		}
 		local.StripeSubscriptionID = s.ID
 		local.StripeCustomerID = s.Customer.ID
 		// status
@@ -1459,20 +1501,20 @@ func (h *AdminHandler) AssignUserSubscription(c *fiber.Ctx) error {
 	if err == gorm.ErrRecordNotFound {
 		// Create new local subscription record and Stripe subscription
 		newSub := models.Subscription{
-			UserID:        req.UserID,
-			Plan:          models.SubscriptionPlan("dynamic"),
-			DynamicPlanID: &req.SubscriptionPlanID,
-			Status:        models.SubscriptionActive,
-			StartDate:     now,
-			EndDate:       now, // will be updated from Stripe below
-			AutoRenew:     true,
+			UserID:           req.UserID,
+			Plan:             models.SubscriptionPlan("dynamic"),
+			DynamicPlanID:    &req.SubscriptionPlanID,
+			Status:           models.SubscriptionActive,
+			StartDate:        now,
+			EndDate:          now, // will be updated from Stripe below
+			AutoRenew:        true,
 			StripeCustomerID: stripeCustomerID,
 		}
 		// Create Stripe subscription if possible
 		if stripe.Key != "" && plan.StripePriceID != "" {
 			params := &stripe.SubscriptionParams{
 				Customer: stripe.String(stripeCustomerID),
-				Items: []*stripe.SubscriptionItemsParams{{Price: stripe.String(plan.StripePriceID)}},
+				Items:    []*stripe.SubscriptionItemsParams{{Price: stripe.String(plan.StripePriceID)}},
 			}
 			params.AddMetadata("user_id", fmt.Sprintf("%d", user.ID))
 			params.AddMetadata("plan_id", fmt.Sprintf("%d", plan.ID))
@@ -1516,7 +1558,7 @@ func (h *AdminHandler) AssignUserSubscription(c *fiber.Ctx) error {
 		// No Stripe sub yet; create one
 		params := &stripe.SubscriptionParams{
 			Customer: stripe.String(stripeCustomerID),
-			Items: []*stripe.SubscriptionItemsParams{{Price: stripe.String(plan.StripePriceID)}},
+			Items:    []*stripe.SubscriptionItemsParams{{Price: stripe.String(plan.StripePriceID)}},
 		}
 		params.AddMetadata("user_id", fmt.Sprintf("%d", user.ID))
 		params.AddMetadata("plan_id", fmt.Sprintf("%d", plan.ID))
