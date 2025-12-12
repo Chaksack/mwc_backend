@@ -189,6 +189,8 @@ func SetupRoutes(
 	parentRoutes.Post("/messages/send/:recipient_id", parentHandler.SendMessage)
 	parentRoutes.Get("/messages", parentHandler.GetMessages)
 	parentRoutes.Post("/messages/:message_id/read", parentHandler.MarkMessageAsRead)
+	parentRoutes.Get("/public-parents", parentHandler.ListPublicParents)          // List parents with public profiles
+	parentRoutes.Get("/public-parents/:id", parentHandler.GetPublicParentDetails) // View specific public parent profile
 
 	// Subscription Routes
 	subscriptionRoutes := apiV1.Group("/subscription", authMw)

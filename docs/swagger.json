@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.2.3"
+        "version": "2.2.4"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -4520,6 +4520,67 @@
                                 "type": "string"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/parent/public-parents": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieves a list of parents whose profiles are set to public. Only accessible by parent role users.",
+                "produces": ["application/json"],
+                "tags": ["parent", "profiles"],
+                "summary": "List public parent profiles",
+                "parameters": [
+                    {"type": "integer", "default": 1, "description": "Page number for pagination", "name": "page", "in": "query"},
+                    {"type": "integer", "default": 10, "description": "Number of items per page", "name": "limit", "in": "query"}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of public parent profiles with pagination",
+                        "schema": {"type": "object", "additionalProperties": true}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    }
+                }
+            }
+        },
+        "/parent/public-parents/{id}": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieves detailed information about a parent with a public profile. Only accessible by parent role users.",
+                "produces": ["application/json"],
+                "tags": ["parent", "profiles"],
+                "summary": "Get public parent profile details",
+                "parameters": [
+                    {"type": "integer", "description": "Parent Profile ID", "name": "id", "in": "path", "required": true}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Parent profile details",
+                        "schema": {"$ref": "#/definitions/models.ParentProfile"}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "403": {
+                        "description": "Profile is private",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "404": {
+                        "description": "Parent profile not found",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
                     }
                 }
             }

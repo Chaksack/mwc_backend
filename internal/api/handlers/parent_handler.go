@@ -67,10 +67,10 @@ func NewParentHandler(db *gorm.DB, mq queue.MessageQueueService, emailSvc email.
 }
 
 type ParentProfileRequest struct {
-	PhoneNumber       string   `json:"phone_number,omitempty"`
-	ProfileVisibility string   `json:"profile_visibility,omitempty"` // "public" or "private"
-	ParentAge         int      `json:"parent_age,omitempty"`
-	SchoolIDs         []uint   `json:"school_ids,omitempty"` // Schools the parent's children attend
+	PhoneNumber       string `json:"phone_number,omitempty"`
+	ProfileVisibility string `json:"profile_visibility,omitempty"` // "public" or "private"
+	ParentAge         int    `json:"parent_age,omitempty"`
+	SchoolIDs         []uint `json:"school_ids,omitempty"` // Schools the parent's children attend
 }
 
 type MessageRequest struct {
@@ -223,18 +223,18 @@ func (h *ParentHandler) GetSchoolDetails(c *fiber.Ctx) error {
 
 	response := map[string]interface{}{
 		"school": map[string]interface{}{
-			"id":           school.ID,
-			"name":         school.Name,
-			"category":     school.Category,
-			"address":      school.Address,
-			"city":         school.City,
-			"state":        school.State,
-			"country":      school.Country,
-			"country_code": school.CountryCode,
-			"zip_code":     school.ZipCode,
+			"id":            school.ID,
+			"name":          school.Name,
+			"category":      school.Category,
+			"address":       school.Address,
+			"city":          school.City,
+			"state":         school.State,
+			"country":       school.Country,
+			"country_code":  school.CountryCode,
+			"zip_code":      school.ZipCode,
 			"contact_email": school.ContactEmail,
 			"contact_phone": school.ContactPhone,
-			"website":      school.Website,
+			"website":       school.Website,
 		},
 		"public_parents": publicParents,
 	}
@@ -539,4 +539,103 @@ func (h *ParentHandler) MarkMessageAsRead(c *fiber.Ctx) error {
 
 	LogUserAction(h.db, actorUserID, "PARENT_MSG_READ_SUCCESS", uint(messageID), "Message", "Message marked as read", c)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Message marked as read successfully.", "message_data": message})
+}
+
+// ListPublicParents returns a list of parents with public profiles (visible only to other parents)
+// @Summary List public parent profiles
+// @Description Retrieves a list of parents whose profiles are set to public. Only accessible by parent role users.
+// @Tags parent,profiles
+// @Produce json
+// @Param page query int false "Page number for pagination" default(1)
+// @Param limit query int false "Number of items per page" default(10)
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{} "List of public parent profiles with pagination"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /parent/public-parents [get]
+func (h *ParentHandler) ListPublicParents(c *fiber.Ctx) error {
+	actorUserID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
+	}
+
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset := (page - 1) * limit
+
+	var profiles []models.ParentProfile
+	// Query for public profiles, exclude the current user, preload User info
+	query := h.db.Where("profile_visibility = ? AND user_id != ?", "public", actorUserID).
+		Preload("User").
+		Preload("Schools").
+		Offset(offset).
+		Limit(limit)
+
+	if err := query.Find(&profiles).Error; err != nil {
+		LogUserAction(h.db, actorUserID, "PARENT_LIST_PUBLIC_FAIL", 0, "ParentProfile", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve public parent profiles: " + err.Error()})
+	}
+
+	// Get total count for pagination
+	var total int64
+	h.db.Model(&models.ParentProfile{}).Where("profile_visibility = ? AND user_id != ?", "public", actorUserID).Count(&total)
+
+	LogUserAction(h.db, actorUserID, "PARENT_LIST_PUBLIC_SUCCESS", 0, "ParentProfile", fmt.Sprintf("Listed %d public parents", len(profiles)), c)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data": profiles,
+		"meta": fiber.Map{
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
+			"last_page": (total + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
+// GetPublicParentDetails returns detailed information about a specific public parent profile
+// @Summary Get public parent profile details
+// @Description Retrieves detailed information about a parent with a public profile. Only accessible by parent role users.
+// @Tags parent,profiles
+// @Produce json
+// @Param id path int true "Parent Profile ID"
+// @Security BearerAuth
+// @Success 200 {object} models.ParentProfile "Parent profile details"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Profile is private"
+// @Failure 404 {object} map[string]string "Parent profile not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /parent/public-parents/{id} [get]
+func (h *ParentHandler) GetPublicParentDetails(c *fiber.Ctx) error {
+	actorUserID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
+	}
+
+	parentIDStr := c.Params("id")
+	parentID, err := strconv.ParseUint(parentIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid parent profile ID format"})
+	}
+
+	var profile models.ParentProfile
+	if err := h.db.Preload("User").Preload("Schools").First(&profile, uint(parentID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			LogUserAction(h.db, actorUserID, "PARENT_VIEW_PUBLIC_FAIL_NOTFOUND", uint(parentID), "ParentProfile", "Profile not found", c)
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Parent profile not found"})
+		}
+		LogUserAction(h.db, actorUserID, "PARENT_VIEW_PUBLIC_FAIL_DB", uint(parentID), "ParentProfile", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+
+	// Check if profile is public
+	if profile.ProfileVisibility != "public" {
+		LogUserAction(h.db, actorUserID, "PARENT_VIEW_PUBLIC_FAIL_PRIVATE", uint(parentID), "ParentProfile", "Profile is private", c)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "This profile is private and cannot be viewed"})
+	}
+
+	LogUserAction(h.db, actorUserID, "PARENT_VIEW_PUBLIC_SUCCESS", uint(parentID), "ParentProfile", "Viewed public parent profile", c)
+
+	return c.Status(fiber.StatusOK).JSON(profile)
 }
