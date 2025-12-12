@@ -566,13 +566,6 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	})
 }
 
-// ensureDir creates a directory if it doesn't exist
-func ensureDir(dir string) error {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return os.MkdirAll(dir, 0755)
-	}
-	return nil
-}
 
 // UploadProfilePicture handles uploading a new profile picture for the authenticated user
 // @Summary Upload profile picture

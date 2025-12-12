@@ -16,11 +16,56 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.2.1"
+        "version": "2.2.4"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
     "paths": {
+                "/notifications": {
+                    "get": {
+                        "security": [ { "BearerAuth": [] } ],
+                        "description": "Returns notifications for the logged-in user.",
+                        "produces": ["application/json"],
+                        "tags": ["notification"],
+                        "summary": "Get user notifications",
+                        "responses": {
+                            "200": {
+                                "description": "List of notifications",
+                                "schema": { "type": "array", "items": { "$ref": "#/definitions/models.Notification" } }
+                            },
+                            "401": {
+                                "description": "Unauthorized",
+                                "schema": { "type": "object", "additionalProperties": { "type": "string" } }
+                            }
+                        }
+                    }
+                },
+                "/notifications/{id}/read": {
+                    "put": {
+                        "security": [ { "BearerAuth": [] } ],
+                        "description": "Marks a notification as read for the logged-in user.",
+                        "produces": ["application/json"],
+                        "tags": ["notification"],
+                        "summary": "Mark notification as read",
+                        "parameters": [
+                            { "name": "id", "in": "path", "required": true, "type": "integer", "description": "Notification ID" }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Notification marked as read",
+                                "schema": { "$ref": "#/definitions/models.Notification" }
+                            },
+                            "401": {
+                                "description": "Unauthorized",
+                                "schema": { "type": "object", "additionalProperties": { "type": "string" } }
+                            },
+                            "404": {
+                                "description": "Notification not found",
+                                "schema": { "type": "object", "additionalProperties": { "type": "string" } }
+                            }
+                        }
+                    }
+                },
         "/admin/action-logs": {
             "get": {
                 "security": [
@@ -2813,9 +2858,9 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new institution profile or updates an existing one",
+                "description": "Creates a new institution profile or updates an existing one. Can also create or link a school/training center. Supports profile picture upload.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2826,15 +2871,22 @@
                 ],
                 "summary": "Create or update institution profile",
                 "parameters": [
-                    {
-                        "description": "Institution profile information",
-                        "name": "profile",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.InstitutionProfileRequest"
-                        }
-                    }
+                    {"name": "institution_name", "in": "formData", "type": "string", "required": true, "description": "Institution name"},
+                    {"name": "verification_docs", "in": "formData", "type": "string", "description": "Verification documents URL"},
+                    {"name": "school_name", "in": "formData", "type": "string", "description": "School name"},
+                    {"name": "school_address", "in": "formData", "type": "string", "description": "School address"},
+                    {"name": "school_city", "in": "formData", "type": "string", "description": "School city"},
+                    {"name": "school_state", "in": "formData", "type": "string", "description": "School state"},
+                    {"name": "school_country", "in": "formData", "type": "string", "description": "School country"},
+                    {"name": "school_country_code", "in": "formData", "type": "string", "description": "School country code"},
+                    {"name": "school_zip_code", "in": "formData", "type": "string", "description": "School zip code"},
+                    {"name": "school_phone", "in": "formData", "type": "string", "description": "School phone"},
+                    {"name": "school_website", "in": "formData", "type": "string", "description": "School website"},
+                    {"name": "school_email", "in": "formData", "type": "string", "description": "School email"},
+                    {"name": "school_latitude", "in": "formData", "type": "number", "description": "School latitude"},
+                    {"name": "school_longitude", "in": "formData", "type": "number", "description": "School longitude"},
+                    {"name": "school_category", "in": "formData", "type": "string", "description": "School category (school or training_center)"},
+                    {"name": "profile_picture", "in": "formData", "type": "file", "description": "Profile picture file"}
                 ],
                 "responses": {
                     "200": {
@@ -3892,7 +3944,24 @@
                     "jobs"
                 ],
                 "summary": "List montessori professionals looking for jobs",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "type": "integer",
+                        "description": "Page number for pagination (default 1)",
+                        "required": false,
+                        "default": 1
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "type": "integer",
+                        "description": "Number of items per page (max 100, default 25)",
+                        "required": false,
+                        "default": 25
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "List of public profiles",
@@ -4451,6 +4520,67 @@
                                 "type": "string"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/parent/public-parents": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieves a list of parents whose profiles are set to public. Only accessible by parent role users.",
+                "produces": ["application/json"],
+                "tags": ["parent", "profiles"],
+                "summary": "List public parent profiles",
+                "parameters": [
+                    {"type": "integer", "default": 1, "description": "Page number for pagination", "name": "page", "in": "query"},
+                    {"type": "integer", "default": 10, "description": "Number of items per page", "name": "limit", "in": "query"}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of public parent profiles with pagination",
+                        "schema": {"type": "object", "additionalProperties": true}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    }
+                }
+            }
+        },
+        "/parent/public-parents/{id}": {
+            "get": {
+                "security": [{"BearerAuth": []}],
+                "description": "Retrieves detailed information about a parent with a public profile. Only accessible by parent role users.",
+                "produces": ["application/json"],
+                "tags": ["parent", "profiles"],
+                "summary": "Get public parent profile details",
+                "parameters": [
+                    {"type": "integer", "description": "Parent Profile ID", "name": "id", "in": "path", "required": true}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Parent profile details",
+                        "schema": {"$ref": "#/definitions/models.ParentProfile"}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "403": {
+                        "description": "Profile is private",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "404": {
+                        "description": "Parent profile not found",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
                     }
                 }
             }
@@ -6331,6 +6461,18 @@
         }
     },
     "definitions": {
+                "models.Notification": {
+                    "description": "Notification information",
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "integer", "example": 1 },
+                        "user_id": { "type": "integer", "example": 123 },
+                        "title": { "type": "string", "example": "Welcome" },
+                        "message": { "type": "string", "example": "Your account was created." },
+                        "read": { "type": "boolean", "example": false },
+                        "created_at": { "type": "string", "example": "2023-01-01T00:00:00Z" }
+                    }
+                },
         "handlers.AssignUserSubscriptionRequest": {
             "type": "object",
             "properties": {
@@ -6726,6 +6868,61 @@
                 "verification_docs": {
                     "description": "URL or path",
                     "type": "string"
+                },
+                "school_name": {
+                    "type": "string",
+                    "description": "Name of the school or training center"
+                },
+                "school_address": {
+                    "type": "string",
+                    "description": "Physical address of the school"
+                },
+                "school_city": {
+                    "type": "string",
+                    "description": "City where the school is located"
+                },
+                "school_state": {
+                    "type": "string",
+                    "description": "State or province"
+                },
+                "school_country": {
+                    "type": "string",
+                    "description": "Full country name"
+                },
+                "school_country_code": {
+                    "type": "string",
+                    "description": "ISO country code (e.g., US, UK, CA)"
+                },
+                "school_zip_code": {
+                    "type": "string",
+                    "description": "Postal/ZIP code"
+                },
+                "school_phone": {
+                    "type": "string",
+                    "description": "Contact phone number"
+                },
+                "school_website": {
+                    "type": "string",
+                    "description": "School website URL"
+                },
+                "school_email": {
+                    "type": "string",
+                    "description": "Contact email address"
+                },
+                "school_latitude": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Latitude for map display"
+                },
+                "school_longitude": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Longitude for map display"
+                },
+                "school_category": {
+                    "type": "string",
+                    "enum": ["school", "training_center"],
+                    "description": "Type of institution (defaults to user role)"
                 }
             }
         },
@@ -7521,6 +7718,10 @@
                 "verificationDocs": {
                     "description": "Path to verification documents",
                     "type": "string"
+                },
+                "profile_picture_url": {
+                    "description": "URL to profile picture",
+                    "type": "string"
                 }
             }
         },
@@ -7862,6 +8063,16 @@
                 "id": {
                     "type": "integer",
                     "example": 1
+                },
+                "latitude": {
+                    "description": "Latitude for map display",
+                    "type": "number",
+                    "format": "double"
+                },
+                "longitude": {
+                    "description": "Longitude for map display",
+                    "type": "number",
+                    "format": "double"
                 },
                 "member": {
                     "description": "True if an institution/training center has selected this school",

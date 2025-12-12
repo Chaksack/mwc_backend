@@ -48,7 +48,7 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.2.1",
+			"version":       "2.2.2",
 			"documentation": "/swagger/index.html",
 		})
 	})
@@ -99,9 +99,14 @@ func SetupRoutes(
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
 	// Unified Saved Schools Routes for all user roles (Parent, Montessori Professional)
 	apiV1.Post("/me/schools/saved/:school_id", authMw, savedSchoolHandler.SaveSchool)
-	apiV1.Delete("/me/schools/saved/:school_id", authMw, savedSchoolHandler.DeleteSavedSchool)
-	apiV1.Get("/me/schools/saved", authMw, savedSchoolHandler.GetSavedSchools)
-	// Profile picture management for authenticated users
+	// Auth Middleware
+	authMw = middleware.Protected(cfg.JWTSecret)
+	subscriptionMw = middleware.SubscriptionAuth(db)
+
+	// Notification Handler and Routes for logged-in users
+	notificationHandler := handlers.NewNotificationHandler(db)
+	apiV1.Get("/notifications", authMw, notificationHandler.GetNotifications)
+	apiV1.Put("/notifications/:id/read", authMw, notificationHandler.MarkNotificationRead)
 	apiV1.Post("/me/profile/pictures", authMw, authHandler.UploadProfilePicture)
 	apiV1.Get("/me/profile/pictures", authMw, authHandler.ListProfilePictures)
 	apiV1.Delete("/me/profile/pictures/:picture_id", authMw, authHandler.DeleteProfilePicture)
@@ -184,6 +189,8 @@ func SetupRoutes(
 	parentRoutes.Post("/messages/send/:recipient_id", parentHandler.SendMessage)
 	parentRoutes.Get("/messages", parentHandler.GetMessages)
 	parentRoutes.Post("/messages/:message_id/read", parentHandler.MarkMessageAsRead)
+	parentRoutes.Get("/public-parents", parentHandler.ListPublicParents)          // List parents with public profiles
+	parentRoutes.Get("/public-parents/:id", parentHandler.GetPublicParentDetails) // View specific public parent profile
 
 	// Subscription Routes
 	subscriptionRoutes := apiV1.Group("/subscription", authMw)

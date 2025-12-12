@@ -109,28 +109,31 @@ type School struct {
 	ContactEmail    string
 	ContactPhone    string
 	Website         string
-	SearchString    string // Search query used to find this school
-	SearchPageUrl   string // URL of the search page where this school was found
-	UploadedByAdmin bool   `gorm:"default:false"` // True if uploaded by admin batch
-	CreatedByUserID *uint  // Pointer to allow NULL if uploaded by admin initially
-	User            *User  `gorm:"foreignKey:CreatedByUserID"`
-	Member          bool   `gorm:"default:false"` // True if an institution/training center has selected this school
-	Hiring          bool   `gorm:"default:false"` // True if the associated institution has active job postings
+	Latitude        float64 `gorm:"index"` // Latitude for map display
+	Longitude       float64 `gorm:"index"` // Longitude for map display
+	SearchString    string  // Search query used to find this school
+	SearchPageUrl   string  // URL of the search page where this school was found
+	UploadedByAdmin bool    `gorm:"default:false"` // True if uploaded by admin batch
+	CreatedByUserID *uint   // Pointer to allow NULL if uploaded by admin initially
+	User            *User   `gorm:"foreignKey:CreatedByUserID"`
+	Member          bool    `gorm:"default:false"` // True if an institution/training center has selected this school
+	Hiring          bool    `gorm:"default:false"` // True if the associated institution has active job postings
 }
 
 // InstitutionProfile for Institution and Training Center users
 // @Description Institution or Training Center profile information
 // @Schema models.InstitutionProfile
 type InstitutionProfile struct {
-	GormModel               // Use GormModel for Swagger documentation
-	UserID           uint   `gorm:"uniqueIndex;not null"` // Foreign key to User table
-	User             User   // Eager load user details if needed
-	InstitutionName  string `gorm:"not null"`
-	SchoolID         *uint  `gorm:"uniqueIndex"` // A school can be mapped to only one institution/training center
-	School           *School
-	VerificationDocs string // Path to verification documents
-	IsVerified       bool   `gorm:"default:false"`
-	Jobs             []Job  `gorm:"foreignKey:InstitutionProfileID"`
+	GormModel                // Use GormModel for Swagger documentation
+	UserID            uint   `gorm:"uniqueIndex;not null"` // Foreign key to User table
+	User              User   // Eager load user details if needed
+	InstitutionName   string `gorm:"not null"`
+	SchoolID          *uint  `gorm:"uniqueIndex"` // A school can be mapped to only one institution/training center
+	School            *School
+	VerificationDocs  string // Path to verification documents
+	ProfilePictureURL string `json:"profile_picture_url,omitempty"` // URL to profile picture
+	IsVerified        bool   `gorm:"default:false"`
+	Jobs              []Job  `gorm:"foreignKey:InstitutionProfileID"`
 }
 
 // MontessoriProfessionalProfile for Montessori Professional users
