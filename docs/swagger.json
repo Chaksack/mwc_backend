@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.2.2"
+        "version": "2.2.3"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -2858,9 +2858,9 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new institution profile or updates an existing one",
+                "description": "Creates a new institution profile or updates an existing one. Can also create or link a school/training center. Supports profile picture upload.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2871,15 +2871,22 @@
                 ],
                 "summary": "Create or update institution profile",
                 "parameters": [
-                    {
-                        "description": "Institution profile information",
-                        "name": "profile",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.InstitutionProfileRequest"
-                        }
-                    }
+                    {"name": "institution_name", "in": "formData", "type": "string", "required": true, "description": "Institution name"},
+                    {"name": "verification_docs", "in": "formData", "type": "string", "description": "Verification documents URL"},
+                    {"name": "school_name", "in": "formData", "type": "string", "description": "School name"},
+                    {"name": "school_address", "in": "formData", "type": "string", "description": "School address"},
+                    {"name": "school_city", "in": "formData", "type": "string", "description": "School city"},
+                    {"name": "school_state", "in": "formData", "type": "string", "description": "School state"},
+                    {"name": "school_country", "in": "formData", "type": "string", "description": "School country"},
+                    {"name": "school_country_code", "in": "formData", "type": "string", "description": "School country code"},
+                    {"name": "school_zip_code", "in": "formData", "type": "string", "description": "School zip code"},
+                    {"name": "school_phone", "in": "formData", "type": "string", "description": "School phone"},
+                    {"name": "school_website", "in": "formData", "type": "string", "description": "School website"},
+                    {"name": "school_email", "in": "formData", "type": "string", "description": "School email"},
+                    {"name": "school_latitude", "in": "formData", "type": "number", "description": "School latitude"},
+                    {"name": "school_longitude", "in": "formData", "type": "number", "description": "School longitude"},
+                    {"name": "school_category", "in": "formData", "type": "string", "description": "School category (school or training_center)"},
+                    {"name": "profile_picture", "in": "formData", "type": "file", "description": "Profile picture file"}
                 ],
                 "responses": {
                     "200": {
@@ -7649,6 +7656,10 @@
                 },
                 "verificationDocs": {
                     "description": "Path to verification documents",
+                    "type": "string"
+                },
+                "profile_picture_url": {
+                    "description": "URL to profile picture",
                     "type": "string"
                 }
             }

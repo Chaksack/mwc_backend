@@ -55,11 +55,26 @@ type JobRequest struct {
 
 // CreateOrUpdateInstitutionProfile for an institution/training center
 // @Summary Create or update institution profile
-// @Description Creates a new institution profile or updates an existing one. Can also create or link a school/training center.
+// @Description Creates a new institution profile or updates an existing one. Can also create or link a school/training center. Supports profile picture upload.
 // @Tags institution,profile
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param profile body InstitutionProfileRequest true "Institution profile information"
+// @Param institution_name formData string true "Institution name"
+// @Param verification_docs formData string false "Verification documents URL"
+// @Param school_name formData string false "School name"
+// @Param school_address formData string false "School address"
+// @Param school_city formData string false "School city"
+// @Param school_state formData string false "School state"
+// @Param school_country formData string false "School country"
+// @Param school_country_code formData string false "School country code"
+// @Param school_zip_code formData string false "School zip code"
+// @Param school_phone formData string false "School phone"
+// @Param school_website formData string false "School website"
+// @Param school_email formData string false "School email"
+// @Param school_latitude formData number false "School latitude"
+// @Param school_longitude formData number false "School longitude"
+// @Param school_category formData string false "School category (school or training_center)"
+// @Param profile_picture formData file false "Profile picture file"
 // @Success 200 {object} models.InstitutionProfile "Profile created or updated successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -75,9 +90,37 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 	// Get user role to determine school category
 	userRole, _ := c.Locals("user_role").(string)
 
+	// Parse form data
 	req := new(InstitutionProfileRequest)
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	req.InstitutionName = c.FormValue("institution_name")
+	req.VerificationDocs = c.FormValue("verification_docs")
+	req.SchoolName = c.FormValue("school_name")
+	req.SchoolAddress = c.FormValue("school_address")
+	req.SchoolCity = c.FormValue("school_city")
+	req.SchoolState = c.FormValue("school_state")
+	req.SchoolCountry = c.FormValue("school_country")
+	req.SchoolCountryCode = c.FormValue("school_country_code")
+	req.SchoolZipCode = c.FormValue("school_zip_code")
+	req.SchoolPhone = c.FormValue("school_phone")
+	req.SchoolWebsite = c.FormValue("school_website")
+	req.SchoolEmail = c.FormValue("school_email")
+	req.SchoolCategory = c.FormValue("school_category")
+
+	// Parse latitude and longitude
+	if lat := c.FormValue("school_latitude"); lat != "" {
+		if val, err := strconv.ParseFloat(lat, 64); err == nil {
+			req.SchoolLatitude = val
+		}
+	}
+	if lng := c.FormValue("school_longitude"); lng != "" {
+		if val, err := strconv.ParseFloat(lng, 64); err == nil {
+			req.SchoolLongitude = val
+		}
+	}
+
+	// Validate required field
+	if req.InstitutionName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Institution name is required"})
 	}
 
 	var profile models.InstitutionProfile
@@ -96,6 +139,24 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 	profile.InstitutionName = req.InstitutionName
 	if req.VerificationDocs != "" {
 		profile.VerificationDocs = req.VerificationDocs
+	}
+
+	// Handle profile picture upload if provided
+	fileHeader, err := c.FormFile("profile_picture")
+	if err == nil && fileHeader != nil {
+		// Ensure uploads directory exists
+		uploadDir := "./uploads/institution_profiles"
+		if err := ensureDir(uploadDir); err == nil {
+			// Save file with institution user ID in filename
+			dst := fmt.Sprintf("%s/%d_%s", uploadDir, actorUserID, fileHeader.Filename)
+			if err := c.SaveFile(fileHeader, dst); err == nil {
+				// Store URL path in profile
+				profile.ProfilePictureURL = "/uploads/institution_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
+				LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_UPLOADED", profile.ID, "InstitutionProfile", "Profile picture uploaded", c)
+			} else {
+				LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_SAVE_FAIL", profile.ID, "InstitutionProfile", "Failed to save picture: "+err.Error(), c)
+			}
+		}
 	}
 
 	// Handle school creation/linking/updating if school details provided
