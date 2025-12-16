@@ -93,7 +93,7 @@ type RegisterRequest struct {
 	LastName  string          `json:"last_name" validate:"required"`
 	Role      models.UserRole `json:"role" validate:"required,oneof=institution montessori_professional parent training_center"` // Admin role removed - only superadmin can create admins
 	// Role-specific fields
-	InstitutionName string `json:"institution_name,omitempty"` // For institution/training_center
+	InstitutionName string `json:"institution_name,omitempty"` // Required for institution/training_center roles
 }
 
 // LoginRequest is the request body for user login.
@@ -124,6 +124,30 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	if err := h.validateRequest(c, req); err != nil {
 		return err
 	}
+
+	// Validate institution_name for institution and training_center roles
+	if req.Role == models.InstitutionRole || req.Role == models.TrainingCenterRole {
+		if req.InstitutionName == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "institution_name is required for institution and training_center roles",
+			})
+		}
+	}
+
+	// Check if email already exists (prevents duplicate registration regardless of role)
+	var existingUser models.User
+	if err := h.db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+		// Email exists
+		LogUserAction(h.db, 0, "REGISTER_FAIL_EMAIL_EXISTS", 0, "User", fmt.Sprintf("Email %s already exists with role %s", req.Email, existingUser.Role), c)
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "This email address is already registered. Please use a different email or log in.",
+		})
+	} else if err != gorm.ErrRecordNotFound {
+		// Database error (not a "not found" error)
+		LogUserAction(h.db, 0, "REGISTER_FAIL_EMAIL_CHECK", 0, "System", err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify email availability"})
+	}
+	// Email does not exist, proceed with registration
 
 	// Admin role registration is completely disabled - only superadmin can create admin users
 
@@ -171,11 +195,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var profileDetails string
 	switch user.Role {
 	case models.InstitutionRole, models.TrainingCenterRole:
-		if req.InstitutionName == "" {
-			tx.Rollback()
-			LogUserAction(h.db, user.ID, "REGISTER_FAIL_PROFILE_INST_NAME", user.ID, "User", "Institution name missing", c)
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Institution name is required for this role"})
-		}
+		// institution_name is validated earlier, safe to use here
 		profile := models.InstitutionProfile{UserID: user.ID, InstitutionName: req.InstitutionName}
 		if err := tx.Create(&profile).Error; err != nil {
 			tx.Rollback()
@@ -565,7 +585,6 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		"user": userMap,
 	})
 }
-
 
 // UploadProfilePicture handles uploading a new profile picture for the authenticated user
 // @Summary Upload profile picture

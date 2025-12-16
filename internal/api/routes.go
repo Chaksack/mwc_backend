@@ -83,6 +83,7 @@ func SetupRoutes(
 	apiV1.Post("/forgot-password", authHandler.ForgotPassword)                     // Forgot password endpoint
 	apiV1.Post("/reset-password", authHandler.ResetPassword)                       // Reset password endpoint
 	apiV1.Get("/schools/public", handlers.GetPublicSchools(db))                    // Publicly searchable schools
+	apiV1.Get("/institutions/search", institutionHandler.SearchInstitutions)       // Realtime institution search
 	apiV1.Get("/institutions/:id", institutionHandler.GetInstitutionPublicDetails) // Public institution details
 	// Public subscription plans
 	apiV1.Get("/subscription/plans", subscriptionHandler.ListPublicPlans)
