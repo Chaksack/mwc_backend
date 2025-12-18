@@ -1326,3 +1326,161 @@ func (h *InstitutionHandler) GetInstitutionDetails(c *fiber.Ctx) error {
 		"reviews": reviewResponses,
 	})
 }
+
+// SearchInstitutions provides realtime search for institutions/training centers
+// @Summary Realtime search for institutions
+// @Description Search institutions by name, city, country, or category with pagination
+// @Tags institutions
+// @Produce json
+// @Param q query string false "Search query (searches institution name and school name)"
+// @Param city query string false "Filter by city"
+// @Param country_code query string false "Filter by country code"
+// @Param category query string false "Filter by category (school or training_center)"
+// @Param verified query string false "Filter by verification status (true/false)"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Success 200 {object} map[string]interface{} "Search results with pagination metadata"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /institutions/search [get]
+func (h *InstitutionHandler) SearchInstitutions(c *fiber.Ctx) error {
+	query := h.db.Model(&models.InstitutionProfile{}).
+		Preload("School").
+		Preload("User")
+
+	// Search query - searches both institution name and school name
+	if q := c.Query("q"); q != "" {
+		searchTerm := "%" + strings.ToLower(q) + "%"
+		query = query.Joins("LEFT JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("LOWER(institution_profiles.institution_name) LIKE ? OR LOWER(schools.name) LIKE ?", searchTerm, searchTerm)
+	}
+
+	// Filter by city (from school)
+	if city := c.Query("city"); city != "" {
+		query = query.Joins("JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("LOWER(schools.city) LIKE LOWER(?)", "%"+city+"%")
+	}
+
+	// Filter by country code (from school)
+	if countryCode := c.Query("country_code"); countryCode != "" {
+		query = query.Joins("JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("schools.country_code = ?", countryCode)
+	}
+
+	// Filter by category (from school)
+	if category := c.Query("category"); category != "" {
+		query = query.Joins("JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("schools.category = ?", category)
+	}
+
+	// Filter by verification status
+	if verified := c.Query("verified"); verified != "" {
+		if verified == "true" {
+			query = query.Where("institution_profiles.is_verified = ?", true)
+		} else if verified == "false" {
+			query = query.Where("institution_profiles.is_verified = ?", false)
+		}
+	}
+
+	// Count total results before pagination
+	var total int64
+	countQuery := h.db.Model(&models.InstitutionProfile{})
+
+	// Apply the same filters to count query
+	if q := c.Query("q"); q != "" {
+		searchTerm := "%" + strings.ToLower(q) + "%"
+		countQuery = countQuery.Joins("LEFT JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("LOWER(institution_profiles.institution_name) LIKE ? OR LOWER(schools.name) LIKE ?", searchTerm, searchTerm)
+	}
+	if city := c.Query("city"); city != "" {
+		countQuery = countQuery.Joins("JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("LOWER(schools.city) LIKE LOWER(?)", "%"+city+"%")
+	}
+	if countryCode := c.Query("country_code"); countryCode != "" {
+		countQuery = countQuery.Joins("JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("schools.country_code = ?", countryCode)
+	}
+	if category := c.Query("category"); category != "" {
+		countQuery = countQuery.Joins("JOIN schools ON institution_profiles.school_id = schools.id").
+			Where("schools.category = ?", category)
+	}
+	if verified := c.Query("verified"); verified != "" {
+		if verified == "true" {
+			countQuery = countQuery.Where("institution_profiles.is_verified = ?", true)
+		} else if verified == "false" {
+			countQuery = countQuery.Where("institution_profiles.is_verified = ?", false)
+		}
+	}
+
+	if err := countQuery.Count(&total).Error; err != nil {
+		log.Printf("Error counting institutions: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to count results"})
+	}
+
+	// Pagination
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	query = query.Offset(offset).Limit(limit).Order("institution_profiles.created_at DESC")
+
+	var institutions []models.InstitutionProfile
+	if err := query.Find(&institutions).Error; err != nil {
+		log.Printf("Error searching institutions: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error while searching institutions"})
+	}
+
+	// Format results
+	results := make([]fiber.Map, 0, len(institutions))
+	for _, inst := range institutions {
+		result := fiber.Map{
+			"id":                  inst.ID,
+			"institution_name":    inst.InstitutionName,
+			"is_verified":         inst.IsVerified,
+			"profile_picture_url": inst.ProfilePictureURL,
+			"created_at":          inst.CreatedAt,
+			"updated_at":          inst.UpdatedAt,
+		}
+
+		// Include school info if available
+		if inst.School != nil {
+			result["school"] = fiber.Map{
+				"id":           inst.School.ID,
+				"name":         inst.School.Name,
+				"city":         inst.School.City,
+				"state":        inst.School.State,
+				"country":      inst.School.Country,
+				"country_code": inst.School.CountryCode,
+				"category":     inst.School.Category,
+				"address":      inst.School.Address,
+			}
+		}
+
+		// Include basic user info
+		result["user"] = fiber.Map{
+			"id":         inst.User.ID,
+			"first_name": inst.User.FirstName,
+			"last_name":  inst.User.LastName,
+		}
+
+		results = append(results, result)
+	}
+
+	lastPage := (total + int64(limit) - 1) / int64(limit)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data": results,
+		"meta": fiber.Map{
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
+			"last_page": lastPage,
+			"has_more":  page < int(lastPage),
+		},
+	})
+}

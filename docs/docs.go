@@ -9,15 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "email": "support@montessoriworldconnect.com"
-        },
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -2128,6 +2120,27 @@ const docTemplate = `{
                 }
             }
         },
+        "/health": {
+            "get": {
+                "description": "Returns service health information and basic dependency checks",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "Health status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/institution/events": {
             "get": {
                 "security": [
@@ -2808,6 +2821,201 @@ const docTemplate = `{
                 }
             }
         },
+        "/institution/montessori-professionals/looking-for-jobs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a list of public montessori professional profiles where LookingForJob=true (admin, institution, training_center only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "List montessori professionals looking for jobs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.MontessoriProfessionalProfile"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - insufficient permissions",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/institution/montessori-professionals/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns public details for a montessori professional profile",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "montessori-professional"
+                ],
+                "summary": "Get montessori professional public profile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/institution/montessori-professionals/{id}/contact": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send an email to the montessori professional from the requesting institution/training center",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "Contact a montessori professional",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Contact message",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ContactProfessionalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email sent",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/institution/profile": {
             "post": {
                 "security": [
@@ -2815,9 +3023,9 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new institution profile or updates an existing one",
+                "description": "Creates a new institution profile or updates an existing one. Can also create or link a school/training center. Supports profile picture upload.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2829,13 +3037,101 @@ const docTemplate = `{
                 "summary": "Create or update institution profile",
                 "parameters": [
                     {
-                        "description": "Institution profile information",
-                        "name": "profile",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.InstitutionProfileRequest"
-                        }
+                        "type": "string",
+                        "description": "Institution name",
+                        "name": "institution_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Verification documents URL",
+                        "name": "verification_docs",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School name",
+                        "name": "school_name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School address",
+                        "name": "school_address",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School city",
+                        "name": "school_city",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School state",
+                        "name": "school_state",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School country",
+                        "name": "school_country",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School country code",
+                        "name": "school_country_code",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School zip code",
+                        "name": "school_zip_code",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School phone",
+                        "name": "school_phone",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School website",
+                        "name": "school_website",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School email",
+                        "name": "school_email",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "School latitude",
+                        "name": "school_latitude",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "School longitude",
+                        "name": "school_longitude",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "School category (school or training_center)",
+                        "name": "school_category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Profile picture file",
+                        "name": "profile_picture",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3108,6 +3404,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/institutions/search": {
+            "get": {
+                "description": "Search institutions by name, city, country, or category with pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Realtime search for institutions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query (searches institution name and school name)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by city",
+                        "name": "city",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by country code",
+                        "name": "country_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by category (school or training_center)",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by verification status (true/false)",
+                        "name": "verified",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Search results with pagination metadata",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/institutions/{id}": {
             "get": {
                 "description": "Retrieves basic public information about an institution",
@@ -3360,6 +3732,671 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me/profile/pictures": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists all profile pictures for the current user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "profile"
+                ],
+                "summary": "List profile pictures",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.UserProfilePicture"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uploads a new profile picture for the current user",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "profile"
+                ],
+                "summary": "Upload profile picture",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Profile picture file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserProfilePicture"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me/profile/pictures/{picture_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a specific profile picture",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "profile"
+                ],
+                "summary": "Delete profile picture",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Picture ID",
+                        "name": "picture_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me/profile/pictures/{picture_id}/primary": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Marks a given profile picture as the primary picture",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "profile"
+                ],
+                "summary": "Set primary profile picture",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Picture ID",
+                        "name": "picture_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserProfilePicture"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me/schools/saved": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves the list of schools saved by the current user (supports parent and montessori professional)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users",
+                    "schools"
+                ],
+                "summary": "Get saved schools (unified)",
+                "responses": {
+                    "200": {
+                        "description": "List of saved schools",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.School"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Role not supported for saved schools",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me/schools/saved/{school_id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adds a school to the current user's saved schools list (supports parent and montessori professional)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users",
+                    "schools"
+                ],
+                "summary": "Save a school (unified)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "School ID",
+                        "name": "school_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "School saved successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or invalid school ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User profile or school not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "School already saved",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Role not supported for saved schools",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a school from the current user's saved schools list (supports parent and montessori professional)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users",
+                    "schools"
+                ],
+                "summary": "Unsave a school (unified)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "School ID",
+                        "name": "school_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Saved school deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request or invalid school ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User profile or school not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Role not supported for saved schools",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/montessori-professional/job-preferences": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the Montessori Professional's job filter preference used for alerts",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "Get job filter preference",
+                "responses": {
+                    "200": {
+                        "description": "Preference or empty object if not set",
+                        "schema": {
+                            "$ref": "#/definitions/models.MontessoriJobPreference"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Set the Montessori Professional's job filter preference used for alerts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "Create or update job filter preference",
+                "parameters": [
+                    {
+                        "description": "Job filter preference",
+                        "name": "preference",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.JobPreferenceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Preference saved",
+                        "schema": {
+                            "$ref": "#/definitions/models.MontessoriJobPreference"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Disables the Montessori Professional's job filter preference",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "montessori-professional",
+                    "jobs"
+                ],
+                "summary": "Disable job filter preference",
+                "responses": {
+                    "200": {
+                        "description": "Preference disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Profile or preference not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3896,6 +4933,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/notifications": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notification"
+                ],
+                "summary": "Get user notifications",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Notification"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}/read": {
+            "put": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notification"
+                ],
+                "summary": "Mark notification as read",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Notification ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Notification"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/parent/messages": {
             "get": {
                 "security": [
@@ -4166,6 +5280,138 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/parent/public-parents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves a list of parents whose profiles are set to public. Only accessible by parent role users.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "parent",
+                    "profiles"
+                ],
+                "summary": "List public parent profiles",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number for pagination",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of public parent profiles with pagination",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/parent/public-parents/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves detailed information about a parent with a public profile. Only accessible by parent role users.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "parent",
+                    "profiles"
+                ],
+                "summary": "Get public parent profile details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Parent profile details",
+                        "schema": {
+                            "$ref": "#/definitions/models.ParentProfile"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Profile is private",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Parent profile not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5205,6 +6451,18 @@ const docTemplate = `{
                         "description": "Subscription plan (monthly or annual)",
                         "name": "plan",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Dynamic subscription plan ID (overrides 'plan')",
+                        "name": "plan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Stripe price lookup key (overrides 'plan' and 'plan_id')",
+                        "name": "lookup",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5235,6 +6493,110 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "User already has an active subscription",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscription/plans": {
+            "get": {
+                "description": "Public endpoint to fetch active subscription plans. Optionally filter by role.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscription",
+                    "public"
+                ],
+                "summary": "List active subscription plans (public)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "parent",
+                            "institution",
+                            "training_center",
+                            "montessori_professional",
+                            "admin",
+                            "super_admin"
+                        ],
+                        "type": "string",
+                        "description": "Filter plans allowed for a specific role",
+                        "name": "role",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of active subscription plans",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.PublicPlanResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/subscription/portal": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a Stripe Billing Portal session so the user can manage subscription, payment method, invoices",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscription"
+                ],
+                "summary": "Create Stripe Billing Portal session",
+                "responses": {
+                    "200": {
+                        "description": "Billing portal session created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "User not authenticated",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No Stripe customer found and cannot create",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5572,7 +6934,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/ws/notify/{user_id}": {
+        "/wss/notify/{user_id}": {
             "post": {
                 "security": [
                     {
@@ -5707,6 +7069,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ContactProfessionalRequest": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "subject": {
                     "type": "string"
                 }
             }
@@ -5878,6 +7251,9 @@ const docTemplate = `{
                 "price": {
                     "type": "number"
                 },
+                "stripe_lookup_key": {
+                    "type": "string"
+                },
                 "stripe_price_id": {
                     "type": "string"
                 }
@@ -6018,21 +7394,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.InstitutionProfileRequest": {
-            "type": "object",
-            "required": [
-                "institution_name"
-            ],
-            "properties": {
-                "institution_name": {
-                    "type": "string"
-                },
-                "verification_docs": {
-                    "description": "URL or path",
-                    "type": "string"
-                }
-            }
-        },
         "handlers.InstitutionPublicResponse": {
             "type": "object",
             "properties": {
@@ -6084,6 +7445,25 @@ const docTemplate = `{
                 "school_name": {
                     "type": "string",
                     "example": "Montessori Academy Main Campus"
+                }
+            }
+        },
+        "handlers.JobPreferenceRequest": {
+            "description": "Job filter preference for alerts",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "employment_type": {
+                    "type": "string"
+                },
+                "keywords": {
+                    "description": "comma-separated keywords",
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
                 }
             }
         },
@@ -6261,6 +7641,9 @@ const docTemplate = `{
                 "experience": {
                     "type": "string"
                 },
+                "looking_for_job": {
+                    "type": "boolean"
+                },
                 "qualifications": {
                     "type": "string"
                 }
@@ -6285,6 +7668,42 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "handlers.PublicPlanResponse": {
+            "description": "Public subscription plan info for display and checkout selection",
+            "type": "object",
+            "properties": {
+                "allowed_roles": {
+                    "description": "JSON array string (optional)",
+                    "type": "string"
+                },
+                "billing_cycle": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "features": {
+                    "description": "JSON string; client may parse",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "stripe_price_id": {
+                    "description": "Use in checkout",
+                    "type": "string"
                 }
             }
         },
@@ -6765,6 +8184,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.Job"
                     }
                 },
+                "profile_picture_url": {
+                    "description": "URL to profile picture",
+                    "type": "string"
+                },
                 "school": {
                     "$ref": "#/definitions/models.School"
                 },
@@ -6957,6 +8380,50 @@ const docTemplate = `{
                 }
             }
         },
+        "models.MontessoriJobPreference": {
+            "description": "Job filter preferences for Montessori Professionals",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "deleted_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "employmentType": {
+                    "description": "e.g., Full-time, Part-time",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "keywords": {
+                    "description": "Comma-separated keywords to match in title/description",
+                    "type": "string"
+                },
+                "location": {
+                    "description": "Preferred location substring",
+                    "type": "string"
+                },
+                "montessoriProfessionalProfileID": {
+                    "type": "integer"
+                },
+                "profile": {
+                    "$ref": "#/definitions/models.MontessoriProfessionalProfile"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                }
+            }
+        },
         "models.MontessoriProfessionalProfile": {
             "description": "Montessori Professional profile information",
             "type": "object",
@@ -6986,6 +8453,10 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "looking_for_job": {
+                    "description": "LookingForJob indicates whether this professional is actively looking for job opportunities",
+                    "type": "boolean"
+                },
                 "qualifications": {
                     "type": "string"
                 },
@@ -7008,6 +8479,30 @@ const docTemplate = `{
                     ]
                 },
                 "userID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.Notification": {
+            "description": "Notification information",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "read": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "integer"
                 }
             }
@@ -7133,6 +8628,14 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
+                "latitude": {
+                    "description": "Latitude for map display",
+                    "type": "number"
+                },
+                "longitude": {
+                    "description": "Longitude for map display",
+                    "type": "number"
+                },
                 "member": {
                     "description": "True if an institution/training center has selected this school",
                     "type": "boolean"
@@ -7253,6 +8756,13 @@ const docTemplate = `{
                     "description": "Expiry time for password reset token",
                     "type": "string"
                 },
+                "profilePictures": {
+                    "description": "Profile pictures uploaded by the user",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UserProfilePicture"
+                    }
+                },
                 "role": {
                     "$ref": "#/definitions/models.UserRole"
                 },
@@ -7267,6 +8777,41 @@ const docTemplate = `{
                 "verificationTokenExpiry": {
                     "description": "Expiry time for verification token",
                     "type": "string"
+                }
+            }
+        },
+        "models.UserProfilePicture": {
+            "description": "User profile picture information",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "deleted_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "fileName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "isPrimary": {
+                    "type": "boolean"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "userID": {
+                    "type": "integer"
                 }
             }
         },
@@ -7289,35 +8834,17 @@ const docTemplate = `{
                 "ParentRole"
             ]
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Provide your JWT token directly in the Authorization header without any prefix.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
-    },
-    "tags": [
-        {
-            "description": "Public endpoints that don't require authentication",
-            "name": "public"
-        },
-        {
-            "description": "Endpoints that require authentication",
-            "name": "authenticated"
-        }
-    ]
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
- Version:          "2.1.8",
-	Host:             "https://api.montessoriworldconnect.com",
-	BasePath:         "/api/v1",
-	Schemes:          []string{"http", "https"},
-	Title:            "Montessori World Connect API",
-	Description:      "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format. Getting Started: Authentication - Most endpoints require authentication using JWT (JSON Web Token). To authenticate, you need to: 1) Register a new account or login with existing credentials, 2) Include the received token directly in the Authorization header of your requests. Public Endpoints - Some endpoints are publicly accessible without authentication: /api/v1/register (Register a new user), /api/v1/login (Login and get authentication token), /api/v1/schools/public (Get list of public schools), /api/v1/jobs (Get list of available jobs), /api/v1/events (Get list of events). Rate Limiting - API requests are subject to rate limiting to ensure fair usage. Please design your applications to handle rate limit responses (HTTP 429) gracefully. Pagination - List endpoints support pagination using 'page' and 'limit' query parameters.",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
+	Schemes:          []string{},
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
