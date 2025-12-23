@@ -158,13 +158,18 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	app.Get("/documentation", func(c *fiber.Ctx) error {
+	app.Get("/", func(c *fiber.Ctx) error {
 		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
 			SpecURL: "./docs/swagger.json",
 			CustomOptions: scalar.CustomOptions{
 				PageTitle: "Montessori World Connect API",
 			},
-			DarkMode: true,
+			DarkMode:           true,
+			Layout:             "modern",
+			ShowSidebar:        true,
+			WithDefaultFonts:   true,
+			HideModels:         false,
+			HideDownloadButton: false,
 		})
 
 		if err != nil {
@@ -174,6 +179,9 @@ func main() {
 		c.Set("Content-Type", "text/html")
 		return c.SendString(htmlContent)
 	})
+
+	// Serve markdown documentation files
+	app.Static("/docs/markdown", "./docs/markdown")
 
 	// Setup API routes
 	api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)

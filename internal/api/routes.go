@@ -45,13 +45,13 @@ func SetupRoutes(
 	log.Println("Notification scheduler service started")
 
 	// Root route handler
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Status(200).JSON(fiber.Map{
-			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.2.2",
-			"documentation": "/swagger/index.html",
-		})
-	})
+	// app.Get("/", func(c *fiber.Ctx) error {
+	// 	return c.Status(200).JSON(fiber.Map{
+	// 		"message":       "Welcome to Montessori World Connect API",
+	// 		"version":       "2.2.6",
+	// 		"documentation": "/swagger/index.html",
+	// 	})
+	// })
 
 	// Public routes
 	// Base URL is configured in config.Config.BaseURL
