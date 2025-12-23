@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"mwc_backend/config"
 	"mwc_backend/internal/api"
@@ -159,8 +160,59 @@ func main() {
 	}))
 
 	app.Get("/", func(c *fiber.Ctx) error {
+		// Read markdown documentation files
+		introMd, _ := os.ReadFile("./docs/markdown/introduction.md")
+		gettingStartedMd, _ := os.ReadFile("./docs/markdown/getting-started.md")
+		userRolesMd, _ := os.ReadFile("./docs/markdown/user-roles.md")
+		subscriptionsMd, _ := os.ReadFile("./docs/markdown/subscriptions.md")
+		examplesMd, _ := os.ReadFile("./docs/markdown/examples.md")
+		webhooksMd, _ := os.ReadFile("./docs/markdown/webhooks.md")
+		advancedMd, _ := os.ReadFile("./docs/markdown/advanced-features.md")
+
+		// Combine all markdown content
+		combinedContent := string(introMd) + "\n\n---\n\n" +
+			string(gettingStartedMd) + "\n\n---\n\n" +
+			string(userRolesMd) + "\n\n---\n\n" +
+			string(subscriptionsMd) + "\n\n---\n\n" +
+			string(examplesMd) + "\n\n---\n\n" +
+			string(webhooksMd) + "\n\n---\n\n" +
+			string(advancedMd)
+
+		// Read and modify the OpenAPI spec to include markdown content
+		specContent, err := os.ReadFile("./docs/swagger.json")
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Failed to load API specification: " + err.Error())
+		}
+
+		// Parse the spec and add the markdown content
+		var spec map[string]interface{}
+		if err := json.Unmarshal(specContent, &spec); err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse API specification: " + err.Error())
+		}
+
+		// Add external docs with markdown content
+		spec["externalDocs"] = map[string]interface{}{
+			"description": "Complete API Documentation",
+			"url":         "/docs/markdown/README.md",
+		}
+
+		// Add markdown content to the description
+		if info, ok := spec["info"].(map[string]interface{}); ok {
+			currentDesc := ""
+			if desc, ok := info["description"].(string); ok {
+				currentDesc = desc + "\n\n---\n\n"
+			}
+			info["description"] = currentDesc + combinedContent
+		}
+
+		// Convert back to JSON
+		modifiedSpec, err := json.Marshal(spec)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Failed to modify API specification: " + err.Error())
+		}
+
 		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
-			SpecURL: "./docs/swagger.json",
+			SpecContent: string(modifiedSpec),
 			CustomOptions: scalar.CustomOptions{
 				PageTitle: "Montessori World Connect API",
 			},
