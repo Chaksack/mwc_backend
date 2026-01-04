@@ -81,22 +81,14 @@ func (s *SchedulerService) scheduleCompletionNotifications() {
 func (s *SchedulerService) runDueNotificationTask() {
 	log.Println("Running due subscription notifications task...")
 	
-	// Check for subscriptions due in 7 days
+	// Check for subscriptions due in 7 days (first reminder)
 	if err := s.notificationService.SendSubscriptionDueNotifications(7); err != nil {
-		log.Printf("Error sending due notifications: %v", err)
-		return
+		log.Printf("Error sending 7-day due notifications: %v", err)
 	}
 	
-	// Also check for subscriptions due in 3 days (more urgent)
-	if err := s.notificationService.SendSubscriptionDueNotifications(3); err != nil {
-		log.Printf("Error sending urgent due notifications: %v", err)
-		return
-	}
-	
-	// And check for subscriptions due tomorrow (final reminder)
+	// Check for subscriptions due tomorrow (final reminder)
 	if err := s.notificationService.SendSubscriptionDueNotifications(1); err != nil {
-		log.Printf("Error sending final due notifications: %v", err)
-		return
+		log.Printf("Error sending 1-day due notifications: %v", err)
 	}
 	
 	log.Println("Due subscription notifications task completed")

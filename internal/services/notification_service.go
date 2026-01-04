@@ -32,13 +32,23 @@ func (s *NotificationService) SendSubscriptionDueNotifications(daysAhead int) er
 
 	// Find active subscriptions that will expire within the specified days
 	var subscriptions []models.Subscription
-	err := s.db.Preload("User").Where(
-		"status = ? AND end_date >= ? AND end_date <= ? AND auto_renew = ?",
+	query := s.db.Preload("User").Where(
+		"status = ? AND end_date >= ? AND end_date <= ?",
 		models.SubscriptionActive,
 		now.Format("2006-01-02"),
 		dueDate.Format("2006-01-02 15:04:05"),
-		true, // Only notify for auto-renewing subscriptions that might fail
-	).Find(&subscriptions).Error
+	)
+
+	// Add tracking field checks to prevent duplicate notifications
+	if daysAhead == 7 {
+		// For 7-day notifications, only send if not already notified
+		query = query.Where("notified_at_7_days IS NULL")
+	} else if daysAhead == 1 {
+		// For 1-day notifications, only send if not already notified
+		query = query.Where("notified_at_1_day IS NULL")
+	}
+
+	err := query.Find(&subscriptions).Error
 
 	if err != nil {
 		return fmt.Errorf("failed to query due subscriptions: %w", err)
@@ -47,12 +57,25 @@ func (s *NotificationService) SendSubscriptionDueNotifications(daysAhead int) er
 	log.Printf("Found %d subscriptions due within %d days", len(subscriptions), daysAhead)
 
 	for _, subscription := range subscriptions {
-		err := s.SendSubscriptionDueEmail(subscription)
+		err := s.SendSubscriptionDueEmail(subscription, daysAhead)
 		if err != nil {
 			log.Printf("Failed to send due notification to user %d: %v", subscription.UserID, err)
 			continue
 		}
-		log.Printf("Sent subscription due notification to %s", subscription.User.Email)
+
+		// Update the notification tracking field
+		updateData := make(map[string]interface{})
+		if daysAhead == 7 {
+			updateData["notified_at_7_days"] = now
+		} else if daysAhead == 1 {
+			updateData["notified_at_1_day"] = now
+		}
+
+		if err := s.db.Model(&subscription).Updates(updateData).Error; err != nil {
+			log.Printf("Failed to update notification tracking for subscription %d: %v", subscription.ID, err)
+		}
+
+		log.Printf("Sent subscription due notification (%d days) to %s", daysAhead, subscription.User.Email)
 	}
 
 	return nil
@@ -89,8 +112,15 @@ func (s *NotificationService) SendSubscriptionCompletedNotifications() error {
 }
 
 // SendSubscriptionDueEmail sends an email notification for subscription due
-func (s *NotificationService) SendSubscriptionDueEmail(subscription models.Subscription) error {
-	subject := "Your Subscription is Due for Renewal Soon"
+func (s *NotificationService) SendSubscriptionDueEmail(subscription models.Subscription, daysAhead int) error {
+	var subject string
+	if daysAhead == 7 {
+		subject = "Your Subscription Expires in 7 Days"
+	} else if daysAhead == 1 {
+		subject = "⚠️ Final Reminder: Your Subscription Expires Tomorrow"
+	} else {
+		subject = "Your Subscription is Due for Renewal Soon"
+	}
 
 	// Calculate days until expiration
 	daysUntil := int(time.Until(subscription.EndDate).Hours() / 24)

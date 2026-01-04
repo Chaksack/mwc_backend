@@ -327,6 +327,8 @@ type Subscription struct {
 	StripeSubscriptionID string                   `gorm:"index"`
 	CancelledAt          *time.Time
 	CancellationReason   string
+	NotifiedAt7Days      *time.Time               // Track when 7-day notification was sent
+	NotifiedAt1Day       *time.Time               // Track when 1-day notification was sent
 }
 
 // Review represents a review of a school
