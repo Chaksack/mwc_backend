@@ -437,32 +437,6 @@ definitions:
     required:
     - status
     type: object
-  handlers.MontessoriProfessionalProfileRequest:
-    properties:
-      bio:
-        type: string
-      experience:
-        type: string
-      looking_for_job:
-        type: boolean
-      qualifications:
-        type: string
-    type: object
-  handlers.ParentProfileRequest:
-    properties:
-      parent_age:
-        type: integer
-      phone_number:
-        type: string
-      profile_visibility:
-        description: '"public" or "private"'
-        type: string
-      school_ids:
-        description: Schools the parent's children attend
-        items:
-          type: integer
-        type: array
-    type: object
   handlers.PublicPlanResponse:
     description: Public subscription plan info for display and checkout selection
     properties:
@@ -1612,6 +1586,66 @@ paths:
       tags:
       - admin
       - events
+  /admin/profile:
+    put:
+      consumes:
+      - multipart/form-data
+      description: Updates the current admin's profile information including optional
+        profile picture
+      parameters:
+      - description: First name
+        in: formData
+        name: first_name
+        type: string
+      - description: Last name
+        in: formData
+        name: last_name
+        type: string
+      - description: Email address
+        in: formData
+        name: email
+        type: string
+      - description: Profile picture file
+        in: formData
+        name: profile_picture
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile updated successfully
+          schema:
+            $ref: '#/definitions/models.User'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Email already exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update admin profile
+      tags:
+      - admin
+      - profile
   /admin/reviews/{review_id}/moderate:
     put:
       consumes:
@@ -4273,16 +4307,30 @@ paths:
   /montessori-professional/profile:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: Creates a new montessori professional profile or updates an existing
         one
       parameters:
-      - description: Montessori Professional profile information
-        in: body
-        name: profile
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.MontessoriProfessionalProfileRequest'
+      - description: Professional bio
+        in: formData
+        name: bio
+        type: string
+      - description: Professional qualifications
+        in: formData
+        name: qualifications
+        type: string
+      - description: Professional experience
+        in: formData
+        name: experience
+        type: string
+      - description: Looking for job status
+        in: formData
+        name: looking_for_job
+        type: boolean
+      - description: Profile picture file
+        in: formData
+        name: profile_picture
+        type: file
       produces:
       - application/json
       responses:
@@ -4705,15 +4753,25 @@ paths:
   /parent/profile:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: Creates a new parent profile or updates an existing one
       parameters:
-      - description: Parent profile information
-        in: body
-        name: profile
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.ParentProfileRequest'
+      - description: Profile visibility (public or private)
+        in: formData
+        name: profile_visibility
+        type: string
+      - description: Parent age
+        in: formData
+        name: parent_age
+        type: integer
+      - description: Comma-separated school IDs
+        in: formData
+        name: school_ids
+        type: string
+      - description: Profile picture file
+        in: formData
+        name: profile_picture
+        type: file
       produces:
       - application/json
       responses:

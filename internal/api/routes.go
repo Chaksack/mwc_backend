@@ -48,7 +48,7 @@ func SetupRoutes(
 	// app.Get("/", func(c *fiber.Ctx) error {
 	// 	return c.Status(200).JSON(fiber.Map{
 	// 		"message":       "Welcome to Montessori World Connect API",
-	// 		"version":       "2.2.6",
+	// 		"version":       "2.3.0",
 	// 		"documentation": "/swagger/index.html",
 	// 	})
 	// })
@@ -118,6 +118,7 @@ func SetupRoutes(
 
 	// Admin Routes (accessible by both Admin and SuperAdmin)
 	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole, models.SuperAdminRole))
+	adminRoutes.Put("/profile", adminHandler.UpdateAdminProfile) // Update admin profile
 	adminRoutes.Post("/schools/batch-upload", adminHandler.BatchUploadSchools)
 	adminRoutes.Post("/schools/create", adminHandler.CreateSchool)                  // New: Manual school creation
 	adminRoutes.Post("/training-centers/create", adminHandler.CreateTrainingCenter) // New: Manual training center creation

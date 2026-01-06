@@ -536,6 +536,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/profile": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the current admin's profile information including optional profile picture",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "profile"
+                ],
+                "summary": "Update admin profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "First name",
+                        "name": "first_name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Last name",
+                        "name": "last_name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email address",
+                        "name": "email",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Profile picture file",
+                        "name": "profile_picture",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Email already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/reviews/pending": {
             "get": {
                 "security": [
@@ -4579,7 +4670,7 @@ const docTemplate = `{
                 ],
                 "description": "Creates a new montessori professional profile or updates an existing one",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -4591,13 +4682,34 @@ const docTemplate = `{
                 "summary": "Create or update montessori professional profile",
                 "parameters": [
                     {
-                        "description": "Montessori Professional profile information",
-                        "name": "profile",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.MontessoriProfessionalProfileRequest"
-                        }
+                        "type": "string",
+                        "description": "Professional bio",
+                        "name": "bio",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Professional qualifications",
+                        "name": "qualifications",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Professional experience",
+                        "name": "experience",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Looking for job status",
+                        "name": "looking_for_job",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Profile picture file",
+                        "name": "profile_picture",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -5241,7 +5353,7 @@ const docTemplate = `{
                 ],
                 "description": "Creates a new parent profile or updates an existing one",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -5253,13 +5365,28 @@ const docTemplate = `{
                 "summary": "Create or update parent profile",
                 "parameters": [
                     {
-                        "description": "Parent profile information",
-                        "name": "profile",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ParentProfileRequest"
-                        }
+                        "type": "string",
+                        "description": "Profile visibility (public or private)",
+                        "name": "profile_visibility",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Parent age",
+                        "name": "parent_age",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated school IDs",
+                        "name": "school_ids",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Profile picture file",
+                        "name": "profile_picture",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -7629,45 +7756,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ReviewStatus"
                         }
                     ]
-                }
-            }
-        },
-        "handlers.MontessoriProfessionalProfileRequest": {
-            "type": "object",
-            "properties": {
-                "bio": {
-                    "type": "string"
-                },
-                "experience": {
-                    "type": "string"
-                },
-                "looking_for_job": {
-                    "type": "boolean"
-                },
-                "qualifications": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.ParentProfileRequest": {
-            "type": "object",
-            "properties": {
-                "parent_age": {
-                    "type": "integer"
-                },
-                "phone_number": {
-                    "type": "string"
-                },
-                "profile_visibility": {
-                    "description": "\"public\" or \"private\"",
-                    "type": "string"
-                },
-                "school_ids": {
-                    "description": "Schools the parent's children attend",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
                 }
             }
         },
