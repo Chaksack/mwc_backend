@@ -994,6 +994,135 @@ func (h *AdminHandler) CreateAdmin(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(adminUser)
 }
 
+// UpdateAdminProfileRequest is the request body for admin profile updates.
+type UpdateAdminProfileRequest struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+}
+
+// UpdateAdminProfile updates admin user profile including profile picture
+// @Summary Update admin profile
+// @Description Updates the current admin's profile information including optional profile picture
+// @Tags admin,profile
+// @Accept multipart/form-data
+// @Produce json
+// @Param first_name formData string false "First name"
+// @Param last_name formData string false "Last name"
+// @Param email formData string false "Email address"
+// @Param profile_picture formData file false "Profile picture file"
+// @Success 200 {object} models.User "Profile updated successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 409 {object} map[string]string "Email already exists"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /admin/profile [put]
+func (h *AdminHandler) UpdateAdminProfile(c *fiber.Ctx) error {
+	adminUserID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User ID not found in token"})
+	}
+
+	// Get the current admin user
+	var user models.User
+	if err := h.db.Preload("ProfilePictures").First(&user, adminUserID).Error; err != nil {
+		LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_FETCH", adminUserID, "User", "Failed to fetch user: "+err.Error(), c)
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Verify the user is actually an admin
+	if user.Role != models.AdminRole && user.Role != models.SuperAdminRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "This endpoint is only for admin users"})
+	}
+
+	// Parse form data
+	firstName := c.FormValue("first_name")
+	lastName := c.FormValue("last_name")
+	email := c.FormValue("email")
+
+	// Update fields if provided
+	updated := false
+	if firstName != "" && firstName != user.FirstName {
+		user.FirstName = firstName
+		updated = true
+	}
+	if lastName != "" && lastName != user.LastName {
+		user.LastName = lastName
+		updated = true
+	}
+	if email != "" && email != user.Email {
+		// Check if email already exists for another user
+		var existingUser models.User
+		if err := h.db.Where("email = ? AND id != ?", email, adminUserID).First(&existingUser).Error; err == nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_EMAIL_EXISTS", adminUserID, "User", "Email already exists: "+email, c)
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Email already exists"})
+		}
+		user.Email = email
+		updated = true
+	}
+
+	// Handle profile picture upload if provided
+	fileHeader, err := c.FormFile("profile_picture")
+	if err == nil && fileHeader != nil {
+		// Ensure uploads directory exists
+		uploadDir := "./uploads/admin_profiles"
+		if err := ensureDir(uploadDir); err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_DIR", adminUserID, "System", "Failed to create upload directory: "+err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create upload directory"})
+		}
+
+		// Save file
+		dst := fmt.Sprintf("%s/%d_%s", uploadDir, adminUserID, fileHeader.Filename)
+		if err := c.SaveFile(fileHeader, dst); err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_SAVE_FILE", adminUserID, "System", "Failed to save file: "+err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file: " + err.Error()})
+		}
+
+		urlPath := "/uploads/admin_profiles/" + fmt.Sprintf("%d_%s", adminUserID, fileHeader.Filename)
+
+		// Set any existing pictures as non-primary
+		if err := h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", adminUserID).Update("is_primary", false).Error; err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_WARN_PRIMARY", adminUserID, "UserProfilePicture", "Failed to update existing pictures: "+err.Error(), c)
+		}
+
+		// Create new profile picture record
+		picture := models.UserProfilePicture{
+			UserID:    adminUserID,
+			URL:       urlPath,
+			FileName:  fileHeader.Filename,
+			IsPrimary: true,
+		}
+
+		if err := h.db.Create(&picture).Error; err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_PICTURE", adminUserID, "UserProfilePicture", "Failed to save picture record: "+err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save picture record: " + err.Error()})
+		}
+
+		updated = true
+	}
+
+	// Save user updates if any
+	if updated {
+		if err := h.db.Save(&user).Error; err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_SAVE", adminUserID, "User", "Failed to update user: "+err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update profile: " + err.Error()})
+		}
+	}
+
+	// Reload user with profile pictures
+	if err := h.db.Preload("ProfilePictures").First(&user, adminUserID).Error; err != nil {
+		LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_RELOAD", adminUserID, "User", "Failed to reload user: "+err.Error(), c)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to reload profile"})
+	}
+
+	// Remove password hash from response
+	user.PasswordHash = ""
+
+	LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_SUCCESS", adminUserID, "User", "Profile updated successfully", c)
+	return c.Status(fiber.StatusOK).JSON(user)
+}
+
 // Dynamic Subscription Plan Management
 
 type CreateSubscriptionPlanRequest struct {

@@ -88,7 +88,7 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 	}
 
 	// Get user role to determine school category
-	userRole, _ := c.Locals("user_role").(string)
+	userRole, _ := c.Locals("user_role").(models.UserRole)
 
 	// Parse form data
 	req := new(InstitutionProfileRequest)
@@ -150,9 +150,28 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 			// Save file with institution user ID in filename
 			dst := fmt.Sprintf("%s/%d_%s", uploadDir, actorUserID, fileHeader.Filename)
 			if err := c.SaveFile(fileHeader, dst); err == nil {
-				// Store URL path in profile
-				profile.ProfilePictureURL = "/uploads/institution_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
-				LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_UPLOADED", profile.ID, "InstitutionProfile", "Profile picture uploaded", c)
+				urlPath := "/uploads/institution_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
+
+				// Store URL path in profile for backward compatibility
+				profile.ProfilePictureURL = urlPath
+
+				// Also create UserProfilePicture record for consistency
+				// Set any existing pictures as non-primary
+				h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", actorUserID).Update("is_primary", false)
+
+				// Create new profile picture record
+				picture := models.UserProfilePicture{
+					UserID:    actorUserID,
+					URL:       urlPath,
+					FileName:  fileHeader.Filename,
+					IsPrimary: true,
+				}
+
+				if err := h.db.Create(&picture).Error; err != nil {
+					LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_RECORD_FAIL", profile.ID, "UserProfilePicture", "Failed to save picture record: "+err.Error(), c)
+				} else {
+					LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_UPLOADED", profile.ID, "InstitutionProfile", "Profile picture uploaded", c)
+				}
 			} else {
 				LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_SAVE_FAIL", profile.ID, "InstitutionProfile", "Failed to save picture: "+err.Error(), c)
 			}
@@ -161,9 +180,14 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 
 	// Handle school creation/linking/updating if school details provided
 	if req.SchoolName != "" && req.SchoolCountryCode != "" {
-		// Determine school category based on user role
+		// Determine school category based on user role (primary source of truth)
+		// Prefer user role over form-submitted category
 		schoolCategory := models.SchoolCategorySchool
-		if userRole == string(models.TrainingCenterRole) || req.SchoolCategory == "training_center" {
+		if userRole == models.TrainingCenterRole {
+			schoolCategory = models.SchoolCategoryTrainingCenter
+		}
+		// Allow explicit override only if form specifies "training_center" and user is institution (for flexibility)
+		if req.SchoolCategory == "training_center" && userRole == models.InstitutionRole {
 			schoolCategory = models.SchoolCategoryTrainingCenter
 		}
 
@@ -171,47 +195,39 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 			// Institution already linked to a school: update school info
 			var school models.School
 			if err := h.db.First(&school, *profile.SchoolID).Error; err == nil {
-				// Only update fields if present in request
-				if req.SchoolName != "" {
-					school.Name = req.SchoolName
-				}
-				if req.SchoolAddress != "" {
-					school.Address = req.SchoolAddress
-				}
-				if req.SchoolCity != "" {
-					school.City = req.SchoolCity
-				}
-				if req.SchoolState != "" {
-					school.State = req.SchoolState
-				}
-				if req.SchoolCountry != "" {
-					school.Country = req.SchoolCountry
-				}
-				if req.SchoolCountryCode != "" {
-					school.CountryCode = req.SchoolCountryCode
-				}
-				if req.SchoolZipCode != "" {
-					school.ZipCode = req.SchoolZipCode
-				}
-				if req.SchoolPhone != "" {
-					school.ContactPhone = req.SchoolPhone
-				}
-				if req.SchoolEmail != "" {
-					school.ContactEmail = req.SchoolEmail
-				}
-				if req.SchoolWebsite != "" {
-					school.Website = req.SchoolWebsite
-				}
+				// Update all school fields from request
+				school.Name = req.SchoolName
+				school.Address = req.SchoolAddress
+				school.City = req.SchoolCity
+				school.State = req.SchoolState
+				school.Country = req.SchoolCountry
+				school.CountryCode = req.SchoolCountryCode
+				school.ZipCode = req.SchoolZipCode
+				school.ContactPhone = req.SchoolPhone
+				school.ContactEmail = req.SchoolEmail
+				school.Website = req.SchoolWebsite
+
+				// Update coordinates if provided (non-zero values)
 				if req.SchoolLatitude != 0 {
 					school.Latitude = req.SchoolLatitude
 				}
 				if req.SchoolLongitude != 0 {
 					school.Longitude = req.SchoolLongitude
 				}
+
+				// Always update category based on current user role
 				school.Category = schoolCategory
 				school.Member = true
-				h.db.Save(&school)
-				LogUserAction(h.db, actorUserID, "INST_SCHOOL_UPDATED", school.ID, "School", "Updated school info", c)
+
+				if err := h.db.Save(&school).Error; err != nil {
+					LogUserAction(h.db, actorUserID, "INST_SCHOOL_UPDATE_FAIL", school.ID, "School", "Failed to update school: "+err.Error(), c)
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update school: " + err.Error()})
+				}
+
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_UPDATED", school.ID, "School", fmt.Sprintf("Updated school info with category: %s", schoolCategory), c)
+			} else {
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_FETCH_FAIL", 0, "School", err.Error(), c)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch school: " + err.Error()})
 			}
 		} else {
 			// Try to find existing school by name, city, and country code
@@ -225,23 +241,27 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 			if err == nil {
 				// School exists - check if it's already claimed
 				var existingInst models.InstitutionProfile
-				claimErr := h.db.Where("school_id = ?", existingSchool.ID).First(&existingInst).Error
-				if claimErr == nil && existingInst.ID != profile.ID {
+				claimErr := h.db.Where("school_id = ? AND id != ?", existingSchool.ID, profile.ID).First(&existingInst).Error
+				if claimErr == nil {
 					return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 						"error":     "This school is already claimed by another institution. Please contact admin if this is your school.",
 						"school_id": existingSchool.ID,
 					})
 				}
-				// Link to existing school
+
+				// Link to existing school and update its category based on current user role
 				profile.SchoolID = &existingSchool.ID
-
-				// Update school Member status
+				existingSchool.Category = schoolCategory
 				existingSchool.Member = true
-				h.db.Save(&existingSchool)
 
-				LogUserAction(h.db, actorUserID, "INST_SCHOOL_LINKED", existingSchool.ID, "School", "Linked to existing school", c)
+				if err := h.db.Save(&existingSchool).Error; err != nil {
+					LogUserAction(h.db, actorUserID, "INST_SCHOOL_LINK_FAIL", existingSchool.ID, "School", "Failed to link school: "+err.Error(), c)
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to link school: " + err.Error()})
+				}
+
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_LINKED", existingSchool.ID, "School", fmt.Sprintf("Linked to existing school with category: %s", schoolCategory), c)
 			} else if err == gorm.ErrRecordNotFound {
-				// Create new school
+				// Create new school with correct category based on user role
 				newSchool := models.School{
 					Name:            req.SchoolName,
 					Category:        schoolCategory,
@@ -268,7 +288,7 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 				}
 
 				profile.SchoolID = &newSchool.ID
-				LogUserAction(h.db, actorUserID, "INST_SCHOOL_CREATED", newSchool.ID, "School", "Created new school", c)
+				LogUserAction(h.db, actorUserID, "INST_SCHOOL_CREATED", newSchool.ID, "School", fmt.Sprintf("Created new school with category: %s", schoolCategory), c)
 			} else {
 				LogUserAction(h.db, actorUserID, "INST_SCHOOL_SEARCH_FAIL", 0, "School", err.Error(), c)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error searching for school: " + err.Error()})

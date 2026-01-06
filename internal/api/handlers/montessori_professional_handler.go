@@ -53,9 +53,13 @@ type JobPreferenceRequest struct {
 // @Summary Create or update montessori professional profile
 // @Description Creates a new montessori professional profile or updates an existing one
 // @Tags montessori-professional,profile
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param profile body MontessoriProfessionalProfileRequest true "Montessori Professional profile information"
+// @Param bio formData string false "Professional bio"
+// @Param qualifications formData string false "Professional qualifications"
+// @Param experience formData string false "Professional experience"
+// @Param looking_for_job formData boolean false "Looking for job status"
+// @Param profile_picture formData file false "Profile picture file"
 // @Success 200 {object} models.MontessoriProfessionalProfile "Profile created or updated successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -65,11 +69,18 @@ type JobPreferenceRequest struct {
 func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProfile(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
-	req := new(MontessoriProfessionalProfileRequest)
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	// Parse form data instead of JSON
+	bio := c.FormValue("bio")
+	qualifications := c.FormValue("qualifications")
+	experience := c.FormValue("experience")
+	lookingForJobStr := c.FormValue("looking_for_job")
+
+	// Parse looking_for_job boolean
+	var lookingForJob *bool
+	if lookingForJobStr != "" {
+		val := lookingForJobStr == "true" || lookingForJobStr == "1"
+		lookingForJob = &val
 	}
-	// TODO: Validate req
 
 	var profile models.MontessoriProfessionalProfile
 	err := h.db.Where("user_id = ?", actorUserID).First(&profile).Error
@@ -84,11 +95,54 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 		}
 	}
 
-	profile.Bio = req.Bio
-	profile.Qualifications = req.Qualifications
-	profile.Experience = req.Experience
-	if req.LookingForJob != nil {
-		profile.LookingForJob = *req.LookingForJob
+	if bio != "" {
+		profile.Bio = bio
+	}
+	if qualifications != "" {
+		profile.Qualifications = qualifications
+	}
+	if experience != "" {
+		profile.Experience = experience
+	}
+	if lookingForJob != nil {
+		profile.LookingForJob = *lookingForJob
+	}
+
+	// Handle profile picture upload if provided
+	fileHeader, err := c.FormFile("profile_picture")
+	if err == nil && fileHeader != nil {
+		// Get user to ensure it exists
+		var user models.User
+		if err := h.db.First(&user, actorUserID).Error; err == nil {
+			// Ensure uploads directory exists
+			uploadDir := "./uploads/montessori_professional_profiles"
+			if err := ensureDir(uploadDir); err == nil {
+				// Save file
+				dst := fmt.Sprintf("%s/%d_%s", uploadDir, actorUserID, fileHeader.Filename)
+				if err := c.SaveFile(fileHeader, dst); err == nil {
+					urlPath := "/uploads/montessori_professional_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
+
+					// Set any existing pictures as non-primary
+					h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", actorUserID).Update("is_primary", false)
+
+					// Create new profile picture record
+					picture := models.UserProfilePicture{
+						UserID:    actorUserID,
+						URL:       urlPath,
+						FileName:  fileHeader.Filename,
+						IsPrimary: true,
+					}
+
+					if err := h.db.Create(&picture).Error; err != nil {
+						LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_FAIL", actorUserID, "UserProfilePicture", "Failed to save picture: "+err.Error(), c)
+					} else {
+						LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SUCCESS", actorUserID, "UserProfilePicture", "Profile picture uploaded", c)
+					}
+				} else {
+					LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SAVE_FAIL", actorUserID, "System", "Failed to save file: "+err.Error(), c)
+				}
+			}
+		}
 	}
 
 	if err := h.db.Save(&profile).Error; err != nil {
@@ -122,8 +176,8 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 // @Router /institution/montessori-professionals/looking-for-jobs [get]
 func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
 	// Check user role - only admin, institution, and training_center can access
-	userRole, _ := c.Locals("user_role").(string)
-	allowedRoles := []string{"admin", "superadmin", "institution", "training_center"}
+	userRole, _ := c.Locals("user_role").(models.UserRole)
+	allowedRoles := []models.UserRole{models.AdminRole, models.SuperAdminRole, models.InstitutionRole, models.TrainingCenterRole}
 
 	isAllowed := false
 	for _, role := range allowedRoles {
