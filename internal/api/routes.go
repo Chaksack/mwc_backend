@@ -100,9 +100,6 @@ func SetupRoutes(
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
 	// Unified Saved Schools Routes for all user roles (Parent, Montessori Professional)
 	apiV1.Post("/me/schools/saved/:school_id", authMw, savedSchoolHandler.SaveSchool)
-	// Auth Middleware
-	authMw = middleware.Protected(cfg.JWTSecret)
-	subscriptionMw = middleware.SubscriptionAuth(db)
 
 	// Notification Handler and Routes for logged-in users
 	notificationHandler := handlers.NewNotificationHandler(db)
