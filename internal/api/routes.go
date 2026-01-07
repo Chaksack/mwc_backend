@@ -48,7 +48,7 @@ func SetupRoutes(
 	// app.Get("/", func(c *fiber.Ctx) error {
 	// 	return c.Status(200).JSON(fiber.Map{
 	// 		"message":       "Welcome to Montessori World Connect API",
-	// 		"version":       "2.3.0",
+	// 		"version":       "2.3.1",
 	// 		"documentation": "/swagger/index.html",
 	// 	})
 	// })
@@ -97,7 +97,8 @@ func SetupRoutes(
 	subscriptionMw := middleware.SubscriptionAuth(db)
 
 	// User Routes
-	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
+	apiV1.Get("/me", authMw, authHandler.GetCurrentUser)    // Retrieve logged-in user
+	apiV1.Put("/me", authMw, authHandler.UpdateCurrentUser) // Update basic user/profile details
 	// Unified Saved Schools Routes for all user roles (Parent, Montessori Professional)
 	apiV1.Post("/me/schools/saved/:school_id", authMw, savedSchoolHandler.SaveSchool)
 

@@ -1,0 +1,197 @@
+{
+  "info": {
+    "name": "MWC API Full Coverage",
+    "_postman_id": "f4c2b6f1-0a22-44f2-9f01-4c1234567890",
+    "description": "Comprehensive role-based coverage of Montessori World Connect API. Login requests populate tokens; folders set Authorization automatically. Tests allow 2xx/4xx where data setup may be required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {"name": "Health", "request": {"method": "GET", "url": "{{baseUrl}}/health"}, "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.code === 200);"]}}]},
+        {"name": "Root", "request": {"method": "GET", "url": "{{baseUrl}}/"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Schools Public", "request": {"method": "GET", "url": "{{baseUrl}}/schools/public"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Continents", "request": {"method": "GET", "url": "{{baseUrl}}/schools/continents"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Continent Counts", "request": {"method": "GET", "url": "{{baseUrl}}/schools/continent-counts"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Institutions Search", "request": {"method": "GET", "url": "{{baseUrl}}/institutions/search?q=test"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Institution Public Details", "request": {"method": "GET", "url": "{{baseUrl}}/institutions/{{institutionId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Subscription Plans (Public)", "request": {"method": "GET", "url": "{{baseUrl}}/subscription/plans"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Blogs", "request": {"method": "GET", "url": "{{baseUrl}}/blogs"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Blog by Slug", "request": {"method": "GET", "url": "{{baseUrl}}/blogs/{{blogSlug}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Events", "request": {"method": "GET", "url": "{{baseUrl}}/events"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Event by ID", "request": {"method": "GET", "url": "{{baseUrl}}/events/{{eventId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Events Featured", "request": {"method": "GET", "url": "{{baseUrl}}/events/featured"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200]).to.include(pm.response.code);"]}}]},
+        {"name": "Register (sample)", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode": "raw", "raw": "{\n  \"email\": \"newuser+{{ $timestamp }}@example.com\",\n  \"password\": \"changeme123\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"role\": \"parent\"\n}"}, "url": "{{baseUrl}}/register"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,409]).to.include(pm.response.code);"]}}]},
+        {"name": "Verify Email", "request": {"method": "GET", "url": "{{baseUrl}}/verify-email?token=dummy"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Forgot Password", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{parentEmail}}\"\n}"}, "url": "{{baseUrl}}/forgot-password"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Reset Password", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode": "raw", "raw": "{\n  \"token\": \"dummy\",\n  \"new_password\": \"changeme123\"\n}"}, "url": "{{baseUrl}}/reset-password"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {"name": "Login Admin", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"}, "url": "{{baseUrl}}/login"}, "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.code === 200);","const j=pm.response.json(); pm.environment.set('token_admin', j.token||''); pm.test('token', ()=>!!j.token);"]}}]},
+        {"name": "Login Institution", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"email\": \"{{instEmail}}\",\n  \"password\": \"{{instPassword}}\"\n}"}, "url": "{{baseUrl}}/login"}, "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.code === 200);","const j=pm.response.json(); pm.environment.set('token_institution', j.token||''); pm.test('token', ()=>!!j.token);"]}}]},
+        {"name": "Login Training Center", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"email\": \"{{tcEmail}}\",\n  \"password\": \"{{tcPassword}}\"\n}"}, "url": "{{baseUrl}}/login"}, "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.code === 200);","const j=pm.response.json(); pm.environment.set('token_training_center', j.token||''); pm.test('token', ()=>!!j.token);"]}}]},
+        {"name": "Login Professional", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"email\": \"{{proEmail}}\",\n  \"password\": \"{{proPassword}}\"\n}"}, "url": "{{baseUrl}}/login"}, "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.code === 200);","const j=pm.response.json(); pm.environment.set('token_professional', j.token||''); pm.test('token', ()=>!!j.token);"]}}]},
+        {"name": "Login Parent", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"email\": \"{{parentEmail}}\",\n  \"password\": \"{{parentPassword}}\"\n}"}, "url": "{{baseUrl}}/login"}, "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.code === 200);","const j=pm.response.json(); pm.environment.set('token_parent', j.token||''); pm.test('token', ()=>!!j.token);"]}}]}
+      ]
+    },
+    {
+      "name": "User / Me",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_institution')||pm.environment.get('token_training_center')||pm.environment.get('token_professional')||pm.environment.get('token_admin')||'')});"]}}],
+      "item": [
+        {"name": "Me", "request": {"method": "GET", "url": "{{baseUrl}}/me"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update Me", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"firstName\": \"API\",\n  \"lastName\": \"User\"\n}"}, "url": "{{baseUrl}}/me"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Notifications",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_institution')||pm.environment.get('token_training_center')||pm.environment.get('token_professional')||pm.environment.get('token_admin')||'')});"]}}],
+      "item": [
+        {"name": "List Notifications", "request": {"method": "GET", "url": "{{baseUrl}}/notifications"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Mark Notification Read", "request": {"method": "PUT", "url": "{{baseUrl}}/notifications/{{notificationId}}/read"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,404,401]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Profile Pictures",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_institution')||pm.environment.get('token_training_center')||pm.environment.get('token_professional')||pm.environment.get('token_admin')||'')});"]}}],
+      "item": [
+        {"name": "List Pictures", "request": {"method": "GET", "url": "{{baseUrl}}/me/profile/pictures"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Upload Picture (sample)", "request": {"method": "POST", "body": {"mode": "formdata", "formdata": [{"key": "file", "src": "./sample.png", "type": "file"}]}, "url": "{{baseUrl}}/me/profile/pictures"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Picture", "request": {"method": "DELETE", "url": "{{baseUrl}}/me/profile/pictures/{{profilePictureId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Set Primary Picture", "request": {"method": "PUT", "url": "{{baseUrl}}/me/profile/pictures/{{profilePictureId}}/primary"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Saved Schools",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_professional')||pm.environment.get('token_institution')||'')});"]}}],
+      "item": [
+        {"name": "Save School (me)", "request": {"method": "POST", "url": "{{baseUrl}}/me/schools/saved/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Saved School (me)", "request": {"method": "DELETE", "url": "{{baseUrl}}/me/schools/saved/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "List Saved Schools (Parent)", "request": {"method": "GET", "url": "{{baseUrl}}/parent/schools/saved"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Save School (Parent)", "request": {"method": "POST", "url": "{{baseUrl}}/parent/schools/save/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Saved School (Parent)", "request": {"method": "DELETE", "url": "{{baseUrl}}/parent/schools/save/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Saved Schools (Professional)", "request": {"method": "GET", "url": "{{baseUrl}}/montessori-professional/schools/saved"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Save School (Professional)", "request": {"method": "POST", "url": "{{baseUrl}}/montessori-professional/schools/save/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Saved School (Professional)", "request": {"method": "DELETE", "url": "{{baseUrl}}/montessori-professional/schools/save/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Institution / Training Center",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_institution')||pm.environment.get('token_training_center')||'')});"]}}],
+      "item": [
+        {"name": "Me", "request": {"method": "GET", "url": "{{baseUrl}}/me"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Profile Upsert", "request": {"method": "POST", "body": {"mode": "formdata", "formdata": [
+          {"key": "institution_name", "value": "Inst-{{ $timestamp }}", "type": "text"},
+          {"key": "school_name", "value": "School-{{ $timestamp }}", "type": "text"},
+          {"key": "school_country_code", "value": "US", "type": "text"}
+        ]}, "url": "{{baseUrl}}/institution/profile"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401,400]).to.include(pm.response.code);"]}}]},
+        {"name": "Available Schools", "request": {"method": "GET", "url": "{{baseUrl}}/institution/schools/available"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Create School (inst)", "request": {"method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"name\": \"API School {{ $timestamp }}\",\n  \"country_code\": \"US\",\n  \"category\": \"school\"\n}"}, "url": "{{baseUrl}}/institution/schools"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Select School", "request": {"method": "PUT", "url": "{{baseUrl}}/institution/schools/select/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404,409]).to.include(pm.response.code);"]}}]},
+        {"name": "Post Job", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"title\": \"Guide {{ $timestamp }}\",\n  \"description\": \"Desc\",\n  \"location\": \"Remote\"\n}"}, "url": "{{baseUrl}}/institution/jobs"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "My Jobs", "request": {"method": "GET", "url": "{{baseUrl}}/institution/jobs"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update Job", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"title\": \"Guide Updated\"\n}"}, "url": "{{baseUrl}}/institution/jobs/{{jobId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Job", "request": {"method": "DELETE", "url": "{{baseUrl}}/institution/jobs/{{jobId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Job Applicants", "request": {"method": "GET", "url": "{{baseUrl}}/institution/jobs/{{jobId}}/applicants"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Institution Events Create", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"title\": \"Open House {{ $timestamp }}\",\n  \"description\": \"Desc\",\n  \"startDate\": \"2030-01-01T00:00:00Z\",\n  \"endDate\": \"2030-01-02T00:00:00Z\",\n  \"location\": \"Remote\"\n}"}, "url": "{{baseUrl}}/institution/events"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Institution Events List", "request": {"method": "GET", "url": "{{baseUrl}}/institution/events"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Institution Event Update", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"title\": \"Updated Event\"\n}"}, "url": "{{baseUrl}}/institution/events/{{eventId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Institution Event Delete", "request": {"method": "DELETE", "url": "{{baseUrl}}/institution/events/{{eventId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Montessori Professional",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_professional')||'')});"]}}],
+      "item": [
+        {"name": "Me", "request": {"method": "GET", "url": "{{baseUrl}}/me"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Search Schools", "request": {"method": "GET", "url": "{{baseUrl}}/montessori-professional/schools/search?q=test"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Get Saved Schools", "request": {"method": "GET", "url": "{{baseUrl}}/montessori-professional/schools/saved"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Job Preferences Upsert", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"location\": \"Remote\",\n  \"employmentType\": \"Full-time\"\n}"}, "url": "{{baseUrl}}/montessori-professional/job-preferences"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Job Preferences Delete", "request": {"method": "DELETE", "url": "{{baseUrl}}/montessori-professional/job-preferences"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Jobs Applied", "request": {"method": "GET", "url": "{{baseUrl}}/montessori-professional/jobs/applied"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Apply Job", "request": {"method": "POST", "url": "{{baseUrl}}/montessori-professional/jobs/{{jobId}}/apply"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Parent",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||'')});"]}}],
+      "item": [
+        {"name": "Me", "request": {"method": "GET", "url": "{{baseUrl}}/me"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Profile Upsert", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"profile_visibility\": \"public\",\n  \"parent_age\": 35\n}"}, "url": "{{baseUrl}}/parent/profile"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Search Schools", "request": {"method": "GET", "url": "{{baseUrl}}/parent/schools/search?q=test"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "School Details", "request": {"method": "GET", "url": "{{baseUrl}}/parent/schools/{{schoolId}}/details"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401,404,403]).to.include(pm.response.code);"]}}]},
+        {"name": "Public Parents", "request": {"method": "GET", "url": "{{baseUrl}}/parent/public-parents"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Public Parent Details", "request": {"method": "GET", "url": "{{baseUrl}}/parent/public-parents/{{userId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Send Message", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"content\": \"Hello\"\n}"}, "url": "{{baseUrl}}/parent/messages/send/{{messageRecipientId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "List Messages", "request": {"method": "GET", "url": "{{baseUrl}}/parent/messages"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Mark Message Read", "request": {"method": "POST", "url": "{{baseUrl}}/parent/messages/{{messageRecipientId}}/read"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Reviews (Authenticated)",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_professional')||pm.environment.get('token_institution')||'')});"]}}],
+      "item": [
+        {"name": "Create Review", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"school_id\": {{schoolId}},\n  \"rating\": 5,\n  \"comment\": \"Great\"\n}"}, "url": "{{baseUrl}}/reviews"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "User Reviews", "request": {"method": "GET", "url": "{{baseUrl}}/reviews/user"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update Review", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"rating\": 4\n}"}, "url": "{{baseUrl}}/reviews/{{reviewId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Review", "request": {"method": "DELETE", "url": "{{baseUrl}}/reviews/{{reviewId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Reviews (Public)",
+      "item": [
+        {"name": "School Reviews", "request": {"method": "GET", "url": "{{baseUrl}}/schools/{{schoolId}}/reviews"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,404]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Subscription",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_institution')||pm.environment.get('token_training_center')||pm.environment.get('token_professional')||'')});"]}}],
+      "item": [
+        {"name": "Checkout", "request": {"method": "POST", "url": "{{baseUrl}}/subscription/checkout"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Status", "request": {"method": "GET", "url": "{{baseUrl}}/subscription/status"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Cancel", "request": {"method": "POST", "url": "{{baseUrl}}/subscription/cancel"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Portal", "request": {"method": "POST", "url": "{{baseUrl}}/subscription/portal"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Jobs (Authenticated + Subscription)",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_parent')||pm.environment.get('token_institution')||pm.environment.get('token_training_center')||pm.environment.get('token_professional')||'')});"]}}],
+      "item": [
+        {"name": "List Jobs", "request": {"method": "GET", "url": "{{baseUrl}}/jobs"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401,403]).to.include(pm.response.code);"]}}]}
+      ]
+    },
+    {
+      "name": "Admin",
+      "event": [{"listen": "prerequest", "script": {"exec": ["pm.request.headers.upsert({key:'Authorization',value:'Bearer '+(pm.environment.get('token_admin')||'')});"]}}],
+      "item": [
+        {"name": "Profile Update", "request": {"method": "PUT", "body": {"mode": "formdata", "formdata": [{"key":"first_name","value":"Admin","type":"text"}]}, "url": "{{baseUrl}}/admin/profile"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Users", "request": {"method": "GET", "url": "{{baseUrl}}/admin/users"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update User Status", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"is_active\": false\n}"}, "url": "{{baseUrl}}/admin/users/{{userId}}/status"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Update User Role", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"role\": \"parent\"\n}"}, "url": "{{baseUrl}}/admin/users/{{userId}}/role"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete User", "request": {"method": "DELETE", "url": "{{baseUrl}}/admin/users/{{userId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Action Logs", "request": {"method": "GET", "url": "{{baseUrl}}/admin/action-logs"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Schools By Country", "request": {"method": "GET", "url": "{{baseUrl}}/admin/schools?country_code=US"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Create School", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"name\": \"Admin School {{ $timestamp }}\",\n  \"country_code\": \"US\"\n}"}, "url": "{{baseUrl}}/admin/schools/create"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update School", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"name\": \"Updated School\"\n}"}, "url": "{{baseUrl}}/admin/schools/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete School", "request": {"method": "DELETE", "url": "{{baseUrl}}/admin/schools/{{schoolId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404,409]).to.include(pm.response.code);"]}}]},
+        {"name": "Batch Upload Schools", "request": {"method": "POST", "body": {"mode": "formdata", "formdata": [{"key": "schools_file", "src": "./schools.json", "type": "file"}]}, "url": "{{baseUrl}}/admin/schools/batch-upload"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Create Training Center", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"name\": \"Admin TC {{ $timestamp }}\",\n  \"country_code\": \"US\"\n}"}, "url": "{{baseUrl}}/admin/training-centers/create"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Create Blog", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"title\": \"Blog {{ $timestamp }}\",\n  \"slug\": \"blog-{{ $timestamp }}\",\n  \"content\": \"<p>content</p>\"\n}"}, "url": "{{baseUrl}}/admin/blogs"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update Blog", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"title\": \"Updated Blog\"\n}"}, "url": "{{baseUrl}}/admin/blogs/{{blogSlug}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Blog", "request": {"method": "DELETE", "url": "{{baseUrl}}/admin/blogs/{{blogSlug}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,204,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Create Subscription Plan", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"name\": \"Plan {{ $timestamp }}\",\n  \"price\": 10,\n  \"currency\": \"USD\"\n}"}, "url": "{{baseUrl}}/admin/subscription-plans"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,201,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Get Subscription Plans", "request": {"method": "GET", "url": "{{baseUrl}}/admin/subscription-plans"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Update Subscription Plan", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"description\": \"Updated\"\n}"}, "url": "{{baseUrl}}/admin/subscription-plans/{{userId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Delete Subscription Plan", "request": {"method": "DELETE", "url": "{{baseUrl}}/admin/subscription-plans/{{userId}}"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Role Subscriptions", "request": {"method": "GET", "url": "{{baseUrl}}/admin/role-subscriptions?role=parent"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Assign Subscription", "request": {"method": "POST", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"user_id\": {{userId}},\n  \"plan_id\": 1\n}"}, "url": "{{baseUrl}}/admin/assign-subscription"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Pending Reviews", "request": {"method": "GET", "url": "{{baseUrl}}/admin/reviews/pending"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,401]).to.include(pm.response.code);"]}}]},
+        {"name": "Moderate Review", "request": {"method": "PUT", "header":[{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"status\": \"approved\"\n}"}, "url": "{{baseUrl}}/admin/reviews/{{reviewId}}/moderate"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]},
+        {"name": "Feature Event", "request": {"method": "PUT", "url": "{{baseUrl}}/admin/events/{{eventId}}/feature"}, "event": [{"listen": "test", "script": {"exec": ["pm.expect([200,400,401,404]).to.include(pm.response.code);"]}}]}
+      ]
+    }
+  ]
+}

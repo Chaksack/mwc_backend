@@ -507,17 +507,18 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	}
 
 	// Now preload the appropriate profile based on user role with all related data
+	// Also preload ProfilePictures to reflect latest uploads/primary selection
 	switch user.Role {
 	case models.InstitutionRole, models.TrainingCenterRole:
-		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load institution profile: " + err.Error()})
 		}
 	case models.MontessoriProfessionalRole:
-		if err := h.db.Preload("MontessoriProfessionalProfile").Preload("MontessoriProfessionalProfile.SavedSchools").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("MontessoriProfessionalProfile").Preload("MontessoriProfessionalProfile.SavedSchools").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load montessori professional profile: " + err.Error()})
 		}
 	case models.ParentRole:
-		if err := h.db.Preload("ParentProfile").Preload("ParentProfile.SavedSchools").Preload("ParentProfile.Schools").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("ParentProfile").Preload("ParentProfile.SavedSchools").Preload("ParentProfile.Schools").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load parent profile: " + err.Error()})
 		}
 	}
@@ -539,19 +540,35 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		"lastLogin":     user.LastLogin,
 	}
 
+	// Include profile pictures and primary URL if available
+	var primaryURL string
+	if len(user.ProfilePictures) > 0 {
+		userMap["profilePictures"] = user.ProfilePictures
+		for _, pic := range user.ProfilePictures {
+			if pic.IsPrimary {
+				primaryURL = pic.URL
+				break
+			}
+		}
+		if primaryURL != "" {
+			userMap["primaryProfilePictureUrl"] = primaryURL
+		}
+	}
+
 	// Add comprehensive profile information based on role
 	switch user.Role {
 	case models.InstitutionRole, models.TrainingCenterRole:
 		if user.InstitutionProfile != nil {
 			userMap["profile"] = fiber.Map{
-				"id":               user.InstitutionProfile.ID,
-				"institutionName":  user.InstitutionProfile.InstitutionName,
-				"isVerified":       user.InstitutionProfile.IsVerified,
-				"schoolId":         user.InstitutionProfile.SchoolID,
-				"school":           user.InstitutionProfile.School,
-				"verificationDocs": user.InstitutionProfile.VerificationDocs,
-				"createdAt":        user.InstitutionProfile.CreatedAt,
-				"updatedAt":        user.InstitutionProfile.UpdatedAt,
+				"id":                user.InstitutionProfile.ID,
+				"institutionName":   user.InstitutionProfile.InstitutionName,
+				"isVerified":        user.InstitutionProfile.IsVerified,
+				"schoolId":          user.InstitutionProfile.SchoolID,
+				"school":            user.InstitutionProfile.School,
+				"verificationDocs":  user.InstitutionProfile.VerificationDocs,
+				"profilePictureUrl": user.InstitutionProfile.ProfilePictureURL,
+				"createdAt":         user.InstitutionProfile.CreatedAt,
+				"updatedAt":         user.InstitutionProfile.UpdatedAt,
 			}
 		}
 	case models.MontessoriProfessionalRole:
@@ -580,10 +597,132 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		}
 	}
 
+	// Compute displayName and avatarUrl for convenience across roles
+	displayName := strings.TrimSpace(fmt.Sprintf("%s %s", user.FirstName, user.LastName))
+	avatarUrl := ""
+	if primaryURL != "" {
+		avatarUrl = primaryURL
+	} else {
+		switch user.Role {
+		case models.InstitutionRole, models.TrainingCenterRole:
+			if user.InstitutionProfile != nil && user.InstitutionProfile.ProfilePictureURL != "" {
+				avatarUrl = user.InstitutionProfile.ProfilePictureURL
+			}
+		}
+	}
+	if user.Role == models.InstitutionRole || user.Role == models.TrainingCenterRole {
+		if user.InstitutionProfile != nil && user.InstitutionProfile.InstitutionName != "" {
+			displayName = user.InstitutionProfile.InstitutionName
+		}
+	}
+	userMap["displayName"] = displayName
+	if avatarUrl != "" {
+		userMap["avatarUrl"] = avatarUrl
+	}
+
 	// Return user information with profile
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": userMap,
 	})
+}
+
+// UpdateCurrentUser allows the authenticated user to update basic details and selected profile fields.
+// @Summary Update current user
+// @Description Update the logged-in user's basic details and selected profile fields. Returns the updated user.
+// @Tags auth,authenticated
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body map[string]interface{} true "Update fields"
+// @Success 200 {object} map[string]interface{} "Updated user information"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /me [put]
+func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	var payload struct {
+		FirstName *string                `json:"firstName"`
+		LastName  *string                `json:"lastName"`
+		Profile   map[string]interface{} `json:"profile"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+	}
+
+	// Update basic user fields
+	if payload.FirstName != nil {
+		user.FirstName = *payload.FirstName
+	}
+	if payload.LastName != nil {
+		user.LastName = *payload.LastName
+	}
+
+	if err := h.db.Save(&user).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user: " + err.Error()})
+	}
+
+	// Update a subset of profile fields depending on role (optional convenience)
+	if payload.Profile != nil {
+		switch user.Role {
+		case models.ParentRole:
+			var prof models.ParentProfile
+			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
+				if v, ok := payload.Profile["profileVisibility"].(string); ok {
+					prof.ProfileVisibility = v
+				}
+				if age, ok := payload.Profile["parentAge"].(float64); ok {
+					prof.ParentAge = int(age)
+				}
+				_ = h.db.Save(&prof).Error
+			}
+		case models.MontessoriProfessionalRole:
+			var prof models.MontessoriProfessionalProfile
+			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
+				if v, ok := payload.Profile["bio"].(string); ok {
+					prof.Bio = v
+				}
+				if v, ok := payload.Profile["qualifications"].(string); ok {
+					prof.Qualifications = v
+				}
+				if v, ok := payload.Profile["experience"].(string); ok {
+					prof.Experience = v
+				}
+				if v, ok := payload.Profile["lookingForJob"].(bool); ok {
+					prof.LookingForJob = v
+				}
+				_ = h.db.Save(&prof).Error
+			}
+		case models.InstitutionRole, models.TrainingCenterRole:
+			var prof models.InstitutionProfile
+			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
+				if v, ok := payload.Profile["institutionName"].(string); ok {
+					prof.InstitutionName = v
+				}
+				if v, ok := payload.Profile["profilePictureUrl"].(string); ok {
+					prof.ProfilePictureURL = v
+				}
+				_ = h.db.Save(&prof).Error
+			}
+		}
+	}
+
+	LogUserAction(h.db, user.ID, "USER_UPDATE_ME", user.ID, "User", "User updated their profile", c)
+
+	// Return the fresh, fully-loaded user (reuse existing logic)
+	return h.GetCurrentUser(c)
 }
 
 // UploadProfilePicture handles uploading a new profile picture for the authenticated user
