@@ -148,7 +148,7 @@ func SetupRoutes(
 
 	// Institution and Training Center Routes (shared logic)
 	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
-	instTcRoutes.Post("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
+	instTcRoutes.Put("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
 	instTcRoutes.Get("/schools/available", institutionHandler.GetAvailableSchools) // Get schools available for selection
 	instTcRoutes.Post("/schools", institutionHandler.CreateSchool)                 // If school not in admin list
 	instTcRoutes.Put("/schools/select/:school_id", institutionHandler.SelectSchool)
@@ -166,7 +166,7 @@ func SetupRoutes(
 
 	// Montessori Professional Routes
 	montessoriProfessionalRoutes := apiV1.Group("/montessori-professional", authMw, middleware.RoleAuth(models.MontessoriProfessionalRole))
-	montessoriProfessionalRoutes.Post("/profile", montessoriProfessionalHandler.CreateOrUpdateMontessoriProfessionalProfile)
+	montessoriProfessionalRoutes.Put("/profile", montessoriProfessionalHandler.CreateOrUpdateMontessoriProfessionalProfile)
 	montessoriProfessionalRoutes.Get("/schools/search", montessoriProfessionalHandler.SearchSchools)
 	montessoriProfessionalRoutes.Post("/schools/save/:school_id", montessoriProfessionalHandler.SaveSchool)
 	montessoriProfessionalRoutes.Delete("/schools/save/:school_id", montessoriProfessionalHandler.DeleteSavedSchool)
@@ -180,7 +180,7 @@ func SetupRoutes(
 
 	// Parent Routes
 	parentRoutes := apiV1.Group("/parent", authMw, middleware.RoleAuth(models.ParentRole))
-	parentRoutes.Post("/profile", parentHandler.CreateOrUpdateParentProfile)
+	parentRoutes.Put("/profile", parentHandler.CreateOrUpdateParentProfile)
 	parentRoutes.Get("/schools/search", parentHandler.SearchSchools)                                // Can reuse educator's or have its own
 	parentRoutes.Get("/schools/:school_id/details", subscriptionMw, parentHandler.GetSchoolDetails) // Get school details with public parent profiles (requires active subscription)
 	parentRoutes.Post("/schools/save/:school_id", parentHandler.SaveSchool)

@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.3.1"
+        "version": "2.3.2"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -3122,7 +3122,7 @@
             }
         },
         "/institution/profile": {
-            "post": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -4787,7 +4787,7 @@
             }
         },
         "/montessori-professional/profile": {
-            "post": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -5470,7 +5470,7 @@
             }
         },
         "/parent/profile": {
-            "post": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
