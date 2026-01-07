@@ -521,6 +521,11 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		if err := h.db.Preload("ParentProfile").Preload("ParentProfile.SavedSchools").Preload("ParentProfile.Schools").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load parent profile: " + err.Error()})
 		}
+	default:
+		// For admin and any other roles, just preload ProfilePictures
+		if err := h.db.Preload("ProfilePictures").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load user profile: " + err.Error()})
+		}
 	}
 
 	// Log the action
@@ -600,6 +605,8 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	// Compute displayName and avatarUrl for convenience across roles
 	displayName := strings.TrimSpace(fmt.Sprintf("%s %s", user.FirstName, user.LastName))
 	avatarUrl := ""
+	institutionName := ""
+	
 	if primaryURL != "" {
 		avatarUrl = primaryURL
 	} else {
@@ -613,11 +620,15 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	if user.Role == models.InstitutionRole || user.Role == models.TrainingCenterRole {
 		if user.InstitutionProfile != nil && user.InstitutionProfile.InstitutionName != "" {
 			displayName = user.InstitutionProfile.InstitutionName
+			institutionName = user.InstitutionProfile.InstitutionName
 		}
 	}
 	userMap["displayName"] = displayName
 	if avatarUrl != "" {
 		userMap["avatarUrl"] = avatarUrl
+	}
+	if institutionName != "" {
+		userMap["institutionName"] = institutionName
 	}
 
 	// Return user information with profile

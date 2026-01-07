@@ -3848,6 +3848,7 @@
                                         "lastLogin": { "type": "string", "format": "date-time" },
                                         "displayName": { "type": "string", "description": "Convenience display name (institution name for institutions, otherwise firstName + lastName)" },
                                         "avatarUrl": { "type": "string", "description": "Primary profile avatar URL" },
+                                        "institutionName": { "type": "string", "description": "Institution name for institution/training_center roles" },
                                         "primaryProfilePictureUrl": { "type": "string" },
                                         "profilePictures": {
                                             "type": "array",
