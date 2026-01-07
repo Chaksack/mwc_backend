@@ -1,0 +1,250 @@
+{
+  "info": {
+    "name": "Montessori World Connect API",
+    "_postman_id": "9b2ec8dc-6e40-4f10-b2b0-2a6d4fb9910e",
+    "description": "Role-based tests for MWC API. Ensure users exist with the given credentials in the environment. Login requests save tokens for subsequent calls.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"]}
+          },
+          "event": [
+            {"listen": "test", "script": {"type": "text/javascript", "exec": [
+              "pm.test('Health returns 200', () => pm.response.code === 200);"
+            ]}}
+          ]
+        },
+        {
+          "name": "Public Schools",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{baseUrl}}/schools/public", "host": ["{{baseUrl}}"], "path": ["schools","public"]}
+          },
+          "event": [
+            {"listen": "test", "script": {"type": "text/javascript", "exec": [
+              "pm.test('Schools public 200', () => pm.response.code === 200);"
+            ]}}
+          ]
+        },
+        {
+          "name": "Blogs",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/blogs", "host": ["{{baseUrl}}"], "path": ["blogs"]}},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Blogs 200', () => pm.response.code === 200);"]}}]
+        },
+        {
+          "name": "Events",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"]}},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Events 200', () => pm.response.code === 200);"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"},
+            "url": {"raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Login admin 200', () => pm.response.code === 200);",
+            "const json = pm.response.json();",
+            "pm.environment.set('token_admin', json.token || '');",
+            "pm.test('Token present', () => !!json.token);"
+          ]}}]
+        },
+        {
+          "name": "Login Institution",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{instEmail}}\",\n  \"password\": \"{{instPassword}}\"\n}"},
+            "url": {"raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Login institution 200', () => pm.response.code === 200);",
+            "const json = pm.response.json();",
+            "pm.environment.set('token_institution', json.token || '');",
+            "pm.test('Token present', () => !!json.token);"
+          ]}}]
+        },
+        {
+          "name": "Login Training Center",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{tcEmail}}\",\n  \"password\": \"{{tcPassword}}\"\n}"},
+            "url": {"raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Login training center 200', () => pm.response.code === 200);",
+            "const json = pm.response.json();",
+            "pm.environment.set('token_training_center', json.token || '');",
+            "pm.test('Token present', () => !!json.token);"
+          ]}}]
+        },
+        {
+          "name": "Login Professional",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{proEmail}}\",\n  \"password\": \"{{proPassword}}\"\n}"},
+            "url": {"raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Login professional 200', () => pm.response.code === 200);",
+            "const json = pm.response.json();",
+            "pm.environment.set('token_professional', json.token || '');",
+            "pm.test('Token present', () => !!json.token);"
+          ]}}]
+        },
+        {
+          "name": "Login Parent",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{parentEmail}}\",\n  \"password\": \"{{parentPassword}}\"\n}"},
+            "url": {"raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Login parent 200', () => pm.response.code === 200);",
+            "const json = pm.response.json();",
+            "pm.environment.set('token_parent', json.token || '');",
+            "pm.test('Token present', () => !!json.token);"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Institution / Training Center",
+      "event": [
+        {"listen": "prerequest", "script": {"exec": [
+          "// Default to institution token; set training center token at request if needed",
+          "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + (pm.environment.get('token_institution') || '') });"
+        ]}}
+      ],
+      "item": [
+        {
+          "name": "Me (Institution)",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/me", "host": ["{{baseUrl}}"], "path": ["me"]}},
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Me 200', () => pm.response.code === 200);",
+            "const u = pm.response.json().user;",
+            "pm.expect(u).to.be.an('object');",
+            "pm.expect(u.role).to.be.oneOf(['institution','training_center']);"
+          ]}}]
+        },
+        {
+          "name": "Update Institution Profile",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {"key": "institution_name", "value": "Inst-{{instInstitutionName}}", "type": "text"},
+                {"key": "school_name", "value": "School-{{instInstitutionName}}", "type": "text"},
+                {"key": "school_country_code", "value": "US", "type": "text"}
+              ]
+            },
+            "url": {"raw": "{{baseUrl}}/institution/profile", "host": ["{{baseUrl}}"], "path": ["institution","profile"]}
+          },
+          "event": [
+            {"listen": "prerequest", "script": {"exec": [
+              "pm.environment.set('instInstitutionName', Date.now().toString());"
+            ]}},
+            {"listen": "test", "script": {"exec": [
+              "pm.test('Profile updated 200', () => pm.response.code === 200);"
+            ]}}
+          ]
+        },
+        {
+          "name": "Me reflects Institution Name",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/me", "host": ["{{baseUrl}}"], "path": ["me"]}},
+          "event": [{"listen": "test", "script": {"exec": [
+            "const resp = pm.response.json();",
+            "pm.test('Me 200', () => pm.response.code === 200);",
+            "pm.test('displayName matches institution_name', () => {",
+            "  pm.expect(resp.user.displayName).to.be.a('string');",
+            "  pm.expect(resp.user.displayName).to.include(pm.environment.get('instInstitutionName'));",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "List My Jobs",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/institution/jobs", "host": ["{{baseUrl}}"], "path": ["institution","jobs"]}},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('My jobs 200', () => pm.response.code === 200);"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Montessori Professional",
+      "event": [{"listen": "prerequest", "script": {"exec": [
+        "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + (pm.environment.get('token_professional') || '') });"
+      ]}}],
+      "item": [
+        {
+          "name": "Me (Professional)",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/me", "host": ["{{baseUrl}}"], "path": ["me"]}},
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Me 200', () => pm.response.code === 200);",
+            "pm.expect(pm.response.json().user.role).to.eql('montessori_professional');"
+          ]}}]
+        },
+        {
+          "name": "Upsert Job Preference",
+          "request": {"method": "PUT", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode": "raw", "raw": "{\n  \"location\": \"Remote\",\n  \"employmentType\": \"Full-time\",\n  \"keywords\": \"guide\"\n}"}, "url": {"raw": "{{baseUrl}}/montessori-professional/job-preferences", "host": ["{{baseUrl}}"], "path": ["montessori-professional","job-preferences"]}},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Preference upsert 200', () => pm.response.code === 200);"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Parent",
+      "event": [{"listen": "prerequest", "script": {"exec": [
+        "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + (pm.environment.get('token_parent') || '') });"
+      ]}}],
+      "item": [
+        {
+          "name": "Me (Parent)",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/me", "host": ["{{baseUrl}}"], "path": ["me"]}},
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Me 200', () => pm.response.code === 200);",
+            "pm.expect(pm.response.json().user.role).to.eql('parent');"
+          ]}}]
+        },
+        {
+          "name": "Saved Schools (list)",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/parent/schools/saved", "host": ["{{baseUrl}}"], "path": ["parent","schools","saved"]}},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Saved schools 200', () => pm.response.code === 200);"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "event": [{"listen": "prerequest", "script": {"exec": [
+        "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + (pm.environment.get('token_admin') || '') });"
+      ]}}],
+      "item": [
+        {
+          "name": "List Users",
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/admin/users", "host": ["{{baseUrl}}"], "path": ["admin","users"]}},
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('Admin users 200', () => pm.response.code === 200);"
+          ]}}]
+        }
+      ]
+    }
+  ]
+}

@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.3.0"
+        "version": "2.3.1"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -25,7 +25,7 @@
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
-            "description": "JWT token without the Bearer prefix"
+            "description": "Send as 'Authorization: Bearer <token>' (recommended). Raw token also accepted."
         }
     },
     "paths": {
@@ -3832,6 +3832,50 @@
                         "description": "User information with full profile",
                         "schema": {
                             "type": "object",
+                            "properties": {
+                                "user": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": { "type": "integer" },
+                                        "email": { "type": "string" },
+                                        "firstName": { "type": "string" },
+                                        "lastName": { "type": "string" },
+                                        "role": { "type": "string" },
+                                        "isActive": { "type": "boolean" },
+                                        "emailVerified": { "type": "boolean" },
+                                        "createdAt": { "type": "string", "format": "date-time" },
+                                        "updatedAt": { "type": "string", "format": "date-time" },
+                                        "lastLogin": { "type": "string", "format": "date-time" },
+                                        "displayName": { "type": "string", "description": "Convenience display name (institution name for institutions, otherwise firstName + lastName)" },
+                                        "avatarUrl": { "type": "string", "description": "Primary profile avatar URL" },
+                                        "primaryProfilePictureUrl": { "type": "string" },
+                                        "profilePictures": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/definitions/models.UserProfilePicture" }
+                                        },
+                                        "profile": {
+                                            "type": "object",
+                                            "description": "Role-specific profile data",
+                                            "properties": {
+                                                "institutionName": { "type": "string" },
+                                                "profilePictureUrl": { "type": "string" },
+                                                "isVerified": { "type": "boolean" },
+                                                "schoolId": { "type": "integer" },
+                                                "school": { "type": "object" },
+                                                "bio": { "type": "string" },
+                                                "qualifications": { "type": "string" },
+                                                "experience": { "type": "string" },
+                                                "savedSchools": { "type": "array", "items": { "$ref": "#/definitions/models.School" } },
+                                                "profileVisibility": { "type": "string" },
+                                                "parentAge": { "type": "integer" },
+                                                "createdAt": { "type": "string", "format": "date-time" },
+                                                "updatedAt": { "type": "string", "format": "date-time" }
+                                            }
+                                        }
+                                    },
+                                    "additionalProperties": true
+                                }
+                            },
                             "additionalProperties": true
                         }
                     },
@@ -3851,6 +3895,72 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+            ,
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the logged-in user's basic details and selected profile fields. Returns the updated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "authenticated"
+                ],
+                "summary": "Update current user",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "payload",
+                        "description": "Update fields",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "firstName": { "type": "string" },
+                                "lastName": { "type": "string" },
+                                "profile": { "type": "object" }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated user information",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": { "type": "string" }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": { "type": "string" }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": { "type": "string" }
                         }
                     }
                 }

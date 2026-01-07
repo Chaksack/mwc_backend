@@ -28,10 +28,10 @@ func Protected(jwtSecret string) fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing Authorization header. Please include your token in the Authorization header."})
 		}
 
-		// Only accept tokens without the "Bearer" prefix
+		// Accept either raw token or Authorization: Bearer <token>
 		tokenStr := authHeader
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token format. Please provide the token directly in the Authorization header without the 'Bearer' prefix."})
+		if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			tokenStr = strings.TrimSpace(authHeader[7:])
 		}
 
 		if tokenStr == "" {
@@ -133,7 +133,7 @@ func SubscriptionAuth(db *gorm.DB) fiber.Handler {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-					"error": "This feature requires an active paid subscription.",
+					"error":                 "This feature requires an active paid subscription.",
 					"subscription_required": true,
 				})
 			}
