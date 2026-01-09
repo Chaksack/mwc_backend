@@ -98,7 +98,7 @@ func (suite *PersonaE2ETestSuite) SetupSuite() {
 	apiV1.Post("/login", authHandler.Login)
 
 	// Institution routes
-	instRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
+	instRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole))
 	instRoutes.Post("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
 	instRoutes.Post("/schools", institutionHandler.CreateSchool)
 	instRoutes.Post("/jobs", institutionHandler.PostJob)

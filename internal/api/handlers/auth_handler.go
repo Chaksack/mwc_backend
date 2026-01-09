@@ -91,9 +91,9 @@ type RegisterRequest struct {
 	Password  string          `json:"password" validate:"required,min=8"`
 	FirstName string          `json:"first_name" validate:"required"`
 	LastName  string          `json:"last_name" validate:"required"`
-	Role      models.UserRole `json:"role" validate:"required,oneof=institution montessori_professional parent training_center"` // Admin role removed - only superadmin can create admins
+	Role      models.UserRole `json:"role" validate:"required,oneof=institution school montessori_professional parent training_center"` // Admin role removed - only superadmin can create admins
 	// Role-specific fields
-	InstitutionName string `json:"institution_name,omitempty"` // Required for institution/training_center roles
+	InstitutionName string `json:"institution_name,omitempty"` // Required for institution/school/training_center roles
 }
 
 // LoginRequest is the request body for user login.
@@ -126,10 +126,10 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Validate institution_name for institution and training_center roles
-	if req.Role == models.InstitutionRole || req.Role == models.TrainingCenterRole {
+	if models.IsInstitutionOrTrainingCenter(req.Role) {
 		if req.InstitutionName == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "institution_name is required for institution and training_center roles",
+				"error": "institution_name is required for institution, school, and training_center roles",
 			})
 		}
 	}
@@ -193,7 +193,9 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 
 	// Create role-specific profile
 	var profileDetails string
-	switch user.Role {
+	// Normalize school role to institution for consistency
+	normalizedRole := models.NormalizeRole(user.Role)
+	switch normalizedRole {
 	case models.InstitutionRole, models.TrainingCenterRole:
 		// institution_name is validated earlier, safe to use here
 		profile := models.InstitutionProfile{UserID: user.ID, InstitutionName: req.InstitutionName}
@@ -606,7 +608,7 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	displayName := strings.TrimSpace(fmt.Sprintf("%s %s", user.FirstName, user.LastName))
 	avatarUrl := ""
 	institutionName := ""
-	
+
 	if primaryURL != "" {
 		avatarUrl = primaryURL
 	} else {

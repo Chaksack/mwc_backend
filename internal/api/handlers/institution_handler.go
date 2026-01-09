@@ -186,8 +186,8 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 		if userRole == models.TrainingCenterRole {
 			schoolCategory = models.SchoolCategoryTrainingCenter
 		}
-		// Allow explicit override only if form specifies "training_center" and user is institution (for flexibility)
-		if req.SchoolCategory == "training_center" && userRole == models.InstitutionRole {
+		// Allow explicit override only if form specifies "training_center" and user is institution/school (for flexibility)
+		if req.SchoolCategory == "training_center" && models.IsInstitutionRole(userRole) {
 			schoolCategory = models.SchoolCategoryTrainingCenter
 		}
 

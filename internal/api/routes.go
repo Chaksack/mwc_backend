@@ -147,7 +147,7 @@ func SetupRoutes(
 	superAdminRoutes.Post("/admins", adminHandler.CreateAdmin) // Create new admin users
 
 	// Institution and Training Center Routes (shared logic)
-	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
+	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole))
 	instTcRoutes.Put("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
 	instTcRoutes.Get("/schools/available", institutionHandler.GetAvailableSchools) // Get schools available for selection
 	instTcRoutes.Post("/schools", institutionHandler.CreateSchool)                 // If school not in admin list
@@ -224,7 +224,7 @@ func SetupRoutes(
 	apiV1.Get("/events/featured", eventHandler.GetFeaturedEvents)
 
 	// Institution event routes
-	institutionEventRoutes := apiV1.Group("/institution/events", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
+	institutionEventRoutes := apiV1.Group("/institution/events", authMw, middleware.RoleAuth(models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole))
 	institutionEventRoutes.Post("/", eventHandler.CreateEvent)
 	institutionEventRoutes.Get("/", eventHandler.GetInstitutionEvents)
 	institutionEventRoutes.Put("/:event_id", eventHandler.UpdateEvent)

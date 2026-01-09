@@ -35,6 +35,7 @@ const (
 	SuperAdminRole             UserRole = "superadmin"
 	AdminRole                  UserRole = "admin"
 	InstitutionRole            UserRole = "institution"
+	SchoolRole                 UserRole = "school" // Alias for institution - treated identically throughout the system
 	MontessoriProfessionalRole UserRole = "montessori_professional"
 	TrainingCenterRole         UserRole = "training_center"
 	ParentRole                 UserRole = "parent"
@@ -62,6 +63,24 @@ const (
 	SchoolCategorySchool         SchoolCategory = "school"
 	SchoolCategoryTrainingCenter SchoolCategory = "training_center"
 )
+
+// NormalizeRole normalizes the "school" role to "institution" since they are equivalent
+func NormalizeRole(role UserRole) UserRole {
+	if role == SchoolRole {
+		return InstitutionRole
+	}
+	return role
+}
+
+// IsInstitutionRole checks if the role is institution or school (they are the same)
+func IsInstitutionRole(role UserRole) bool {
+	return role == InstitutionRole || role == SchoolRole
+}
+
+// IsInstitutionOrTrainingCenter checks if the role is institution, school, or training_center
+func IsInstitutionOrTrainingCenter(role UserRole) bool {
+	return role == InstitutionRole || role == SchoolRole || role == TrainingCenterRole
+}
 
 // User represents a user in the system
 // @Description User information
@@ -327,8 +346,8 @@ type Subscription struct {
 	StripeSubscriptionID string                   `gorm:"index"`
 	CancelledAt          *time.Time
 	CancellationReason   string
-	NotifiedAt7Days      *time.Time               // Track when 7-day notification was sent
-	NotifiedAt1Day       *time.Time               // Track when 1-day notification was sent
+	NotifiedAt7Days      *time.Time // Track when 7-day notification was sent
+	NotifiedAt1Day       *time.Time // Track when 1-day notification was sent
 }
 
 // Review represents a review of a school
