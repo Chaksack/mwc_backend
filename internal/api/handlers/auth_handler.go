@@ -566,12 +566,36 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	switch user.Role {
 	case models.InstitutionRole, models.TrainingCenterRole:
 		if user.InstitutionProfile != nil {
+			schoolData := fiber.Map(nil)
+			if user.InstitutionProfile.School != nil {
+				schoolData = fiber.Map{
+					"id":              user.InstitutionProfile.School.ID,
+					"name":            user.InstitutionProfile.School.Name,
+					"category":        user.InstitutionProfile.School.Category,
+					"address":         user.InstitutionProfile.School.Address,
+					"city":            user.InstitutionProfile.School.City,
+					"state":           user.InstitutionProfile.School.State,
+					"country":         user.InstitutionProfile.School.Country,
+					"countryCode":     user.InstitutionProfile.School.CountryCode,
+					"zipCode":         user.InstitutionProfile.School.ZipCode,
+					"contactEmail":    user.InstitutionProfile.School.ContactEmail,
+					"contactPhone":    user.InstitutionProfile.School.ContactPhone,
+					"website":         user.InstitutionProfile.School.Website,
+					"latitude":        user.InstitutionProfile.School.Latitude,
+					"longitude":       user.InstitutionProfile.School.Longitude,
+					"uploadedByAdmin": user.InstitutionProfile.School.UploadedByAdmin,
+					"member":          user.InstitutionProfile.School.Member,
+					"hiring":          user.InstitutionProfile.School.Hiring,
+					"createdAt":       user.InstitutionProfile.School.CreatedAt,
+					"updatedAt":       user.InstitutionProfile.School.UpdatedAt,
+				}
+			}
 			userMap["profile"] = fiber.Map{
 				"id":                user.InstitutionProfile.ID,
 				"institutionName":   user.InstitutionProfile.InstitutionName,
 				"isVerified":        user.InstitutionProfile.IsVerified,
 				"schoolId":          user.InstitutionProfile.SchoolID,
-				"school":            user.InstitutionProfile.School,
+				"school":            schoolData,
 				"verificationDocs":  user.InstitutionProfile.VerificationDocs,
 				"profilePictureUrl": user.InstitutionProfile.ProfilePictureURL,
 				"createdAt":         user.InstitutionProfile.CreatedAt,
@@ -585,6 +609,7 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 				"bio":            user.MontessoriProfessionalProfile.Bio,
 				"qualifications": user.MontessoriProfessionalProfile.Qualifications,
 				"experience":     user.MontessoriProfessionalProfile.Experience,
+				"lookingForJob":  user.MontessoriProfessionalProfile.LookingForJob,
 				"savedSchools":   user.MontessoriProfessionalProfile.SavedSchools,
 				"createdAt":      user.MontessoriProfessionalProfile.CreatedAt,
 				"updatedAt":      user.MontessoriProfessionalProfile.UpdatedAt,

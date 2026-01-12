@@ -313,8 +313,48 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 
 	// Reload profile with school data for response
 	if err := h.db.Preload("School").First(&profile, profile.ID).Error; err == nil {
-		return c.Status(fiber.StatusOK).JSON(profile)
+		// Format response with complete school data
+		responseMap := fiber.Map{
+			"id":                profile.ID,
+			"userId":            profile.UserID,
+			"institutionName":   profile.InstitutionName,
+			"isVerified":        profile.IsVerified,
+			"verificationDocs":  profile.VerificationDocs,
+			"profilePictureUrl": profile.ProfilePictureURL,
+			"schoolId":          profile.SchoolID,
+			"createdAt":         profile.CreatedAt,
+			"updatedAt":         profile.UpdatedAt,
+		}
+
+		// Include full school details if available
+		if profile.School != nil {
+			responseMap["school"] = fiber.Map{
+				"id":              profile.School.ID,
+				"name":            profile.School.Name,
+				"category":        profile.School.Category,
+				"address":         profile.School.Address,
+				"city":            profile.School.City,
+				"state":           profile.School.State,
+				"country":         profile.School.Country,
+				"countryCode":     profile.School.CountryCode,
+				"zipCode":         profile.School.ZipCode,
+				"contactEmail":    profile.School.ContactEmail,
+				"contactPhone":    profile.School.ContactPhone,
+				"website":         profile.School.Website,
+				"latitude":        profile.School.Latitude,
+				"longitude":       profile.School.Longitude,
+				"uploadedByAdmin": profile.School.UploadedByAdmin,
+				"member":          profile.School.Member,
+				"hiring":          profile.School.Hiring,
+				"createdAt":       profile.School.CreatedAt,
+				"updatedAt":       profile.School.UpdatedAt,
+			}
+		}
+
+		return c.Status(fiber.StatusOK).JSON(responseMap)
 	}
+
+	// Fallback if preload fails
 	return c.Status(fiber.StatusOK).JSON(profile)
 }
 
