@@ -41,6 +41,23 @@ func NewAuthHandler(db *gorm.DB, cfg *config.Config, emailService email.EmailSer
 	}
 }
 
+// getPrimaryProfilePictureURL returns the URL of the primary profile picture for a user, or empty string if none exists
+func getPrimaryProfilePictureURL(pictures []*models.UserProfilePicture) string {
+	if len(pictures) == 0 {
+		return ""
+	}
+	for _, pic := range pictures {
+		if pic.IsPrimary {
+			return pic.URL
+		}
+	}
+	// If no primary picture is set, return the first one
+	if len(pictures) > 0 && pictures[0] != nil {
+		return pictures[0].URL
+	}
+	return ""
+}
+
 // generateVerificationToken generates a random verification token
 func generateVerificationToken() (string, error) {
 	bytes := make([]byte, 32)
@@ -551,12 +568,7 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	var primaryURL string
 	if len(user.ProfilePictures) > 0 {
 		userMap["profilePictures"] = user.ProfilePictures
-		for _, pic := range user.ProfilePictures {
-			if pic.IsPrimary {
-				primaryURL = pic.URL
-				break
-			}
-		}
+		primaryURL = getPrimaryProfilePictureURL(user.ProfilePictures)
 		if primaryURL != "" {
 			userMap["primaryProfilePictureUrl"] = primaryURL
 		}
@@ -643,6 +655,7 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	avatarUrl := ""
 	institutionName := ""
 
+	// Determine avatar URL - prioritize primary profile picture
 	if primaryURL != "" {
 		avatarUrl = primaryURL
 	} else {
@@ -675,13 +688,14 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 
 // UpdateCurrentUser allows the authenticated user to update basic details and selected profile fields.
 // Only fields provided in the request body will be updated - partial updates are supported.
+// Supports updating profile picture URL for all roles.
 // @Summary Update current user
-// @Description Update the logged-in user's basic details and selected profile fields. Only provided fields are updated. Returns the updated user.
+// @Description Update the logged-in user's basic details and selected profile fields. Only provided fields are updated. Can also update profile picture URL. Returns the updated user.
 // @Tags auth,authenticated
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param payload body map[string]interface{} true "Update fields (only provided fields will be updated)"
+// @Param payload body map[string]interface{} true "Update fields (only provided fields will be updated). Can include profilePictureUrl in profile object."
 // @Success 200 {object} map[string]interface{} "Updated user information"
 // @Failure 400 {object} map[string]string "Bad Request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -728,7 +742,7 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 
 	// Update profile fields depending on role (optional convenience for basic updates)
 	// For comprehensive profile updates, use role-specific endpoints
-	if payload.Profile != nil && len(payload.Profile) > 0 {
+	if len(payload.Profile) > 0 {
 		switch user.Role {
 		case models.ParentRole:
 			var prof models.ParentProfile
@@ -780,6 +794,9 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 				}
 				if v, ok := payload.Profile["lookingForJob"].(bool); ok {
 					profileUpdateMap["looking_for_job"] = v
+				}
+				if v, ok := payload.Profile["profilePictureUrl"].(string); ok && v != "" {
+					profileUpdateMap["profile_picture_url"] = v
 				}
 				if len(profileUpdateMap) > 0 {
 					if err := h.db.Model(&prof).Updates(profileUpdateMap).Error; err != nil {

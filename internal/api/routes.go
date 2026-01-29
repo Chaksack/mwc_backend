@@ -97,8 +97,9 @@ func SetupRoutes(
 	subscriptionMw := middleware.SubscriptionAuth(db)
 
 	// User Routes
-	apiV1.Get("/me", authMw, authHandler.GetCurrentUser)    // Retrieve logged-in user
-	apiV1.Put("/me", authMw, authHandler.UpdateCurrentUser) // Update basic user/profile details
+	apiV1.Get("/me", authMw, authHandler.GetCurrentUser)      // Retrieve logged-in user
+	apiV1.Put("/me", authMw, authHandler.UpdateCurrentUser)   // Update basic user/profile details (PUT for full/partial)
+	apiV1.Patch("/me", authMw, authHandler.UpdateCurrentUser) // Update basic user/profile details (PATCH for partial)
 	// Unified Saved Schools Routes for all user roles (Parent, Montessori Professional)
 	apiV1.Post("/me/schools/saved/:school_id", authMw, savedSchoolHandler.SaveSchool)
 
