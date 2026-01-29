@@ -674,13 +674,14 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 }
 
 // UpdateCurrentUser allows the authenticated user to update basic details and selected profile fields.
+// Only fields provided in the request body will be updated - partial updates are supported.
 // @Summary Update current user
-// @Description Update the logged-in user's basic details and selected profile fields. Returns the updated user.
+// @Description Update the logged-in user's basic details and selected profile fields. Only provided fields are updated. Returns the updated user.
 // @Tags auth,authenticated
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param payload body map[string]interface{} true "Update fields"
+// @Param payload body map[string]interface{} true "Update fields (only provided fields will be updated)"
 // @Success 200 {object} map[string]interface{} "Updated user information"
 // @Failure 400 {object} map[string]string "Bad Request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -709,43 +710,46 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
 	}
 
-	// Update basic user fields
+	// Build update map for user fields - only update provided fields
+	updateMap := make(map[string]interface{})
 	if payload.FirstName != nil {
-		user.FirstName = *payload.FirstName
+		updateMap["first_name"] = *payload.FirstName
 	}
 	if payload.LastName != nil {
-		user.LastName = *payload.LastName
+		updateMap["last_name"] = *payload.LastName
 	}
 
-	if err := h.db.Save(&user).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user: " + err.Error()})
+	// Perform partial update using GORM's Updates with map
+	if len(updateMap) > 0 {
+		if err := h.db.Model(&user).Updates(updateMap).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user: " + err.Error()})
+		}
 	}
 
 	// Update profile fields depending on role (optional convenience for basic updates)
 	// For comprehensive profile updates, use role-specific endpoints
-	if payload.Profile != nil {
+	if payload.Profile != nil && len(payload.Profile) > 0 {
 		switch user.Role {
 		case models.ParentRole:
 			var prof models.ParentProfile
 			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
-				updated := false
+				// Build update map with only provided fields
+				profileUpdateMap := make(map[string]interface{})
 				if v, ok := payload.Profile["profileVisibility"].(string); ok && v != "" {
 					if v == "public" || v == "private" {
-						prof.ProfileVisibility = v
-						updated = true
+						profileUpdateMap["profile_visibility"] = v
 					}
 				}
 				if age, ok := payload.Profile["parentAge"].(float64); ok {
-					prof.ParentAge = int(age)
-					updated = true
+					profileUpdateMap["parent_age"] = int(age)
 				}
-				if updated {
-					if err := h.db.Save(&prof).Error; err != nil {
+				if len(profileUpdateMap) > 0 {
+					if err := h.db.Model(&prof).Updates(profileUpdateMap).Error; err != nil {
 						log.Printf("Failed to update parent profile: %v", err)
 					}
 				}
 			} else if err == gorm.ErrRecordNotFound {
-				// Create profile if it doesn't exist
+				// Create profile if it doesn't exist with provided fields
 				prof = models.ParentProfile{
 					UserID:            userID,
 					ProfileVisibility: "public",
@@ -763,30 +767,27 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 		case models.MontessoriProfessionalRole:
 			var prof models.MontessoriProfessionalProfile
 			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
-				updated := false
+				// Build update map with only provided fields
+				profileUpdateMap := make(map[string]interface{})
 				if v, ok := payload.Profile["bio"].(string); ok {
-					prof.Bio = v
-					updated = true
+					profileUpdateMap["bio"] = v
 				}
 				if v, ok := payload.Profile["qualifications"].(string); ok {
-					prof.Qualifications = v
-					updated = true
+					profileUpdateMap["qualifications"] = v
 				}
 				if v, ok := payload.Profile["experience"].(string); ok {
-					prof.Experience = v
-					updated = true
+					profileUpdateMap["experience"] = v
 				}
 				if v, ok := payload.Profile["lookingForJob"].(bool); ok {
-					prof.LookingForJob = v
-					updated = true
+					profileUpdateMap["looking_for_job"] = v
 				}
-				if updated {
-					if err := h.db.Save(&prof).Error; err != nil {
+				if len(profileUpdateMap) > 0 {
+					if err := h.db.Model(&prof).Updates(profileUpdateMap).Error; err != nil {
 						log.Printf("Failed to update montessori professional profile: %v", err)
 					}
 				}
 			} else if err == gorm.ErrRecordNotFound {
-				// Create profile if it doesn't exist
+				// Create profile if it doesn't exist with provided fields
 				prof = models.MontessoriProfessionalProfile{
 					UserID: userID,
 				}
@@ -809,26 +810,24 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 		case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
 			var prof models.InstitutionProfile
 			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
-				updated := false
+				// Build update map with only provided fields
+				profileUpdateMap := make(map[string]interface{})
 				if v, ok := payload.Profile["institutionName"].(string); ok && v != "" {
-					prof.InstitutionName = v
-					updated = true
+					profileUpdateMap["institution_name"] = v
 				}
 				if v, ok := payload.Profile["profilePictureUrl"].(string); ok {
-					prof.ProfilePictureURL = v
-					updated = true
+					profileUpdateMap["profile_picture_url"] = v
 				}
 				if v, ok := payload.Profile["verificationDocs"].(string); ok {
-					prof.VerificationDocs = v
-					updated = true
+					profileUpdateMap["verification_docs"] = v
 				}
-				if updated {
-					if err := h.db.Save(&prof).Error; err != nil {
+				if len(profileUpdateMap) > 0 {
+					if err := h.db.Model(&prof).Updates(profileUpdateMap).Error; err != nil {
 						log.Printf("Failed to update institution profile: %v", err)
 					}
 				}
 			} else if err == gorm.ErrRecordNotFound {
-				// Create profile if it doesn't exist
+				// Create profile if it doesn't exist with provided fields
 				if instName, ok := payload.Profile["institutionName"].(string); ok && instName != "" {
 					prof = models.InstitutionProfile{
 						UserID:          userID,
