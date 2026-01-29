@@ -74,9 +74,9 @@ func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user"})
 	}
 
-	// Only institutions and training centers can create events
-	if user.Role != models.InstitutionRole && user.Role != models.TrainingCenterRole {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only institutions and training centers can create events"})
+	// Only institutions, schools, and training centers can create events
+	if user.Role != models.InstitutionRole && user.Role != models.SchoolRole && user.Role != models.TrainingCenterRole {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only institutions, schools, and training centers can create events"})
 	}
 
 	// Get institution profile

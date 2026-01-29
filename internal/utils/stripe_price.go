@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"strings"
 
+	"mwc_backend/internal/models"
+
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/price"
-	"mwc_backend/internal/models"
 )
 
 // GenerateRoleLookupKey creates a stable-looking lookup key for a role with a random suffix.
@@ -23,6 +24,9 @@ func GenerateRoleLookupKey(role models.UserRole) string {
 func roleLookupPrefix(role models.UserRole) string {
 	switch role {
 	case models.InstitutionRole:
+		return "institution"
+	case models.SchoolRole:
+		// Treat school the same as institution for lookup keys
 		return "institution"
 	case models.MontessoriProfessionalRole:
 		return "prof"

@@ -511,7 +511,7 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	// Now preload the appropriate profile based on user role with all related data
 	// Also preload ProfilePictures to reflect latest uploads/primary selection
 	switch user.Role {
-	case models.InstitutionRole, models.TrainingCenterRole:
+	case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
 		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load institution profile: " + err.Error()})
 		}
@@ -564,7 +564,7 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 
 	// Add comprehensive profile information based on role
 	switch user.Role {
-	case models.InstitutionRole, models.TrainingCenterRole:
+	case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
 		if user.InstitutionProfile != nil {
 			schoolData := fiber.Map(nil)
 			if user.InstitutionProfile.School != nil {
@@ -590,8 +590,9 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 					"updatedAt":       user.InstitutionProfile.School.UpdatedAt,
 				}
 			}
-			userMap["profile"] = fiber.Map{
+			profileData := fiber.Map{
 				"id":                user.InstitutionProfile.ID,
+				"userId":            user.InstitutionProfile.UserID,
 				"institutionName":   user.InstitutionProfile.InstitutionName,
 				"isVerified":        user.InstitutionProfile.IsVerified,
 				"schoolId":          user.InstitutionProfile.SchoolID,
@@ -601,11 +602,14 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 				"createdAt":         user.InstitutionProfile.CreatedAt,
 				"updatedAt":         user.InstitutionProfile.UpdatedAt,
 			}
+			userMap["profile"] = profileData
+			userMap["institutionProfile"] = profileData
 		}
 	case models.MontessoriProfessionalRole:
 		if user.MontessoriProfessionalProfile != nil {
-			userMap["profile"] = fiber.Map{
+			profileData := fiber.Map{
 				"id":             user.MontessoriProfessionalProfile.ID,
+				"userId":         user.MontessoriProfessionalProfile.UserID,
 				"bio":            user.MontessoriProfessionalProfile.Bio,
 				"qualifications": user.MontessoriProfessionalProfile.Qualifications,
 				"experience":     user.MontessoriProfessionalProfile.Experience,
@@ -614,11 +618,14 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 				"createdAt":      user.MontessoriProfessionalProfile.CreatedAt,
 				"updatedAt":      user.MontessoriProfessionalProfile.UpdatedAt,
 			}
+			userMap["profile"] = profileData
+			userMap["montessoriProfessionalProfile"] = profileData
 		}
 	case models.ParentRole:
 		if user.ParentProfile != nil {
-			userMap["profile"] = fiber.Map{
+			profileData := fiber.Map{
 				"id":                user.ParentProfile.ID,
+				"userId":            user.ParentProfile.UserID,
 				"profileVisibility": user.ParentProfile.ProfileVisibility,
 				"parentAge":         user.ParentProfile.ParentAge,
 				"savedSchools":      user.ParentProfile.SavedSchools,
@@ -626,6 +633,8 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 				"createdAt":         user.ParentProfile.CreatedAt,
 				"updatedAt":         user.ParentProfile.UpdatedAt,
 			}
+			userMap["profile"] = profileData
+			userMap["parentProfile"] = profileData
 		}
 	}
 
@@ -638,13 +647,13 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 		avatarUrl = primaryURL
 	} else {
 		switch user.Role {
-		case models.InstitutionRole, models.TrainingCenterRole:
+		case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
 			if user.InstitutionProfile != nil && user.InstitutionProfile.ProfilePictureURL != "" {
 				avatarUrl = user.InstitutionProfile.ProfilePictureURL
 			}
 		}
 	}
-	if user.Role == models.InstitutionRole || user.Role == models.TrainingCenterRole {
+	if user.Role == models.InstitutionRole || user.Role == models.SchoolRole || user.Role == models.TrainingCenterRole {
 		if user.InstitutionProfile != nil && user.InstitutionProfile.InstitutionName != "" {
 			displayName = user.InstitutionProfile.InstitutionName
 			institutionName = user.InstitutionProfile.InstitutionName
@@ -712,23 +721,75 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user: " + err.Error()})
 	}
 
-	// Update a subset of profile fields depending on role (optional convenience)
+	// Update profile fields depending on role (optional convenience for basic updates)
+	// For comprehensive profile updates, use role-specific endpoints
 	if payload.Profile != nil {
 		switch user.Role {
 		case models.ParentRole:
 			var prof models.ParentProfile
 			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
-				if v, ok := payload.Profile["profileVisibility"].(string); ok {
+				updated := false
+				if v, ok := payload.Profile["profileVisibility"].(string); ok && v != "" {
+					if v == "public" || v == "private" {
+						prof.ProfileVisibility = v
+						updated = true
+					}
+				}
+				if age, ok := payload.Profile["parentAge"].(float64); ok {
+					prof.ParentAge = int(age)
+					updated = true
+				}
+				if updated {
+					if err := h.db.Save(&prof).Error; err != nil {
+						log.Printf("Failed to update parent profile: %v", err)
+					}
+				}
+			} else if err == gorm.ErrRecordNotFound {
+				// Create profile if it doesn't exist
+				prof = models.ParentProfile{
+					UserID:            userID,
+					ProfileVisibility: "public",
+				}
+				if v, ok := payload.Profile["profileVisibility"].(string); ok && (v == "public" || v == "private") {
 					prof.ProfileVisibility = v
 				}
 				if age, ok := payload.Profile["parentAge"].(float64); ok {
 					prof.ParentAge = int(age)
 				}
-				_ = h.db.Save(&prof).Error
+				if err := h.db.Create(&prof).Error; err != nil {
+					log.Printf("Failed to create parent profile: %v", err)
+				}
 			}
 		case models.MontessoriProfessionalRole:
 			var prof models.MontessoriProfessionalProfile
 			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
+				updated := false
+				if v, ok := payload.Profile["bio"].(string); ok {
+					prof.Bio = v
+					updated = true
+				}
+				if v, ok := payload.Profile["qualifications"].(string); ok {
+					prof.Qualifications = v
+					updated = true
+				}
+				if v, ok := payload.Profile["experience"].(string); ok {
+					prof.Experience = v
+					updated = true
+				}
+				if v, ok := payload.Profile["lookingForJob"].(bool); ok {
+					prof.LookingForJob = v
+					updated = true
+				}
+				if updated {
+					if err := h.db.Save(&prof).Error; err != nil {
+						log.Printf("Failed to update montessori professional profile: %v", err)
+					}
+				}
+			} else if err == gorm.ErrRecordNotFound {
+				// Create profile if it doesn't exist
+				prof = models.MontessoriProfessionalProfile{
+					UserID: userID,
+				}
 				if v, ok := payload.Profile["bio"].(string); ok {
 					prof.Bio = v
 				}
@@ -741,18 +802,48 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 				if v, ok := payload.Profile["lookingForJob"].(bool); ok {
 					prof.LookingForJob = v
 				}
-				_ = h.db.Save(&prof).Error
+				if err := h.db.Create(&prof).Error; err != nil {
+					log.Printf("Failed to create montessori professional profile: %v", err)
+				}
 			}
-		case models.InstitutionRole, models.TrainingCenterRole:
+		case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
 			var prof models.InstitutionProfile
 			if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err == nil {
-				if v, ok := payload.Profile["institutionName"].(string); ok {
+				updated := false
+				if v, ok := payload.Profile["institutionName"].(string); ok && v != "" {
 					prof.InstitutionName = v
+					updated = true
 				}
 				if v, ok := payload.Profile["profilePictureUrl"].(string); ok {
 					prof.ProfilePictureURL = v
+					updated = true
 				}
-				_ = h.db.Save(&prof).Error
+				if v, ok := payload.Profile["verificationDocs"].(string); ok {
+					prof.VerificationDocs = v
+					updated = true
+				}
+				if updated {
+					if err := h.db.Save(&prof).Error; err != nil {
+						log.Printf("Failed to update institution profile: %v", err)
+					}
+				}
+			} else if err == gorm.ErrRecordNotFound {
+				// Create profile if it doesn't exist
+				if instName, ok := payload.Profile["institutionName"].(string); ok && instName != "" {
+					prof = models.InstitutionProfile{
+						UserID:          userID,
+						InstitutionName: instName,
+					}
+					if v, ok := payload.Profile["profilePictureUrl"].(string); ok {
+						prof.ProfilePictureURL = v
+					}
+					if v, ok := payload.Profile["verificationDocs"].(string); ok {
+						prof.VerificationDocs = v
+					}
+					if err := h.db.Create(&prof).Error; err != nil {
+						log.Printf("Failed to create institution profile: %v", err)
+					}
+				}
 			}
 		}
 	}

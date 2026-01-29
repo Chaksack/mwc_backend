@@ -177,7 +177,7 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
 	// Check user role - only admin, institution, and training_center can access
 	userRole, _ := c.Locals("user_role").(models.UserRole)
-	allowedRoles := []models.UserRole{models.AdminRole, models.SuperAdminRole, models.InstitutionRole, models.TrainingCenterRole}
+	allowedRoles := []models.UserRole{models.AdminRole, models.SuperAdminRole, models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole}
 
 	isAllowed := false
 	for _, role := range allowedRoles {
