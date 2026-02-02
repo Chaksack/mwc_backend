@@ -13,6 +13,8 @@ services:
     depends_on:
       - postgres
       - rabbitmq
+    volumes:
+      - ./uploads:/app/uploads
     environment:
       # Basic configuration
       - PORT=8080

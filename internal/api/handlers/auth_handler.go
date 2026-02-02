@@ -11,6 +11,8 @@ import (
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -527,22 +529,25 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 
 	// Now preload the appropriate profile based on user role with all related data
 	// Also preload ProfilePictures to reflect latest uploads/primary selection
+	preloadProfilePictures := func(db *gorm.DB) *gorm.DB {
+		return db.Order("is_primary desc").Order("created_at desc")
+	}
 	switch user.Role {
 	case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
-		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("InstitutionProfile").Preload("InstitutionProfile.School").Preload("ProfilePictures", preloadProfilePictures).First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load institution profile: " + err.Error()})
 		}
 	case models.MontessoriProfessionalRole:
-		if err := h.db.Preload("MontessoriProfessionalProfile").Preload("MontessoriProfessionalProfile.SavedSchools").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("MontessoriProfessionalProfile").Preload("MontessoriProfessionalProfile.SavedSchools").Preload("ProfilePictures", preloadProfilePictures).First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load montessori professional profile: " + err.Error()})
 		}
 	case models.ParentRole:
-		if err := h.db.Preload("ParentProfile").Preload("ParentProfile.SavedSchools").Preload("ParentProfile.Schools").Preload("ProfilePictures").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("ParentProfile").Preload("ParentProfile.SavedSchools").Preload("ParentProfile.Schools").Preload("ProfilePictures", preloadProfilePictures).First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load parent profile: " + err.Error()})
 		}
 	default:
 		// For admin and any other roles, just preload ProfilePictures
-		if err := h.db.Preload("ProfilePictures").First(&user, userID).Error; err != nil {
+		if err := h.db.Preload("ProfilePictures", preloadProfilePictures).First(&user, userID).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load user profile: " + err.Error()})
 		}
 	}
@@ -901,21 +906,37 @@ func (h *AuthHandler) UploadProfilePicture(c *fiber.Ctx) error {
 	}
 
 	// Save file
-	dst := fmt.Sprintf("%s/%d_%s", uploadDir, userID, fileHeader.Filename)
+	// Sanitize incoming filename to avoid traversal and weird characters.
+	safeOriginal := filepath.Base(fileHeader.Filename)
+	// Allow only a conservative charset in the stored filename.
+	reUnsafe := regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+	safeOriginal = reUnsafe.ReplaceAllString(safeOriginal, "_")
+	if safeOriginal == "" {
+		safeOriginal = "upload"
+	}
+	ext := filepath.Ext(safeOriginal)
+	storedName := fmt.Sprintf("%d_%d%s", userID, time.Now().UnixNano(), ext)
+	dst := filepath.Join(uploadDir, storedName)
 	if err := c.SaveFile(fileHeader, dst); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file: " + err.Error()})
 	}
 
-	urlPath := "/uploads/profile_pictures/" + fmt.Sprintf("%d_%s", userID, fileHeader.Filename)
+	urlPath := "/uploads/profile_pictures/" + storedName
 
 	picture := models.UserProfilePicture{
 		UserID:    userID,
 		URL:       urlPath,
-		FileName:  fileHeader.Filename,
-		IsPrimary: false,
+		FileName:  safeOriginal,
+		IsPrimary: true,
 	}
 
-	if err := h.db.Create(&picture).Error; err != nil {
+	// Make this upload the primary picture so /me returns it consistently.
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.UserProfilePicture{}).Where("user_id = ?", userID).Update("is_primary", false).Error; err != nil {
+			return err
+		}
+		return tx.Create(&picture).Error
+	}); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save picture record: " + err.Error()})
 	}
 
@@ -939,7 +960,7 @@ func (h *AuthHandler) ListProfilePictures(c *fiber.Ctx) error {
 	}
 
 	var pics []models.UserProfilePicture
-	if err := h.db.Where("user_id = ?", userID).Find(&pics).Error; err != nil {
+	if err := h.db.Where("user_id = ?", userID).Order("is_primary desc").Order("created_at desc").Find(&pics).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load pictures: " + err.Error()})
 	}
 	return c.Status(fiber.StatusOK).JSON(pics)

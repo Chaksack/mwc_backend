@@ -235,6 +235,12 @@ func main() {
 	// Serve markdown documentation files
 	app.Static("/docs/markdown", "./docs/markdown")
 
+	// Serve uploaded files (e.g., profile pictures)
+	// Note: make sure the uploads directory is persisted in production (volume/S3/EFS).
+	app.Static("/uploads", "./uploads")
+	// Compatibility for clients that (incorrectly) prefix asset paths with BASE_URL (e.g. /api/v1)
+	app.Static("/api/v1/uploads", "./uploads")
+
 	// Setup API routes
 	api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)
 
