@@ -72,6 +72,9 @@ func (s *s3State) init(ctx context.Context) {
 		}
 
 		publicBaseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("S3_PUBLIC_BASE_URL")), "/")
+		if publicBaseURL != "" && !strings.HasPrefix(publicBaseURL, "http://") && !strings.HasPrefix(publicBaseURL, "https://") {
+			publicBaseURL = "https://" + publicBaseURL
+		}
 
 		presignTTLSeconds := 3600
 		if v := strings.TrimSpace(os.Getenv("S3_PRESIGN_TTL_SECONDS")); v != "" {

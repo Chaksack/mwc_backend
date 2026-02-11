@@ -1511,7 +1511,7 @@ func (h *InstitutionHandler) SearchInstitutions(c *fiber.Ctx) error {
 			"id":                  inst.ID,
 			"institution_name":    inst.InstitutionName,
 			"is_verified":         inst.IsVerified,
-			"profile_picture_url": inst.ProfilePictureURL,
+			"profile_picture_url": utils.ResolveMediaURL(context.Background(), inst.ProfilePictureURL, "s3", ""),
 			"created_at":          inst.CreatedAt,
 			"updated_at":          inst.UpdatedAt,
 		}

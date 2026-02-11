@@ -673,16 +673,16 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	avatarUrl := ""
 	institutionName := ""
 
-	// Determine avatar URL - prioritize primary profile picture
-	if primaryURL != "" {
-		avatarUrl = primaryURL
-	} else {
-		switch user.Role {
-		case models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole:
-			if user.InstitutionProfile != nil && user.InstitutionProfile.ProfilePictureURL != "" {
-				avatarUrl = user.InstitutionProfile.ProfilePictureURL
-			}
+	// Determine avatar URL.
+	// For institution-like roles, prefer the institution profile picture (this is what the profile upsert endpoint updates).
+	if user.Role == models.InstitutionRole || user.Role == models.SchoolRole || user.Role == models.TrainingCenterRole {
+		if user.InstitutionProfile != nil && user.InstitutionProfile.ProfilePictureURL != "" {
+			avatarUrl = user.InstitutionProfile.ProfilePictureURL
+		} else if primaryURL != "" {
+			avatarUrl = primaryURL
 		}
+	} else if primaryURL != "" {
+		avatarUrl = primaryURL
 	}
 	if user.Role == models.InstitutionRole || user.Role == models.SchoolRole || user.Role == models.TrainingCenterRole {
 		if user.InstitutionProfile != nil && user.InstitutionProfile.InstitutionName != "" {
@@ -693,6 +693,12 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	userMap["displayName"] = displayName
 	if avatarUrl != "" {
 		userMap["avatarUrl"] = avatarUrl
+	}
+	// For institution-like roles, keep primaryProfilePictureUrl consistent with the institution profile picture.
+	if user.Role == models.InstitutionRole || user.Role == models.SchoolRole || user.Role == models.TrainingCenterRole {
+		if user.InstitutionProfile != nil && user.InstitutionProfile.ProfilePictureURL != "" {
+			userMap["primaryProfilePictureUrl"] = user.InstitutionProfile.ProfilePictureURL
+		}
 	}
 	if institutionName != "" {
 		userMap["institutionName"] = institutionName
@@ -730,8 +736,12 @@ func (h *AuthHandler) UpdateCurrentUser(c *fiber.Ctx) error {
 		LastName  *string                `json:"lastName"`
 		Profile   map[string]interface{} `json:"profile"`
 	}
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	// Allow empty bodies (common for clients that accidentally call PATCH/PUT without a JSON payload).
+	// In that case, this becomes a no-op update and returns the current user.
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&payload); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		}
 	}
 
 	var user models.User
