@@ -2,11 +2,13 @@ package handlers
 
 // Imports are assumed to be similar to other handler files:
 import (
+	"context"
 	"fmt"
 	"log"
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -144,36 +146,42 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 	// Handle profile picture upload if provided
 	fileHeader, err := c.FormFile("profile_picture")
 	if err == nil && fileHeader != nil {
-		// Ensure uploads directory exists
-		uploadDir := "./uploads/institution_profiles"
-		if err := ensureDir(uploadDir); err == nil {
-			// Save file with institution user ID in filename
-			dst := fmt.Sprintf("%s/%d_%s", uploadDir, actorUserID, fileHeader.Filename)
-			if err := c.SaveFile(fileHeader, dst); err == nil {
-				urlPath := "/uploads/institution_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
-
-				// Store URL path in profile for backward compatibility
-				profile.ProfilePictureURL = urlPath
+		file, err := fileHeader.Open()
+		if err != nil {
+			LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_OPEN_FAIL", profile.ID, "InstitutionProfile", "Failed to open uploaded file", c)
+		} else {
+			defer file.Close()
+			media, _, err := utils.SaveUploadedFile(
+				context.Background(),
+				fileHeader.Filename,
+				fileHeader.Header.Get("Content-Type"),
+				file,
+				"./uploads/institution_profiles",
+				"/uploads/institution_profiles",
+				"institution_profiles",
+				actorUserID,
+			)
+			if err != nil {
+				LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_SAVE_FAIL", profile.ID, "InstitutionProfile", "Failed to store picture: "+err.Error(), c)
+			} else {
+				// Store persisted URL reference on profile
+				profile.ProfilePictureURL = media.URL
 
 				// Also create UserProfilePicture record for consistency
-				// Set any existing pictures as non-primary
 				h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", actorUserID).Update("is_primary", false)
-
-				// Create new profile picture record
 				picture := models.UserProfilePicture{
 					UserID:    actorUserID,
-					URL:       urlPath,
-					FileName:  fileHeader.Filename,
+					URL:       media.URL,
+					Storage:   media.Storage,
+					ObjectKey: media.ObjectKey,
+					FileName:  media.FileName,
 					IsPrimary: true,
 				}
-
 				if err := h.db.Create(&picture).Error; err != nil {
 					LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_RECORD_FAIL", profile.ID, "UserProfilePicture", "Failed to save picture record: "+err.Error(), c)
 				} else {
 					LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_UPLOADED", profile.ID, "InstitutionProfile", "Profile picture uploaded", c)
 				}
-			} else {
-				LogUserAction(h.db, actorUserID, "INST_PROFILE_PICTURE_SAVE_FAIL", profile.ID, "InstitutionProfile", "Failed to save picture: "+err.Error(), c)
 			}
 		}
 	}
@@ -320,7 +328,7 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 			"institutionName":   profile.InstitutionName,
 			"isVerified":        profile.IsVerified,
 			"verificationDocs":  profile.VerificationDocs,
-			"profilePictureUrl": profile.ProfilePictureURL,
+			"profilePictureUrl": utils.ResolveMediaURL(context.Background(), profile.ProfilePictureURL, "s3", ""),
 			"schoolId":          profile.SchoolID,
 			"createdAt":         profile.CreatedAt,
 			"updatedAt":         profile.UpdatedAt,
@@ -355,6 +363,7 @@ func (h *InstitutionHandler) CreateOrUpdateInstitutionProfile(c *fiber.Ctx) erro
 	}
 
 	// Fallback if preload fails
+	profile.ProfilePictureURL = utils.ResolveMediaURL(context.Background(), profile.ProfilePictureURL, "s3", "")
 	return c.Status(fiber.StatusOK).JSON(profile)
 }
 

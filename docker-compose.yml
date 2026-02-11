@@ -22,6 +22,19 @@ services:
       - ENVIRONMENT=dev
       - BASE_URL=http://localhost:8080/api/v1
 
+      # Media storage (Uploads)
+      # By default uploads are stored on disk in ./uploads (volume mounted above).
+      # To enable S3, uncomment and set the following variables.
+      # - S3_BUCKET=your-bucket
+      # - AWS_REGION=us-east-1
+      # - S3_PREFIX=uploads
+      # - S3_PUBLIC_BASE_URL=https://cdn.example.com
+      # - S3_PRESIGN_TTL_SECONDS=3600
+      # If running locally without an IAM role, you may also need AWS credentials:
+      # - AWS_ACCESS_KEY_ID=...
+      # - AWS_SECRET_ACCESS_KEY=...
+      # - AWS_SESSION_TOKEN=...
+
       # Local PostgreSQL configuration
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/mwc_backend?sslmode=disable
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt" // For LogUserAction details
 	"log"
@@ -1065,21 +1066,28 @@ func (h *AdminHandler) UpdateAdminProfile(c *fiber.Ctx) error {
 	// Handle profile picture upload if provided
 	fileHeader, err := c.FormFile("profile_picture")
 	if err == nil && fileHeader != nil {
-		// Ensure uploads directory exists
-		uploadDir := "./uploads/admin_profiles"
-		if err := ensureDir(uploadDir); err != nil {
-			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_DIR", adminUserID, "System", "Failed to create upload directory: "+err.Error(), c)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create upload directory"})
+		f, err := fileHeader.Open()
+		if err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_OPEN_FILE", adminUserID, "System", "Failed to open uploaded file", c)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to open uploaded file"})
+		}
+		defer f.Close()
+		media, _, err := utils.SaveUploadedFile(
+			context.Background(),
+			fileHeader.Filename,
+			fileHeader.Header.Get("Content-Type"),
+			f,
+			"./uploads/admin_profiles",
+			"/uploads/admin_profiles",
+			"admin_profiles",
+			adminUserID,
+		)
+		if err != nil {
+			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_SAVE_FILE", adminUserID, "System", "Failed to store file: "+err.Error(), c)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to store file: " + err.Error()})
 		}
 
-		// Save file
-		dst := fmt.Sprintf("%s/%d_%s", uploadDir, adminUserID, fileHeader.Filename)
-		if err := c.SaveFile(fileHeader, dst); err != nil {
-			LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_FAIL_SAVE_FILE", adminUserID, "System", "Failed to save file: "+err.Error(), c)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file: " + err.Error()})
-		}
-
-		urlPath := "/uploads/admin_profiles/" + fmt.Sprintf("%d_%s", adminUserID, fileHeader.Filename)
+		urlPath := media.URL
 
 		// Set any existing pictures as non-primary
 		if err := h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", adminUserID).Update("is_primary", false).Error; err != nil {
@@ -1088,10 +1096,12 @@ func (h *AdminHandler) UpdateAdminProfile(c *fiber.Ctx) error {
 
 		// Create new profile picture record
 		picture := models.UserProfilePicture{
-			UserID:    adminUserID,
-			URL:       urlPath,
-			FileName:  fileHeader.Filename,
-			IsPrimary: true,
+			UserID:     adminUserID,
+			URL:        urlPath,
+			Storage:    media.Storage,
+			ObjectKey:  media.ObjectKey,
+			FileName:   media.FileName,
+			IsPrimary:  true,
 		}
 
 		if err := h.db.Create(&picture).Error; err != nil {
@@ -1118,6 +1128,13 @@ func (h *AdminHandler) UpdateAdminProfile(c *fiber.Ctx) error {
 
 	// Remove password hash from response
 	user.PasswordHash = ""
+	// Resolve any S3-backed profile picture URLs for the response
+	for _, pic := range user.ProfilePictures {
+		if pic == nil {
+			continue
+		}
+		pic.URL = utils.ResolveMediaURL(context.Background(), pic.URL, pic.Storage, pic.ObjectKey)
+	}
 
 	LogUserAction(h.db, adminUserID, "ADMIN_PROFILE_UPDATE_SUCCESS", adminUserID, "User", "Profile updated successfully", c)
 	return c.Status(fiber.StatusOK).JSON(user)

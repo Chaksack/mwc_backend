@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/utils"
 	"strconv"
 	"strings"
 
@@ -114,32 +116,39 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 		// Get user to ensure it exists
 		var user models.User
 		if err := h.db.First(&user, actorUserID).Error; err == nil {
-			// Ensure uploads directory exists
-			uploadDir := "./uploads/montessori_professional_profiles"
-			if err := ensureDir(uploadDir); err == nil {
-				// Save file
-				dst := fmt.Sprintf("%s/%d_%s", uploadDir, actorUserID, fileHeader.Filename)
-				if err := c.SaveFile(fileHeader, dst); err == nil {
-					urlPath := "/uploads/montessori_professional_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
-
+			file, err := fileHeader.Open()
+			if err != nil {
+				LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_OPEN_FAIL", actorUserID, "System", "Failed to open uploaded file", c)
+			} else {
+				defer file.Close()
+				media, _, err := utils.SaveUploadedFile(
+					context.Background(),
+					fileHeader.Filename,
+					fileHeader.Header.Get("Content-Type"),
+					file,
+					"./uploads/montessori_professional_profiles",
+					"/uploads/montessori_professional_profiles",
+					"montessori_professional_profiles",
+					actorUserID,
+				)
+				if err != nil {
+					LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SAVE_FAIL", actorUserID, "System", "Failed to store file: "+err.Error(), c)
+				} else {
 					// Set any existing pictures as non-primary
 					h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", actorUserID).Update("is_primary", false)
-
-					// Create new profile picture record
 					picture := models.UserProfilePicture{
-						UserID:    actorUserID,
-						URL:       urlPath,
-						FileName:  fileHeader.Filename,
-						IsPrimary: true,
+						UserID:     actorUserID,
+						URL:        media.URL,
+						Storage:    media.Storage,
+						ObjectKey:  media.ObjectKey,
+						FileName:   media.FileName,
+						IsPrimary:  true,
 					}
-
 					if err := h.db.Create(&picture).Error; err != nil {
 						LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_FAIL", actorUserID, "UserProfilePicture", "Failed to save picture: "+err.Error(), c)
 					} else {
 						LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SUCCESS", actorUserID, "UserProfilePicture", "Profile picture uploaded", c)
 					}
-				} else {
-					LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SAVE_FAIL", actorUserID, "System", "Failed to save file: "+err.Error(), c)
 				}
 			}
 		}
@@ -650,10 +659,25 @@ func (h *MontessoriProfessionalHandler) ApplyForJob(c *fiber.Ctx) error {
 	resumeURL := ""
 	file, err := c.FormFile("resume")
 	if err == nil && file != nil {
-		// TODO: Implement file upload logic (save to disk/cloud and get URL)
-		// For now, just use the filename as placeholder
-		resumeURL = "/uploads/resumes/" + file.Filename
-		// In a real implementation, you'd save the file and return the actual URL
+		f, err := file.Open()
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to open resume upload"})
+		}
+		defer f.Close()
+		media, _, err := utils.SaveUploadedFile(
+			context.Background(),
+			file.Filename,
+			file.Header.Get("Content-Type"),
+			f,
+			"./uploads/resumes",
+			"/uploads/resumes",
+			"resumes",
+			actorUserID,
+		)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to store resume: " + err.Error()})
+		}
+		resumeURL = media.URL
 	}
 
 	application := models.JobApplication{
@@ -696,6 +720,8 @@ func (h *MontessoriProfessionalHandler) GetAppliedJobs(c *fiber.Ctx) error {
 	if err := h.db.Preload("Job").Preload("Job.InstitutionProfile").Where("montessori_professional_profile_id = ?", professionalProfile.ID).Find(&applications).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve applications: " + err.Error()})
 	}
-
+	for i := range applications {
+		applications[i].ResumeURL = utils.ResolveMediaURL(context.Background(), applications[i].ResumeURL, "s3", "")
+	}
 	return c.Status(fiber.StatusOK).JSON(applications)
 }

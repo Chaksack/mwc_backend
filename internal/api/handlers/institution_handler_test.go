@@ -105,8 +105,13 @@ type InstitutionHandlerTestSuite struct {
 // SetupSuite runs before all tests in the suite
 func (suite *InstitutionHandlerTestSuite) SetupSuite() {
 	// Setup in-memory SQLite database for testing
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	assert.NoError(suite.T(), err)
+	sqlDB, err := db.DB()
+	assert.NoError(suite.T(), err)
+	// Ensure a single connection for in-memory SQLite.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 
 	// Auto-migrate all models
 	err = db.AutoMigrate(
@@ -115,6 +120,7 @@ func (suite *InstitutionHandlerTestSuite) SetupSuite() {
 		&models.School{},
 		&models.Job{},
 		&models.JobApplication{},
+		&models.UserProfilePicture{},
 		&models.ActionLog{},
 		&models.Event{},
 		&models.MontessoriProfessionalProfile{},
@@ -146,6 +152,7 @@ func (suite *InstitutionHandlerTestSuite) TearDownTest() {
 	suite.db.Exec("DELETE FROM schools")
 	suite.db.Exec("DELETE FROM jobs")
 	suite.db.Exec("DELETE FROM job_applications")
+	suite.db.Exec("DELETE FROM user_profile_pictures")
 	suite.db.Exec("DELETE FROM action_logs")
 	suite.db.Exec("DELETE FROM events")
 	suite.db.Exec("DELETE FROM montessori_professional_profiles")
@@ -306,6 +313,8 @@ func (suite *InstitutionHandlerTestSuite) TestSelectSchool() {
 	user := suite.createTestUser(models.InstitutionRole)
 	profile := suite.createTestInstitutionProfile(user.ID, nil)
 	school := suite.createTestSchool()
+	// SelectSchool only allows selecting schools uploaded by admin.
+	suite.db.Model(&models.School{}).Where("id = ?", school.ID).Update("uploaded_by_admin", true)
 
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/schools/select/%d", school.ID), nil)
 
@@ -348,10 +357,13 @@ func (suite *InstitutionHandlerTestSuite) TestCreateSchool() {
 	suite.createTestInstitutionProfile(user.ID, nil)
 
 	schoolReq := map[string]interface{}{
-		"name":         "New School",
-		"address":      "789 School Ave",
-		"city":         "School City",
-		"country_code": "US",
+		// InstitutionHandler.CreateSchool expects the same JSON shape as SchoolUploadData
+		// (from admin uploads), e.g. title + countryCode.
+		"title":       "New School",
+		"address":     "789 School Ave",
+		"city":        "School City",
+		"countryCode": "US",
+		"country":     "United States",
 	}
 	body, _ := json.Marshal(schoolReq)
 
@@ -381,8 +393,8 @@ func (suite *InstitutionHandlerTestSuite) TestCreateSchool_MissingRequiredFields
 	suite.createTestInstitutionProfile(user.ID, nil)
 
 	schoolReq := map[string]interface{}{
-		"name": "New School",
-		// Missing country_code
+		"title": "New School",
+		// Missing countryCode
 	}
 	body, _ := json.Marshal(schoolReq)
 
@@ -528,7 +540,8 @@ func (suite *InstitutionHandlerTestSuite) TestUpdateJob_Unauthorized() {
 
 	resp, err := suite.app.Test(req)
 	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), fiber.StatusForbidden, resp.StatusCode)
+	// UpdateJob filters by the actor's institution profile; unauthorized updates are treated as not-found.
+	assert.Equal(suite.T(), fiber.StatusNotFound, resp.StatusCode)
 }
 
 // TestDeleteJob tests deleting a job
@@ -578,10 +591,10 @@ func (suite *InstitutionHandlerTestSuite) TestGetInstitutionPublicDetails() {
 
 	// Parse response
 	body, _ := io.ReadAll(resp.Body)
-	var response models.InstitutionProfile
+	var response map[string]interface{}
 	json.Unmarshal(body, &response)
 
-	assert.Equal(suite.T(), profile.InstitutionName, response.InstitutionName)
+	assert.Equal(suite.T(), profile.InstitutionName, response["institution_name"])
 }
 
 // TestGetInstitutionPublicDetails_NotFound tests error when institution not found
@@ -620,8 +633,9 @@ func (suite *InstitutionHandlerTestSuite) TestSearchInstitutions() {
 	var response map[string]interface{}
 	json.Unmarshal(body, &response)
 
-	institutions := response["institutions"].([]interface{})
-	assert.GreaterOrEqual(suite.T(), len(institutions), 3)
+	data, ok := response["data"].([]interface{})
+	assert.True(suite.T(), ok)
+	assert.GreaterOrEqual(suite.T(), len(data), 3)
 }
 
 // TestSearchInstitutions_EmptyQuery tests search with empty query
@@ -632,7 +646,14 @@ func (suite *InstitutionHandlerTestSuite) TestSearchInstitutions_EmptyQuery() {
 
 	resp, err := suite.app.Test(req)
 	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), fiber.StatusBadRequest, resp.StatusCode)
+	// Empty query is allowed; endpoint returns paginated results.
+	assert.Equal(suite.T(), fiber.StatusOK, resp.StatusCode)
+
+	body, _ := io.ReadAll(resp.Body)
+	var response map[string]interface{}
+	json.Unmarshal(body, &response)
+	_, ok := response["data"].([]interface{})
+	assert.True(suite.T(), ok)
 }
 
 // TestCreateOrUpdateInstitutionProfile_TrainingCenter tests training center role

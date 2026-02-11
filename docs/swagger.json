@@ -5,7 +5,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "API for the Montessori World Connect platform. Introduction: Welcome to the Montessori World Connect API documentation. This API provides access to various resources and functionalities of the Montessori World Connect platform, including schools, educators, institutions, events, and more. The API is designed to be RESTful and uses standard HTTP methods (GET, POST, PUT, DELETE) for operations. Responses are returned in JSON format.",
+        "description": "API for the Montessori World Connect platform - connecting Montessori educators, institutions, and parents worldwide.\n\n## 📚 Documentation\n\nThis API documentation is organized into multiple sections for easy navigation:\n\n### Quick Links\n- **[Introduction](/docs/markdown/introduction.md)** - Platform overview and key features\n- **[Getting Started](/docs/markdown/getting-started.md)** - Authentication, registration, and API basics\n- **[User Roles](/docs/markdown/user-roles.md)** - Detailed role descriptions and permissions\n- **[Subscriptions](/docs/markdown/subscriptions.md)** - Free trial, plans, and subscription management\n- **[API Examples](/docs/markdown/examples.md)** - Code examples in multiple languages\n- **[Webhooks \u0026 Events](/docs/markdown/webhooks.md)** - Real-time updates and webhook integration\n\n## 🚀 Quick Start\n\n1. **Register**: Create an account at `/api/v1/register`\n2. **Verify Email**: Check your email and verify your account\n3. **Login**: Get your JWT token at `/api/v1/login`\n4. **Authenticate**: Include token in `Authorization` header\n5. **Start Building**: Make API requests with your token\n\n## 🔑 Authentication\n\nInclude your JWT token in the Authorization header:\n```\nAuthorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\n```\n\n## 👥 User Roles\n\n- `institution` - Schools posting jobs and managing profiles\n- `training_center` - Training centers with job posting capabilities\n- `montessori_professional` - Educators searching jobs and applying\n- `parent` - Parents searching schools and writing reviews\n- `admin` - Content moderators with elevated permissions\n- `super_admin` - System administrators with full access\n\n## 🎁 Free Trial\n\nAll new users get a **60-day free trial** with full premium access!\n\n## 📋 API Conventions\n\n- **Base URL**: `https://api.montessoriworldconnect.com`\n- **Format**: All responses in JSON\n- **Pagination**: Use `page` and `limit` query parameters\n- **Errors**: Standard HTTP status codes with error messages\n\n## 🖼️ Media Storage (Uploads)\n\nUploads are stored on the local filesystem by default. If `S3_BUCKET` is configured, uploads are stored in AWS S3.\nWhen S3 is enabled, media `url` fields returned by the API are client-loadable HTTPS URLs (either a stable public URL when `S3_PUBLIC_BASE_URL` is set, or a presigned URL otherwise).\n\n## 🌐 Public Endpoints\n\nNo authentication required:\n- `POST /api/v1/register` - User registration\n- `POST /api/v1/login` - User login\n- `GET /api/v1/schools/public` - Search schools\n- `GET /api/v1/institutions/search` - Search institutions\n- `GET /api/v1/jobs` - Browse jobs\n- `GET /api/v1/events` - View events\n- `GET /api/v1/blogs` - Read blogs\n\n## 💬 Support\n\nNeed help? Contact us at **support@montessoriworldconnect.com**",
         "title": "Montessori World Connect API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
@@ -16,18 +16,10 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.3.3"
+        "version": "2.3.4"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
-    "securityDefinitions": {
-        "BearerAuth": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header",
-            "description": "Send as 'Authorization: Bearer <token>' (recommended). Raw token also accepted."
-        }
-    },
     "paths": {
         "/admin/action-logs": {
             "get": {
@@ -3122,7 +3114,7 @@
             }
         },
         "/institution/profile": {
-            "put": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3832,51 +3824,6 @@
                         "description": "User information with full profile",
                         "schema": {
                             "type": "object",
-                            "properties": {
-                                "user": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": { "type": "integer" },
-                                        "email": { "type": "string" },
-                                        "firstName": { "type": "string" },
-                                        "lastName": { "type": "string" },
-                                        "role": { "type": "string" },
-                                        "isActive": { "type": "boolean" },
-                                        "emailVerified": { "type": "boolean" },
-                                        "createdAt": { "type": "string", "format": "date-time" },
-                                        "updatedAt": { "type": "string", "format": "date-time" },
-                                        "lastLogin": { "type": "string", "format": "date-time" },
-                                        "displayName": { "type": "string", "description": "Convenience display name (institution name for institutions, otherwise firstName + lastName)" },
-                                        "avatarUrl": { "type": "string", "description": "Primary profile avatar URL" },
-                                        "institutionName": { "type": "string", "description": "Institution name for institution/training_center roles" },
-                                        "primaryProfilePictureUrl": { "type": "string" },
-                                        "profilePictures": {
-                                            "type": "array",
-                                            "items": { "$ref": "#/definitions/models.UserProfilePicture" }
-                                        },
-                                        "profile": {
-                                            "type": "object",
-                                            "description": "Role-specific profile data",
-                                            "properties": {
-                                                "institutionName": { "type": "string" },
-                                                "profilePictureUrl": { "type": "string" },
-                                                "isVerified": { "type": "boolean" },
-                                                "schoolId": { "type": "integer" },
-                                                "school": { "type": "object" },
-                                                "bio": { "type": "string" },
-                                                "qualifications": { "type": "string" },
-                                                "experience": { "type": "string" },
-                                                "savedSchools": { "type": "array", "items": { "$ref": "#/definitions/models.School" } },
-                                                "profileVisibility": { "type": "string" },
-                                                "parentAge": { "type": "integer" },
-                                                "createdAt": { "type": "string", "format": "date-time" },
-                                                "updatedAt": { "type": "string", "format": "date-time" }
-                                            }
-                                        }
-                                    },
-                                    "additionalProperties": true
-                                }
-                            },
                             "additionalProperties": true
                         }
                     },
@@ -3899,15 +3846,14 @@
                         }
                     }
                 }
-            }
-            ,
+            },
             "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update the logged-in user's basic details and selected profile fields. Returns the updated user.",
+                "description": "Update the logged-in user's basic details and selected profile fields. Only provided fields are updated. Can also update profile picture URL. Returns the updated user.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3921,17 +3867,13 @@
                 "summary": "Update current user",
                 "parameters": [
                     {
-                        "in": "body",
+                        "description": "Update fields (only provided fields will be updated). Can include profilePictureUrl in profile object.",
                         "name": "payload",
-                        "description": "Update fields",
+                        "in": "body",
                         "required": true,
                         "schema": {
                             "type": "object",
-                            "properties": {
-                                "firstName": { "type": "string" },
-                                "lastName": { "type": "string" },
-                                "profile": { "type": "object" }
-                            }
+                            "additionalProperties": true
                         }
                     }
                 ],
@@ -3947,21 +3889,27 @@
                         "description": "Bad Request",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": { "type": "string" }
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": { "type": "string" }
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": { "type": "string" }
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -4787,7 +4735,7 @@
             }
         },
         "/montessori-professional/profile": {
-            "put": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -5470,7 +5418,7 @@
             }
         },
         "/parent/profile": {
-            "put": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -7951,6 +7899,7 @@
                     "description": "Admin role removed - only superadmin can create admins",
                     "enum": [
                         "institution",
+                        "school",
                         "montessori_professional",
                         "parent",
                         "training_center"
@@ -9016,6 +8965,12 @@
                 "isPrimary": {
                     "type": "boolean"
                 },
+                "objectKey": {
+                    "type": "string"
+                },
+                "storage": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string",
                     "example": "2023-01-01T00:00:00Z"
@@ -9034,18 +8989,50 @@
                 "superadmin",
                 "admin",
                 "institution",
+                "school",
                 "montessori_professional",
                 "training_center",
                 "parent"
+            ],
+            "x-enum-comments": {
+                "SchoolRole": "Alias for institution - treated identically throughout the system"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "Alias for institution - treated identically throughout the system",
+                "",
+                "",
+                ""
             ],
             "x-enum-varnames": [
                 "SuperAdminRole",
                 "AdminRole",
                 "InstitutionRole",
+                "SchoolRole",
                 "MontessoriProfessionalRole",
                 "TrainingCenterRole",
                 "ParentRole"
             ]
         }
-    }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Provide your JWT token directly in the Authorization header without any prefix.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    },
+    "tags": [
+        {
+            "description": "Public endpoints that don't require authentication",
+            "name": "public"
+        },
+        {
+            "description": "Endpoints that require authentication",
+            "name": "authenticated"
+        }
+    ]
 }

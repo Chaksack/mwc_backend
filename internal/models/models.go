@@ -250,10 +250,12 @@ type Message struct {
 // @Schema models.UserProfilePicture
 type UserProfilePicture struct {
 	GormModel
-	UserID    uint   `gorm:"index;not null"`
-	URL       string `gorm:"not null"`
-	FileName  string
-	IsPrimary bool `gorm:"default:false;index"`
+	UserID     uint   `gorm:"index;not null"`
+	URL        string `gorm:"not null"`
+	Storage    string `gorm:"type:varchar(20);not null;default:'local'" json:"storage,omitempty"`
+	ObjectKey  string `gorm:"index" json:"objectKey,omitempty"`
+	FileName   string
+	IsPrimary  bool `gorm:"default:false;index"`
 }
 
 // ActionLog for admin to track user actions

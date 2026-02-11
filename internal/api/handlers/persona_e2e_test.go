@@ -35,6 +35,11 @@ func (suite *PersonaE2ETestSuite) SetupSuite() {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	suite.Require().NoError(err)
 	suite.db = db
+	sqlDB, err := db.DB()
+	suite.Require().NoError(err)
+	// Ensure a single connection for in-memory SQLite.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 
 	// Run migrations
 	err = db.AutoMigrate(
@@ -43,6 +48,7 @@ func (suite *PersonaE2ETestSuite) SetupSuite() {
 		&models.School{},
 		&models.Job{},
 		&models.JobApplication{},
+		&models.UserProfilePicture{},
 		&models.MontessoriProfessionalProfile{},
 		&models.MontessoriJobPreference{},
 		&models.ParentProfile{},

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/utils"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -555,6 +557,17 @@ func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
 	// Log the action
 	LogUserAction(h.db, user.ID, "USER_GET_CURRENT", user.ID, "User", "User retrieved their full profile", c)
 
+	// Resolve any S3-backed media URLs before building the response.
+	for _, pic := range user.ProfilePictures {
+		if pic == nil {
+			continue
+		}
+		pic.URL = utils.ResolveMediaURL(context.Background(), pic.URL, pic.Storage, pic.ObjectKey)
+	}
+	if user.InstitutionProfile != nil && user.InstitutionProfile.ProfilePictureURL != "" {
+		user.InstitutionProfile.ProfilePictureURL = utils.ResolveMediaURL(context.Background(), user.InstitutionProfile.ProfilePictureURL, "s3", "")
+	}
+
 	// Prepare comprehensive response with all user details
 	userMap := fiber.Map{
 		"id":            user.ID,
@@ -899,33 +912,40 @@ func (h *AuthHandler) UploadProfilePicture(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "File is required"})
 	}
 
-	// Ensure uploads directory exists
-	uploadDir := "./uploads/profile_pictures"
-	if err := ensureDir(uploadDir); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create upload directory"})
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to open uploaded file"})
+	}
+	defer file.Close()
+
+	media, _, err := utils.SaveUploadedFile(
+		context.Background(),
+		fileHeader.Filename,
+		fileHeader.Header.Get("Content-Type"),
+		file,
+		"./uploads/profile_pictures",
+		"/uploads/profile_pictures",
+		"profile_pictures",
+		userID,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to store file: " + err.Error()})
 	}
 
-	// Save file
-	// Sanitize incoming filename to avoid traversal and weird characters.
-	safeOriginal := filepath.Base(fileHeader.Filename)
-	// Allow only a conservative charset in the stored filename.
+	urlPath := media.URL
+	// Preserve previously stored filename semantics.
+	safeOriginal := filepath.Base(media.FileName)
 	reUnsafe := regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 	safeOriginal = reUnsafe.ReplaceAllString(safeOriginal, "_")
 	if safeOriginal == "" {
 		safeOriginal = "upload"
 	}
-	ext := filepath.Ext(safeOriginal)
-	storedName := fmt.Sprintf("%d_%d%s", userID, time.Now().UnixNano(), ext)
-	dst := filepath.Join(uploadDir, storedName)
-	if err := c.SaveFile(fileHeader, dst); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save file: " + err.Error()})
-	}
-
-	urlPath := "/uploads/profile_pictures/" + storedName
 
 	picture := models.UserProfilePicture{
 		UserID:    userID,
 		URL:       urlPath,
+		Storage:   media.Storage,
+		ObjectKey: media.ObjectKey,
 		FileName:  safeOriginal,
 		IsPrimary: true,
 	}
@@ -939,7 +959,8 @@ func (h *AuthHandler) UploadProfilePicture(c *fiber.Ctx) error {
 	}); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save picture record: " + err.Error()})
 	}
-
+	// Ensure response uses a client-friendly URL.
+	picture.URL = utils.ResolveMediaURL(context.Background(), picture.URL, picture.Storage, picture.ObjectKey)
 	return c.Status(fiber.StatusCreated).JSON(picture)
 }
 
@@ -962,6 +983,9 @@ func (h *AuthHandler) ListProfilePictures(c *fiber.Ctx) error {
 	var pics []models.UserProfilePicture
 	if err := h.db.Where("user_id = ?", userID).Order("is_primary desc").Order("created_at desc").Find(&pics).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load pictures: " + err.Error()})
+	}
+	for i := range pics {
+		pics[i].URL = utils.ResolveMediaURL(context.Background(), pics[i].URL, pics[i].Storage, pics[i].ObjectKey)
 	}
 	return c.Status(fiber.StatusOK).JSON(pics)
 }
@@ -1003,10 +1027,13 @@ func (h *AuthHandler) DeleteProfilePicture(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authorized to delete this picture"})
 	}
 
-	// Delete file from disk (best-effort)
-	// Map URL back to path
-	filePath := "." + pic.URL
-	_ = os.Remove(filePath)
+	// Delete underlying media (best-effort)
+	if strings.EqualFold(pic.Storage, "s3") && pic.ObjectKey != "" {
+		_ = utils.DeleteObjectFromS3(context.Background(), pic.ObjectKey)
+	} else {
+		filePath := "." + pic.URL
+		_ = os.Remove(filePath)
+	}
 
 	if err := h.db.Delete(&pic).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete picture record: " + err.Error()})

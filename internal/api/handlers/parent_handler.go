@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -184,32 +186,39 @@ func (h *ParentHandler) CreateOrUpdateParentProfile(c *fiber.Ctx) error {
 		// Get user to ensure it exists
 		var user models.User
 		if err := h.db.First(&user, actorUserID).Error; err == nil {
-			// Ensure uploads directory exists
-			uploadDir := "./uploads/parent_profiles"
-			if err := ensureDir(uploadDir); err == nil {
-				// Save file
-				dst := fmt.Sprintf("%s/%d_%s", uploadDir, actorUserID, fileHeader.Filename)
-				if err := c.SaveFile(fileHeader, dst); err == nil {
-					urlPath := "/uploads/parent_profiles/" + fmt.Sprintf("%d_%s", actorUserID, fileHeader.Filename)
-
+			file, err := fileHeader.Open()
+			if err != nil {
+				LogUserAction(h.db, actorUserID, "PARENT_PROFILE_PICTURE_OPEN_FAIL", actorUserID, "System", "Failed to open uploaded file", c)
+			} else {
+				defer file.Close()
+				media, _, err := utils.SaveUploadedFile(
+					context.Background(),
+					fileHeader.Filename,
+					fileHeader.Header.Get("Content-Type"),
+					file,
+					"./uploads/parent_profiles",
+					"/uploads/parent_profiles",
+					"parent_profiles",
+					actorUserID,
+				)
+				if err != nil {
+					LogUserAction(h.db, actorUserID, "PARENT_PROFILE_PICTURE_SAVE_FAIL", actorUserID, "System", "Failed to store file: "+err.Error(), c)
+				} else {
 					// Set any existing pictures as non-primary
 					h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", actorUserID).Update("is_primary", false)
-
-					// Create new profile picture record
 					picture := models.UserProfilePicture{
 						UserID:    actorUserID,
-						URL:       urlPath,
-						FileName:  fileHeader.Filename,
+						URL:       media.URL,
+						Storage:   media.Storage,
+						ObjectKey: media.ObjectKey,
+						FileName:  media.FileName,
 						IsPrimary: true,
 					}
-
 					if err := h.db.Create(&picture).Error; err != nil {
 						LogUserAction(h.db, actorUserID, "PARENT_PROFILE_PICTURE_FAIL", actorUserID, "UserProfilePicture", "Failed to save picture: "+err.Error(), c)
 					} else {
 						LogUserAction(h.db, actorUserID, "PARENT_PROFILE_PICTURE_SUCCESS", actorUserID, "UserProfilePicture", "Profile picture uploaded", c)
 					}
-				} else {
-					LogUserAction(h.db, actorUserID, "PARENT_PROFILE_PICTURE_SAVE_FAIL", actorUserID, "System", "Failed to save file: "+err.Error(), c)
 				}
 			}
 		}

@@ -56,6 +56,11 @@ import (
 // @description - **Pagination**: Use `page` and `limit` query parameters
 // @description - **Errors**: Standard HTTP status codes with error messages
 // @description
+// @description ## 🖼️ Media Storage (Uploads)
+// @description
+// @description Uploads are stored on the local filesystem by default. If `S3_BUCKET` is configured, uploads are stored in AWS S3.
+// @description When S3 is enabled, media `url` fields returned by the API are client-loadable HTTPS URLs (either a stable public URL when `S3_PUBLIC_BASE_URL` is set, or a presigned URL otherwise).
+// @description
 // @description ## 🌐 Public Endpoints
 // @description
 // @description No authentication required:

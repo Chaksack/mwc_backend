@@ -35,6 +35,22 @@ Before running the application, you need to set up the following environment var
 - `ENVIRONMENT`: The current environment (dev, prod, etc.)
 - `BASE_URL`: The base URL for the API (defaults based on environment)
 
+#### Media Storage (Uploads)
+
+By default, uploaded media is stored on the local filesystem under `./uploads/*` and is served via the static routes:
+
+- `/uploads/*` (and, for compatibility, `/api/v1/uploads/*`)
+
+To store uploads in AWS S3 instead, configure the following environment variables:
+
+- `S3_BUCKET` (required): Enables S3 storage when set.
+- `AWS_REGION` or `AWS_DEFAULT_REGION` (required when `S3_BUCKET` is set): AWS region for the bucket.
+- `S3_PREFIX` (optional, default `uploads`): Prefix used for keys in the bucket.
+- `S3_PUBLIC_BASE_URL` (optional): If set, the API will persist and return stable public URLs (e.g. CloudFront or S3 website/CDN URL).
+- `S3_PRESIGN_TTL_SECONDS` (optional, default `3600`): TTL for presigned GET URLs returned by the API when `S3_PUBLIC_BASE_URL` is not set.
+
+When using S3 without `S3_PUBLIC_BASE_URL`, the database may store `s3://<bucket>/<key>` references while API responses resolve them to presigned HTTPS URLs at runtime so the frontend can load them.
+
 ### Building and Running
 
 To build and run the application using Docker Compose:

@@ -9,7 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "email": "support@montessoriworldconnect.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -3819,6 +3827,73 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the logged-in user's basic details and selected profile fields. Only provided fields are updated. Can also update profile picture URL. Returns the updated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "authenticated"
+                ],
+                "summary": "Update current user",
+                "parameters": [
+                    {
+                        "description": "Update fields (only provided fields will be updated). Can include profilePictureUrl in profile object.",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated user information",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "401": {
@@ -7826,6 +7901,7 @@ const docTemplate = `{
                     "description": "Admin role removed - only superadmin can create admins",
                     "enum": [
                         "institution",
+                        "school",
                         "montessori_professional",
                         "parent",
                         "training_center"
@@ -8891,6 +8967,12 @@ const docTemplate = `{
                 "isPrimary": {
                     "type": "boolean"
                 },
+                "objectKey": {
+                    "type": "string"
+                },
+                "storage": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string",
                     "example": "2023-01-01T00:00:00Z"
@@ -8909,30 +8991,62 @@ const docTemplate = `{
                 "superadmin",
                 "admin",
                 "institution",
+                "school",
                 "montessori_professional",
                 "training_center",
                 "parent"
+            ],
+            "x-enum-comments": {
+                "SchoolRole": "Alias for institution - treated identically throughout the system"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "Alias for institution - treated identically throughout the system",
+                "",
+                "",
+                ""
             ],
             "x-enum-varnames": [
                 "SuperAdminRole",
                 "AdminRole",
                 "InstitutionRole",
+                "SchoolRole",
                 "MontessoriProfessionalRole",
                 "TrainingCenterRole",
                 "ParentRole"
             ]
         }
-    }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Provide your JWT token directly in the Authorization header without any prefix.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    },
+    "tags": [
+        {
+            "description": "Public endpoints that don't require authentication",
+            "name": "public"
+        },
+        {
+            "description": "Endpoints that require authentication",
+            "name": "authenticated"
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
-	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Version:          "2.2.8",
+	Host:             "api.montessoriworldconnect.com",
+	BasePath:         "/api/v1",
+	Schemes:          []string{"http", "https"},
+	Title:            "Montessori World Connect API",
+	Description:      "API for the Montessori World Connect platform - connecting Montessori educators, institutions, and parents worldwide.\n\n## 📚 Documentation\n\nThis API documentation is organized into multiple sections for easy navigation:\n\n### Quick Links\n- **[Introduction](/docs/markdown/introduction.md)** - Platform overview and key features\n- **[Getting Started](/docs/markdown/getting-started.md)** - Authentication, registration, and API basics\n- **[User Roles](/docs/markdown/user-roles.md)** - Detailed role descriptions and permissions\n- **[Subscriptions](/docs/markdown/subscriptions.md)** - Free trial, plans, and subscription management\n- **[API Examples](/docs/markdown/examples.md)** - Code examples in multiple languages\n- **[Webhooks & Events](/docs/markdown/webhooks.md)** - Real-time updates and webhook integration\n\n## 🚀 Quick Start\n\n1. **Register**: Create an account at `/api/v1/register`\n2. **Verify Email**: Check your email and verify your account\n3. **Login**: Get your JWT token at `/api/v1/login`\n4. **Authenticate**: Include token in `Authorization` header\n5. **Start Building**: Make API requests with your token\n\n## 🔑 Authentication\n\nInclude your JWT token in the Authorization header:\n```\nAuthorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\n```\n\n## 👥 User Roles\n\n- `institution` - Schools posting jobs and managing profiles\n- `training_center` - Training centers with job posting capabilities\n- `montessori_professional` - Educators searching jobs and applying\n- `parent` - Parents searching schools and writing reviews\n- `admin` - Content moderators with elevated permissions\n- `super_admin` - System administrators with full access\n\n## 🎁 Free Trial\n\nAll new users get a **60-day free trial** with full premium access!\n\n## 📋 API Conventions\n\n- **Base URL**: `https://api.montessoriworldconnect.com`\n- **Format**: All responses in JSON\n- **Pagination**: Use `page` and `limit` query parameters\n- **Errors**: Standard HTTP status codes with error messages\n\n## 🖼️ Media Storage (Uploads)\n\nUploads are stored on the local filesystem by default. If `S3_BUCKET` is configured, uploads are stored in AWS S3.\nWhen S3 is enabled, media `url` fields returned by the API are client-loadable HTTPS URLs (either a stable public URL when `S3_PUBLIC_BASE_URL` is set, or a presigned URL otherwise).\n\n## 🌐 Public Endpoints\n\nNo authentication required:\n- `POST /api/v1/register` - User registration\n- `POST /api/v1/login` - User login\n- `GET /api/v1/schools/public` - Search schools\n- `GET /api/v1/institutions/search` - Search institutions\n- `GET /api/v1/jobs` - Browse jobs\n- `GET /api/v1/events` - View events\n- `GET /api/v1/blogs` - Read blogs\n\n## 💬 Support\n\nNeed help? Contact us at **support@montessoriworldconnect.com**",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

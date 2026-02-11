@@ -53,6 +53,6 @@ Montessori World Connect is designed to bridge the gap in the Montessori educati
 ## Quick Links
 
 - **Base URL**: `https://api.montessoriworldconnect.com`
-- **API Version**: `2.3.3`
+- **API Version**: `2.3.4`
 - **Support Email**: support@montessoriworldconnect.com
 - **Status Page**: Check system status and uptime
