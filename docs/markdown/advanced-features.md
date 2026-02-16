@@ -369,16 +369,121 @@ name,address,city,state,country,country_code,zip_code,phone,website,email,latitu
 ```bash
 POST /api/v1/admin/blogs
 Authorization: admin-token
+Content-Type: multipart/form-data
+
+# Required text fields
+title=The Benefits of Montessori Education
+slug=benefits-of-montessori-education
+content=Lorem ipsum...
+
+# Optional fields
+summary=Short excerpt...
+tags=["education","montessori","children"]
+is_published=true
+is_featured=false
+
+# Optional YouTube video (youtube.com or youtu.be)
+youtube_url=https://youtu.be/dQw4w9WgXcQ
+
+# Upload one or more images (the backend stores them in S3 when configured)
+images=@header.jpg
+images=@gallery1.png
+images=@gallery2.webp
+
+# Select which uploaded image is used as thumbnail/header by index (0-based)
+thumbnail_index=1
+header_index=0
+```
+
+### Upload Blog Images (append)
+
+```bash
+POST /api/v1/admin/blogs/{id}/images
+Authorization: admin-token
+Content-Type: multipart/form-data
+
+images=@new1.jpg
+images=@new2.png
+
+# If the blog doesn't already have selections, you must set them:
+thumbnail_index=0
+header_index=1
+
+# Optional: replace existing images instead of appending
+replace_images=true
+```
+
+### Upload Inline Content Image (WYSIWYG)
+
+Use this when your word editor needs to upload an image and immediately insert it into the `content` HTML.
+
+```bash
+POST /api/v1/admin/blogs/content-images
+Authorization: admin-token
+Content-Type: multipart/form-data
+
+image=@inline.png
+alt=Montessori classroom
+```
+
+**Response (example):**
+
+```json
+{
+  "url": "https://cdn.example.com/uploads/blogs/content-images/1_...png",
+  "html": "<img src=\"https://cdn.example.com/uploads/blogs/content-images/1_...png\" alt=\"Montessori classroom\" loading=\"lazy\" />"
+}
+```
+
+If you already have hosted image URLs (or want to use the legacy single field), JSON is also supported:
+
+### Generate Inline YouTube Embed (WYSIWYG)
+
+Use this when your word editor has a “Insert YouTube video” action and you want the backend to generate a safe, allowlisted `<iframe>` snippet.
+
+```bash
+POST /api/v1/admin/blogs/content-youtube
+Authorization: admin-token
 Content-Type: application/json
 
 {
-  "title": "The Benefits of Montessori Education",
-  "content": "Lorem ipsum...",
-  "author": "John Doe",
-  "published": true,
-  "tags": ["education", "montessori", "children"]
+  "youtube_url": "https://youtu.be/dQw4w9WgXcQ",
+  "width": 560,
+  "height": 315,
+  "title": "Classroom tour"
 }
 ```
+
+**Response (example):**
+
+```json
+{
+  "watch_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "embed_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+  "html": "<iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/dQw4w9WgXcQ\" title=\"Classroom tour\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>"
+}
+```
+
+```json
+{
+  "title": "The Benefits of Montessori Education",
+  "slug": "benefits-of-montessori-education",
+  "content": "<h2>Why Montessori works</h2><p>This content can come from a word editor/WYSIWYG (HTML).</p><p><img src=\"https://cdn.example.com/blogs/gallery1.jpg\" alt=\"Classroom\" /></p><p>Video:</p><iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/dQw4w9WgXcQ\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>",
+  "tags": ["education", "montessori", "children"],
+  "images": [
+    "https://cdn.example.com/blogs/header.jpg",
+    "https://cdn.example.com/blogs/thumb.jpg"
+  ],
+  "thumbnail_image": "https://cdn.example.com/blogs/thumb.jpg",
+  "header_image": "https://cdn.example.com/blogs/header.jpg",
+  "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+
+  "is_published": true,
+  "is_featured": false
+}
+```
+
+Note: the backend sanitizes editor HTML. It allows safe formatting tags, inline `<img>` (http/https), and YouTube embeds via `<iframe src="https://www.youtube.com/embed/<id>">`.
 
 ### Create Event
 

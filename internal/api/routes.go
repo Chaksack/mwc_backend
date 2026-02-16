@@ -133,6 +133,9 @@ func SetupRoutes(
 	// Blog Management Routes (Admin/SuperAdmin)
 	adminRoutes.Post("/blogs", blogHandler.CreateBlog)
 	adminRoutes.Put("/blogs/:id", blogHandler.UpdateBlog)
+	adminRoutes.Post("/blogs/content-images", blogHandler.UploadBlogContentImage)
+	adminRoutes.Post("/blogs/content-youtube", blogHandler.UploadBlogContentYouTube)
+	adminRoutes.Post("/blogs/:id/images", blogHandler.UploadBlogImages)
 	adminRoutes.Delete("/blogs/:id", blogHandler.DeleteBlog)
 
 	// Dynamic Subscription Management Routes

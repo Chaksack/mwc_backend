@@ -9,15 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "email": "support@montessoriworldconnect.com"
-        },
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -316,6 +308,144 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/blogs/content-images": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uploads an image and returns an accessible URL plus an \u003cimg\u003e snippet that can be inserted into blog content.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blogs"
+                ],
+                "summary": "Upload inline blog image",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Image file",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alt text",
+                        "name": "alt",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BlogContentMediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/blogs/content-youtube": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Normalizes a YouTube link and returns an \u003ciframe\u003e snippet that is compatible with blog content sanitization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blogs"
+                ],
+                "summary": "Generate inline YouTube embed",
+                "parameters": [
+                    {
+                        "description": "YouTube payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BlogContentYouTubeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BlogContentYouTubeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/admin/blogs/{id}": {
             "put": {
                 "security": [
@@ -419,6 +549,115 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/blogs/{id}/images": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uploads one or more images for a blog post. Images are stored in S3 when configured (S3_BUCKET).",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blogs"
+                ],
+                "summary": "Upload blog images",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Blog ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Images (repeat the field to upload multiple)",
+                        "name": "images",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "If true, replace existing images",
+                        "name": "replace_images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "0-based index in the final images array",
+                        "name": "thumbnail_index",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "0-based index in the final images array",
+                        "name": "header_index",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Explicit thumbnail URL (must be in images)",
+                        "name": "thumbnail_image",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Explicit header URL (must be in images)",
+                        "name": "header_image",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BlogResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     },
                     "401": {
                         "description": "Unauthorized",
@@ -7214,6 +7453,60 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.BlogContentMediaResponse": {
+            "type": "object",
+            "properties": {
+                "file_name": {
+                    "type": "string"
+                },
+                "html": {
+                    "type": "string"
+                },
+                "object_key": {
+                    "type": "string"
+                },
+                "raw_url": {
+                    "type": "string"
+                },
+                "storage": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.BlogContentYouTubeRequest": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                },
+                "youtube_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.BlogContentYouTubeResponse": {
+            "type": "object",
+            "properties": {
+                "embed_url": {
+                    "type": "string"
+                },
+                "html": {
+                    "type": "string"
+                },
+                "watch_url": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.BlogResponse": {
             "type": "object",
             "properties": {
@@ -7232,8 +7525,17 @@ const docTemplate = `{
                 "featured_image": {
                     "type": "string"
                 },
+                "header_image": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "is_featured": {
                     "type": "boolean"
@@ -7256,6 +7558,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "thumbnail_image": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 },
@@ -7264,6 +7569,9 @@ const docTemplate = `{
                 },
                 "view_count": {
                     "type": "integer"
+                },
+                "youtube_url": {
+                    "type": "string"
                 }
             }
         },
@@ -7324,6 +7632,15 @@ const docTemplate = `{
                 "featured_image": {
                     "type": "string"
                 },
+                "header_image": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "is_featured": {
                     "type": "boolean"
                 },
@@ -7342,7 +7659,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "thumbnail_image": {
+                    "type": "string"
+                },
                 "title": {
+                    "type": "string"
+                },
+                "youtube_url": {
                     "type": "string"
                 }
             }
@@ -8198,6 +8521,15 @@ const docTemplate = `{
                 "featured_image": {
                     "type": "string"
                 },
+                "header_image": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "is_featured": {
                     "type": "boolean"
                 },
@@ -8216,7 +8548,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "thumbnail_image": {
+                    "type": "string"
+                },
                 "title": {
+                    "type": "string"
+                },
+                "youtube_url": {
                     "type": "string"
                 }
             }
@@ -9018,35 +9356,17 @@ const docTemplate = `{
                 "ParentRole"
             ]
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Provide your JWT token directly in the Authorization header without any prefix.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
-    },
-    "tags": [
-        {
-            "description": "Public endpoints that don't require authentication",
-            "name": "public"
-        },
-        {
-            "description": "Endpoints that require authentication",
-            "name": "authenticated"
-        }
-    ]
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "2.2.8",
-	Host:             "api.montessoriworldconnect.com",
-	BasePath:         "/api/v1",
-	Schemes:          []string{"http", "https"},
-	Title:            "Montessori World Connect API",
-	Description:      "API for the Montessori World Connect platform - connecting Montessori educators, institutions, and parents worldwide.\n\n## 📚 Documentation\n\nThis API documentation is organized into multiple sections for easy navigation:\n\n### Quick Links\n- **[Introduction](/docs/markdown/introduction.md)** - Platform overview and key features\n- **[Getting Started](/docs/markdown/getting-started.md)** - Authentication, registration, and API basics\n- **[User Roles](/docs/markdown/user-roles.md)** - Detailed role descriptions and permissions\n- **[Subscriptions](/docs/markdown/subscriptions.md)** - Free trial, plans, and subscription management\n- **[API Examples](/docs/markdown/examples.md)** - Code examples in multiple languages\n- **[Webhooks & Events](/docs/markdown/webhooks.md)** - Real-time updates and webhook integration\n\n## 🚀 Quick Start\n\n1. **Register**: Create an account at `/api/v1/register`\n2. **Verify Email**: Check your email and verify your account\n3. **Login**: Get your JWT token at `/api/v1/login`\n4. **Authenticate**: Include token in `Authorization` header\n5. **Start Building**: Make API requests with your token\n\n## 🔑 Authentication\n\nInclude your JWT token in the Authorization header:\n```\nAuthorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\n```\n\n## 👥 User Roles\n\n- `institution` - Schools posting jobs and managing profiles\n- `training_center` - Training centers with job posting capabilities\n- `montessori_professional` - Educators searching jobs and applying\n- `parent` - Parents searching schools and writing reviews\n- `admin` - Content moderators with elevated permissions\n- `super_admin` - System administrators with full access\n\n## 🎁 Free Trial\n\nAll new users get a **60-day free trial** with full premium access!\n\n## 📋 API Conventions\n\n- **Base URL**: `https://api.montessoriworldconnect.com`\n- **Format**: All responses in JSON\n- **Pagination**: Use `page` and `limit` query parameters\n- **Errors**: Standard HTTP status codes with error messages\n\n## 🖼️ Media Storage (Uploads)\n\nUploads are stored on the local filesystem by default. If `S3_BUCKET` is configured, uploads are stored in AWS S3.\nWhen S3 is enabled, media `url` fields returned by the API are client-loadable HTTPS URLs (either a stable public URL when `S3_PUBLIC_BASE_URL` is set, or a presigned URL otherwise).\n\n## 🌐 Public Endpoints\n\nNo authentication required:\n- `POST /api/v1/register` - User registration\n- `POST /api/v1/login` - User login\n- `GET /api/v1/schools/public` - Search schools\n- `GET /api/v1/institutions/search` - Search institutions\n- `GET /api/v1/jobs` - Browse jobs\n- `GET /api/v1/events` - View events\n- `GET /api/v1/blogs` - Read blogs\n\n## 💬 Support\n\nNeed help? Contact us at **support@montessoriworldconnect.com**",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
+	Schemes:          []string{},
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

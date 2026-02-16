@@ -250,12 +250,12 @@ type Message struct {
 // @Schema models.UserProfilePicture
 type UserProfilePicture struct {
 	GormModel
-	UserID     uint   `gorm:"index;not null"`
-	URL        string `gorm:"not null"`
-	Storage    string `gorm:"type:varchar(20);not null;default:'local'" json:"storage,omitempty"`
-	ObjectKey  string `gorm:"index" json:"objectKey,omitempty"`
-	FileName   string
-	IsPrimary  bool `gorm:"default:false;index"`
+	UserID    uint   `gorm:"index;not null"`
+	URL       string `gorm:"not null"`
+	Storage   string `gorm:"type:varchar(20);not null;default:'local'" json:"storage,omitempty"`
+	ObjectKey string `gorm:"index" json:"objectKey,omitempty"`
+	FileName  string
+	IsPrimary bool `gorm:"default:false;index"`
 }
 
 // ActionLog for admin to track user actions
@@ -374,18 +374,25 @@ type Review struct {
 // @Schema models.Blog
 type Blog struct {
 	GormModel
-	Title         string     `gorm:"not null"`             // Blog title
-	Slug          string     `gorm:"uniqueIndex;not null"` // URL-friendly identifier
-	Content       string     `gorm:"type:text;not null"`   // Blog content (HTML/Markdown)
-	Summary       string     `gorm:"type:text"`            // Short summary/excerpt
-	FeaturedImage string     // URL to featured image
-	Tags          string     `gorm:"type:text"`      // JSON array of tags
-	AuthorID      uint       `gorm:"not null;index"` // User who created the blog
-	Author        User       `gorm:"foreignKey:AuthorID"`
-	IsPublished   bool       `gorm:"default:false;index"` // Published status
-	PublishedAt   *time.Time `gorm:"index"`               // When it was published
-	ViewCount     int        `gorm:"default:0"`           // Number of views
-	IsFeatured    bool       `gorm:"default:false;index"` // Featured blog posts
+	Title   string `gorm:"not null"`             // Blog title
+	Slug    string `gorm:"uniqueIndex;not null"` // URL-friendly identifier
+	Content string `gorm:"type:text;not null"`   // Blog content (HTML/Markdown)
+	Summary string `gorm:"type:text"`            // Short summary/excerpt
+	// Backward compatible single-image field.
+	// New code should prefer Images + ThumbnailImage + HeaderImage.
+	FeaturedImage string // URL to featured image
+
+	Images         string     `gorm:"type:text"` // JSON array of image URLs
+	ThumbnailImage string     // URL of selected thumbnail image (must be one of Images)
+	HeaderImage    string     // URL of selected header image (must be one of Images)
+	YouTubeURL     string     `gorm:"type:text"`      // Optional YouTube video link
+	Tags           string     `gorm:"type:text"`      // JSON array of tags
+	AuthorID       uint       `gorm:"not null;index"` // User who created the blog
+	Author         User       `gorm:"foreignKey:AuthorID"`
+	IsPublished    bool       `gorm:"default:false;index"` // Published status
+	PublishedAt    *time.Time `gorm:"index"`               // When it was published
+	ViewCount      int        `gorm:"default:0"`           // Number of views
+	IsFeatured     bool       `gorm:"default:false;index"` // Featured blog posts
 }
 
 // AutoMigrate runs GORM's auto migration.
