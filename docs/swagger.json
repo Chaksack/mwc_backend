@@ -20,6 +20,14 @@
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT token for authenticated endpoints. Prefer: `Bearer <token>` (raw token is also accepted)."
+        }
+    },
     "paths": {
         "/admin/action-logs": {
             "get": {

@@ -1325,6 +1325,12 @@ definitions:
     - ParentRole
 info:
   contact: {}
+securityDefinitions:
+  BearerAuth:
+    description: JWT token for authenticated endpoints. Prefer "Bearer <token>" (raw token is also accepted).
+    in: header
+    name: Authorization
+    type: apiKey
 paths:
   /admin/action-logs:
     get:

@@ -33,7 +33,7 @@ import (
 // @description
 // @description Include your JWT token in the Authorization header:
 // @description ```
-// @description Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+// @description Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 // @description ```
 // @description
 // @description ## 👥 User Roles
@@ -86,7 +86,7 @@ import (
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Provide your JWT token directly in the Authorization header without any prefix.
+// @description JWT token for authenticated endpoints. Prefer `Bearer <token>` (raw token is also accepted).
 
 // @tag.name public
 // @tag.description Public endpoints that don't require authentication
