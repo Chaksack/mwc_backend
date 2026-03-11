@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"mwc_backend/internal/models"
+	"os"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -102,4 +103,12 @@ func truncateMessage(msg string, maxLength int) string {
 		return msg[:maxLength] // Not enough space for ellipsis
 	}
 	return msg[:maxLength-3] + "..."
+}
+
+// ensureDir creates a directory if it doesn't exist
+func ensureDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return os.MkdirAll(dir, 0755)
+	}
+	return nil
 }

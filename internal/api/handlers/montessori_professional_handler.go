@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"mwc_backend/internal/email"
 	"mwc_backend/internal/models"
 	"mwc_backend/internal/queue"
+	"mwc_backend/internal/utils"
 	"strconv"
 	"strings"
 
@@ -53,9 +55,13 @@ type JobPreferenceRequest struct {
 // @Summary Create or update montessori professional profile
 // @Description Creates a new montessori professional profile or updates an existing one
 // @Tags montessori-professional,profile
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param profile body MontessoriProfessionalProfileRequest true "Montessori Professional profile information"
+// @Param bio formData string false "Professional bio"
+// @Param qualifications formData string false "Professional qualifications"
+// @Param experience formData string false "Professional experience"
+// @Param looking_for_job formData boolean false "Looking for job status"
+// @Param profile_picture formData file false "Profile picture file"
 // @Success 200 {object} models.MontessoriProfessionalProfile "Profile created or updated successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "Unauthorized"
@@ -65,11 +71,18 @@ type JobPreferenceRequest struct {
 func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProfile(c *fiber.Ctx) error {
 	actorUserID, _ := c.Locals("user_id").(uint)
 
-	req := new(MontessoriProfessionalProfileRequest)
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON: " + err.Error()})
+	// Parse form data instead of JSON
+	bio := c.FormValue("bio")
+	qualifications := c.FormValue("qualifications")
+	experience := c.FormValue("experience")
+	lookingForJobStr := c.FormValue("looking_for_job")
+
+	// Parse looking_for_job boolean
+	var lookingForJob *bool
+	if lookingForJobStr != "" {
+		val := lookingForJobStr == "true" || lookingForJobStr == "1"
+		lookingForJob = &val
 	}
-	// TODO: Validate req
 
 	var profile models.MontessoriProfessionalProfile
 	err := h.db.Where("user_id = ?", actorUserID).First(&profile).Error
@@ -84,11 +97,61 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 		}
 	}
 
-	profile.Bio = req.Bio
-	profile.Qualifications = req.Qualifications
-	profile.Experience = req.Experience
-	if req.LookingForJob != nil {
-		profile.LookingForJob = *req.LookingForJob
+	if bio != "" {
+		profile.Bio = bio
+	}
+	if qualifications != "" {
+		profile.Qualifications = qualifications
+	}
+	if experience != "" {
+		profile.Experience = experience
+	}
+	if lookingForJob != nil {
+		profile.LookingForJob = *lookingForJob
+	}
+
+	// Handle profile picture upload if provided
+	fileHeader, err := c.FormFile("profile_picture")
+	if err == nil && fileHeader != nil {
+		// Get user to ensure it exists
+		var user models.User
+		if err := h.db.First(&user, actorUserID).Error; err == nil {
+			file, err := fileHeader.Open()
+			if err != nil {
+				LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_OPEN_FAIL", actorUserID, "System", "Failed to open uploaded file", c)
+			} else {
+				defer file.Close()
+				media, _, err := utils.SaveUploadedFile(
+					context.Background(),
+					fileHeader.Filename,
+					fileHeader.Header.Get("Content-Type"),
+					file,
+					"./uploads/montessori_professional_profiles",
+					"/uploads/montessori_professional_profiles",
+					"montessori_professional_profiles",
+					actorUserID,
+				)
+				if err != nil {
+					LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SAVE_FAIL", actorUserID, "System", "Failed to store file: "+err.Error(), c)
+				} else {
+					// Set any existing pictures as non-primary
+					h.db.Model(&models.UserProfilePicture{}).Where("user_id = ?", actorUserID).Update("is_primary", false)
+					picture := models.UserProfilePicture{
+						UserID:     actorUserID,
+						URL:        media.URL,
+						Storage:    media.Storage,
+						ObjectKey:  media.ObjectKey,
+						FileName:   media.FileName,
+						IsPrimary:  true,
+					}
+					if err := h.db.Create(&picture).Error; err != nil {
+						LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_FAIL", actorUserID, "UserProfilePicture", "Failed to save picture: "+err.Error(), c)
+					} else {
+						LogUserAction(h.db, actorUserID, "MONT_PROF_PROFILE_PICTURE_SUCCESS", actorUserID, "UserProfilePicture", "Profile picture uploaded", c)
+					}
+				}
+			}
+		}
 	}
 
 	if err := h.db.Save(&profile).Error; err != nil {
@@ -111,16 +174,62 @@ func (h *MontessoriProfessionalHandler) CreateOrUpdateMontessoriProfessionalProf
 // ListLookingForJobs returns Montessori Professional profiles that are actively looking for jobs.
 // This endpoint is intended to be consumed by institutions and training centers to discover candidates.
 // @Summary List montessori professionals looking for jobs
-// @Description Returns a list of public montessori professional profiles where LookingForJob=true
+// @Description Returns a list of public montessori professional profiles where LookingForJob=true (admin, institution, training_center only)
 // @Tags montessori-professional,jobs
 // @Produce json
 // @Success 200 {array} models.MontessoriProfessionalProfile
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - insufficient permissions"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /institution/montessori-professionals/looking-for-jobs [get]
 func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
-	var profiles []models.MontessoriProfessionalProfile
-	if err := h.db.Preload("User").Where("looking_for_job = ?", true).Find(&profiles).Error; err != nil {
+	// Check user role - only admin, institution, and training_center can access
+	userRole, _ := c.Locals("user_role").(models.UserRole)
+	allowedRoles := []models.UserRole{models.AdminRole, models.SuperAdminRole, models.InstitutionRole, models.SchoolRole, models.TrainingCenterRole}
+
+	isAllowed := false
+	for _, role := range allowedRoles {
+		if userRole == role {
+			isAllowed = true
+			break
+		}
+	}
+
+	if !isAllowed {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Insufficient permissions. Only admins, institutions, and training centers can view this list."})
+	}
+
+	// Pagination params with sane defaults
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "25")
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 25
+	}
+	offset := (page - 1) * limit
+
+	// Only select the needed fields and join with users to avoid loading full GORM structs
+	type row struct {
+		ID             uint
+		UserID         uint
+		FirstName      string
+		LastName       string
+		Bio            string
+		Qualifications string
+		Experience     string
+		LookingForJob  bool
+	}
+
+	var rows []row
+	// Use a context with timeout for the DB call to avoid long-running queries
+	// Note: GORM accepts context via WithContext if needed; assuming db has a default timeout, otherwise consider adding one at app level
+	query := h.db.Table("montessori_professional_profiles as mpp").Select("mpp.id, mpp.user_id, u.first_name, u.last_name, mpp.bio, mpp.qualifications, mpp.experience, mpp.looking_for_job").Joins("left join users u on u.id = mpp.user_id").Where("mpp.looking_for_job = ?", true).Limit(limit).Offset(offset)
+	if err := query.Scan(&rows).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve profiles: " + err.Error()})
 	}
 
@@ -136,13 +245,13 @@ func (h *MontessoriProfessionalHandler) ListLookingForJobs(c *fiber.Ctx) error {
 		LookingForJob  bool   `json:"looking_for_job"`
 	}
 
-	out := make([]PublicProfile, 0, len(profiles))
-	for _, p := range profiles {
+	out := make([]PublicProfile, 0, len(rows))
+	for _, p := range rows {
 		out = append(out, PublicProfile{
 			ID:             p.ID,
 			UserID:         p.UserID,
-			FirstName:      p.User.FirstName,
-			LastName:       p.User.LastName,
+			FirstName:      p.FirstName,
+			LastName:       p.LastName,
 			Bio:            p.Bio,
 			Qualifications: p.Qualifications,
 			Experience:     p.Experience,
@@ -494,7 +603,7 @@ func (h *MontessoriProfessionalHandler) DeleteJobPreference(c *fiber.Ctx) error 
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to disable preference: " + err.Error()})
 	}
 	LogUserAction(h.db, actorUserID, "MONT_PROF_JOB_PREF_DISABLED", pref.ID, "JobPreference", "Preference disabled", c)
- return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Preference disabled"})
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Preference disabled"})
 }
 
 // ApplyForJob allows a montessori professional to apply for a job.
@@ -550,10 +659,25 @@ func (h *MontessoriProfessionalHandler) ApplyForJob(c *fiber.Ctx) error {
 	resumeURL := ""
 	file, err := c.FormFile("resume")
 	if err == nil && file != nil {
-		// TODO: Implement file upload logic (save to disk/cloud and get URL)
-		// For now, just use the filename as placeholder
-		resumeURL = "/uploads/resumes/" + file.Filename
-		// In a real implementation, you'd save the file and return the actual URL
+		f, err := file.Open()
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to open resume upload"})
+		}
+		defer f.Close()
+		media, _, err := utils.SaveUploadedFile(
+			context.Background(),
+			file.Filename,
+			file.Header.Get("Content-Type"),
+			f,
+			"./uploads/resumes",
+			"/uploads/resumes",
+			"resumes",
+			actorUserID,
+		)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to store resume: " + err.Error()})
+		}
+		resumeURL = media.URL
 	}
 
  application := models.JobApplication{
@@ -596,6 +720,8 @@ func (h *MontessoriProfessionalHandler) GetAppliedJobs(c *fiber.Ctx) error {
 	if err := h.db.Preload("Job").Preload("Job.InstitutionProfile").Where("montessori_professional_profile_id = ?", professionalProfile.ID).Find(&applications).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve applications: " + err.Error()})
 	}
-
+	for i := range applications {
+		applications[i].ResumeURL = utils.ResolveMediaURL(context.Background(), applications[i].ResumeURL, "s3", "")
+	}
 	return c.Status(fiber.StatusOK).JSON(applications)
 }

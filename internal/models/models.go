@@ -35,6 +35,7 @@ const (
 	SuperAdminRole             UserRole = "superadmin"
 	AdminRole                  UserRole = "admin"
 	InstitutionRole            UserRole = "institution"
+	SchoolRole                 UserRole = "school" // Alias for institution - treated identically throughout the system
 	MontessoriProfessionalRole UserRole = "montessori_professional"
 	TrainingCenterRole         UserRole = "training_center"
 	ParentRole                 UserRole = "parent"
@@ -62,6 +63,24 @@ const (
 	SchoolCategorySchool         SchoolCategory = "school"
 	SchoolCategoryTrainingCenter SchoolCategory = "training_center"
 )
+
+// NormalizeRole normalizes the "school" role to "institution" since they are equivalent
+func NormalizeRole(role UserRole) UserRole {
+	if role == SchoolRole {
+		return InstitutionRole
+	}
+	return role
+}
+
+// IsInstitutionRole checks if the role is institution or school (they are the same)
+func IsInstitutionRole(role UserRole) bool {
+	return role == InstitutionRole || role == SchoolRole
+}
+
+// IsInstitutionOrTrainingCenter checks if the role is institution, school, or training_center
+func IsInstitutionOrTrainingCenter(role UserRole) bool {
+	return role == InstitutionRole || role == SchoolRole || role == TrainingCenterRole
+}
 
 // User represents a user in the system
 // @Description User information
@@ -109,28 +128,31 @@ type School struct {
 	ContactEmail    string
 	ContactPhone    string
 	Website         string
-	SearchString    string // Search query used to find this school
-	SearchPageUrl   string // URL of the search page where this school was found
-	UploadedByAdmin bool   `gorm:"default:false"` // True if uploaded by admin batch
-	CreatedByUserID *uint  // Pointer to allow NULL if uploaded by admin initially
-	User            *User  `gorm:"foreignKey:CreatedByUserID"`
-	Member          bool   `gorm:"default:false"` // True if an institution/training center has selected this school
-	Hiring          bool   `gorm:"default:false"` // True if the associated institution has active job postings
+	Latitude        float64 `gorm:"index"` // Latitude for map display
+	Longitude       float64 `gorm:"index"` // Longitude for map display
+	SearchString    string  // Search query used to find this school
+	SearchPageUrl   string  // URL of the search page where this school was found
+	UploadedByAdmin bool    `gorm:"default:false"` // True if uploaded by admin batch
+	CreatedByUserID *uint   // Pointer to allow NULL if uploaded by admin initially
+	User            *User   `gorm:"foreignKey:CreatedByUserID"`
+	Member          bool    `gorm:"default:false"` // True if an institution/training center has selected this school
+	Hiring          bool    `gorm:"default:false"` // True if the associated institution has active job postings
 }
 
 // InstitutionProfile for Institution and Training Center users
 // @Description Institution or Training Center profile information
 // @Schema models.InstitutionProfile
 type InstitutionProfile struct {
-	GormModel               // Use GormModel for Swagger documentation
-	UserID           uint   `gorm:"uniqueIndex;not null"` // Foreign key to User table
-	User             User   // Eager load user details if needed
-	InstitutionName  string `gorm:"not null"`
-	SchoolID         *uint  `gorm:"uniqueIndex"` // A school can be mapped to only one institution/training center
-	School           *School
-	VerificationDocs string // Path to verification documents
-	IsVerified       bool   `gorm:"default:false"`
-	Jobs             []Job  `gorm:"foreignKey:InstitutionProfileID"`
+	GormModel                // Use GormModel for Swagger documentation
+	UserID            uint   `gorm:"uniqueIndex;not null"` // Foreign key to User table
+	User              User   // Eager load user details if needed
+	InstitutionName   string `gorm:"not null"`
+	SchoolID          *uint  `gorm:"uniqueIndex"` // A school can be mapped to only one institution/training center
+	School            *School
+	VerificationDocs  string // Path to verification documents
+	ProfilePictureURL string `json:"profile_picture_url,omitempty"` // URL to profile picture
+	IsVerified        bool   `gorm:"default:false"`
+	Jobs              []Job  `gorm:"foreignKey:InstitutionProfileID"`
 }
 
 // MontessoriProfessionalProfile for Montessori Professional users
@@ -251,6 +273,8 @@ type UserProfilePicture struct {
 	GormModel
 	UserID    uint   `gorm:"index;not null"`
 	URL       string `gorm:"not null"`
+	Storage   string `gorm:"type:varchar(20);not null;default:'local'" json:"storage,omitempty"`
+	ObjectKey string `gorm:"index" json:"objectKey,omitempty"`
 	FileName  string
 	IsPrimary bool `gorm:"default:false;index"`
 }
@@ -345,6 +369,8 @@ type Subscription struct {
 	StripeSubscriptionID string                   `gorm:"index"`
 	CancelledAt          *time.Time
 	CancellationReason   string
+	NotifiedAt7Days      *time.Time // Track when 7-day notification was sent
+	NotifiedAt1Day       *time.Time // Track when 1-day notification was sent
 }
 
 // Review represents a review of a school
@@ -386,18 +412,25 @@ type DiscountCode struct {
 // @Schema models.Blog
 type Blog struct {
 	GormModel
-	Title         string     `gorm:"not null"`             // Blog title
-	Slug          string     `gorm:"uniqueIndex;not null"` // URL-friendly identifier
-	Content       string     `gorm:"type:text;not null"`   // Blog content (HTML/Markdown)
-	Summary       string     `gorm:"type:text"`            // Short summary/excerpt
-	FeaturedImage string     // URL to featured image
-	Tags          string     `gorm:"type:text"`      // JSON array of tags
-	AuthorID      uint       `gorm:"not null;index"` // User who created the blog
-	Author        User       `gorm:"foreignKey:AuthorID"`
-	IsPublished   bool       `gorm:"default:false;index"` // Published status
-	PublishedAt   *time.Time `gorm:"index"`               // When it was published
-	ViewCount     int        `gorm:"default:0"`           // Number of views
-	IsFeatured    bool       `gorm:"default:false;index"` // Featured blog posts
+	Title   string `gorm:"not null"`             // Blog title
+	Slug    string `gorm:"uniqueIndex;not null"` // URL-friendly identifier
+	Content string `gorm:"type:text;not null"`   // Blog content (HTML/Markdown)
+	Summary string `gorm:"type:text"`            // Short summary/excerpt
+	// Backward compatible single-image field.
+	// New code should prefer Images + ThumbnailImage + HeaderImage.
+	FeaturedImage string // URL to featured image
+
+	Images         string     `gorm:"type:text"` // JSON array of image URLs
+	ThumbnailImage string     // URL of selected thumbnail image (must be one of Images)
+	HeaderImage    string     // URL of selected header image (must be one of Images)
+	YouTubeURL     string     `gorm:"type:text"`      // Optional YouTube video link
+	Tags           string     `gorm:"type:text"`      // JSON array of tags
+	AuthorID       uint       `gorm:"not null;index"` // User who created the blog
+	Author         User       `gorm:"foreignKey:AuthorID"`
+	IsPublished    bool       `gorm:"default:false;index"` // Published status
+	PublishedAt    *time.Time `gorm:"index"`               // When it was published
+	ViewCount      int        `gorm:"default:0"`           // Number of views
+	IsFeatured     bool       `gorm:"default:false;index"` // Featured blog posts
 }
 
 // AutoMigrate runs GORM's auto migration.

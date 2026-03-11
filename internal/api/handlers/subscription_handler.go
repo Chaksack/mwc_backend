@@ -42,7 +42,7 @@ type PublicPlanResponse struct {
 	Price        float64 `json:"price"`
 	Currency     string  `json:"currency"`
 	BillingCycle string  `json:"billing_cycle"`
-	Features     string  `json:"features"`       // JSON string; client may parse
+	Features     string  `json:"features"`        // JSON string; client may parse
 	StripePrice  string  `json:"stripe_price_id"` // Use in checkout
 	AllowedRoles string  `json:"allowed_roles"`   // JSON array string (optional)
 }
@@ -273,8 +273,8 @@ func (h *SubscriptionHandler) CreateCheckoutSession(c *fiber.Ctx) error {
 
 	// Build subscription metadata and include dynamic plan context if provided
 	meta := map[string]string{
-		"user_id": strconv.FormatUint(uint64(userID), 10),
-		"plan":    plan,
+		"user_id":  strconv.FormatUint(uint64(userID), 10),
+		"plan":     plan,
 		"price_id": priceID,
 	}
 	if dynamicPlanID != 0 {
@@ -436,6 +436,8 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 			} else {
 				log.Printf("Sent subscription completion notification to %s", newSub.User.Email)
 			}
+			// Create in-app notification
+			h.notificationService.CreateNotification(newSub.UserID, "Subscription Activated", fmt.Sprintf("Your %s subscription has been successfully activated!", plan))
 		}
 
 		LogUserAction(h.db, uint(userID), "SUBSCRIPTION_CREATED", uint(userID), "User", fmt.Sprintf("Subscription created for %s plan", plan), c)
@@ -523,6 +525,12 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 			if err := h.db.Save(&local).Error; err != nil {
 				log.Printf("Error updating subscription record: %v", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update subscription record"})
+			}
+			// Create notification for status changes
+			if local.Status == models.SubscriptionActive {
+				h.notificationService.CreateNotification(local.UserID, "Subscription Updated", "Your subscription is now active.")
+			} else if local.Status == models.SubscriptionInactive {
+				h.notificationService.CreateNotification(local.UserID, "Subscription Status Changed", "Your subscription status has changed. Please check your subscription details.")
 			}
 		}
 
@@ -625,6 +633,9 @@ func (h *SubscriptionHandler) HandleStripeWebhook(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update subscription record"})
 		}
 
+		// Create notification for subscription cancellation
+		h.notificationService.CreateNotification(uint(userID), "Subscription Canceled", "Your subscription has been canceled and will not renew.")
+
 		LogUserAction(h.db, uint(userID), "SUBSCRIPTION_CANCELED", uint(userID), "User", "Subscription canceled", c)
 	}
 
@@ -725,6 +736,9 @@ func (h *SubscriptionHandler) CancelSubscription(c *fiber.Ctx) error {
 		log.Printf("Error updating subscription record: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update subscription record"})
 	}
+
+	// Create notification for user-initiated cancellation
+	h.notificationService.CreateNotification(userID, "Subscription Canceled", "You have successfully canceled your subscription. It will remain active until the end of your current billing period.")
 
 	LogUserAction(h.db, userID, "SUBSCRIPTION_CANCELED_BY_USER", userID, "User", fmt.Sprintf("Subscription canceled by user. Reason: %s", subscription.CancellationReason), c)
 
