@@ -2,14 +2,15 @@ package handlers
 
 // Imports are assumed to be similar to other handler files:
 import (
-	"fmt"
-	"log"
-	"mwc_backend/internal/email"
-	"mwc_backend/internal/models"
-	"mwc_backend/internal/queue"
-	"strconv"
-	"strings"
-	"time"
+    "fmt"
+    "log"
+    "mwc_backend/internal/email"
+    "mwc_backend/internal/metrics"
+    "mwc_backend/internal/models"
+    "mwc_backend/internal/queue"
+    "strconv"
+    "strings"
+    "time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -277,9 +278,9 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(newSchool)
 }
 
-// PostJob allows an institution to post a new job.
+// PostJob allows an institution or training center to post a new job.
 // @Summary Post a job opening
-// @Description Creates a new job posting for an institution
+// @Description Creates a new job posting for an institution or training center
 // @Tags institution,jobs
 // @Accept json
 // @Produce json
@@ -287,7 +288,7 @@ func (h *InstitutionHandler) CreateSchool(c *fiber.Ctx) error {
 // @Success 201 {object} models.Job "Job posted successfully"
 // @Failure 400 {object} map[string]string "Bad request"
 // @Failure 401 {object} map[string]string "Unauthorized"
-// @Failure 404 {object} map[string]string "Institution profile not found"
+// @Failure 404 {object} map[string]string "Institution/training center profile not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security BearerAuth
 // @Router /institution/jobs [post]
@@ -296,7 +297,7 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 
 	var institutionProfile models.InstitutionProfile
 	if err := h.db.Where("user_id = ?", actorUserID).First(&institutionProfile).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Institution profile not found."})
+  return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Institution/training center profile not found."})
 	}
 	if institutionProfile.SchoolID == nil || *institutionProfile.SchoolID == 0 {
 		LogUserAction(h.db, actorUserID, "INST_JOB_POST_FAIL_NO_SCHOOL", 0, "Job", "Institution has no school", c)
@@ -369,9 +370,87 @@ func (h *InstitutionHandler) PostJob(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(job)
 }
 
-// UpdateJob allows an institution to update an existing job.
+// PublishJob allows an institution or training center to publish or unpublish their own job.
+// @Summary Publish or unpublish a job posting
+// @Description Toggles or sets the published state of a job belonging to the authenticated institution or training center
+// @Tags institution,jobs
+// @Produce json
+// @Param job_id path int true "Job ID"
+// @Param payload body struct{ IsPublished *bool `json:"is_published"` } false "Optional explicit publish state. If omitted, defaults to publish=true"
+// @Success 200 {object} models.Job "Job publish state updated"
+// @Failure 400 {object} map[string]string "Bad request or invalid job ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - can only publish own jobs"
+// @Failure 404 {object} map[string]string "Job not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /institution/jobs/{job_id}/publish [patch]
+func (h *InstitutionHandler) PublishJob(c *fiber.Ctx) error {
+    actorUserID, _ := c.Locals("user_id").(uint)
+    jobIDStr := c.Params("job_id")
+    jobID, err := strconv.ParseUint(jobIDStr, 10, 32)
+    if err != nil || jobID == 0 {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid job_id"})
+    }
+
+    // Load institution profile for the caller
+    var inst models.InstitutionProfile
+    if err := h.db.Where("user_id = ?", actorUserID).First(&inst).Error; err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Institution/training center profile not found."})
+    }
+
+    // Find job and ensure ownership
+    var job models.Job
+    if err := h.db.First(&job, uint(jobID)).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Job not found"})
+        }
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+    }
+    if job.InstitutionProfileID != inst.ID {
+        return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You can only publish or unpublish your own jobs"})
+    }
+
+    var payload struct{ IsPublished *bool `json:"is_published"` }
+    _ = c.BodyParser(&payload) // optional body
+
+    now := time.Now()
+    wasPublished := job.IsPublished
+    // Default behavior: publish=true when body absent
+    if payload.IsPublished == nil {
+        job.IsPublished = true
+        job.PublishedAt = &now
+    } else {
+        if *payload.IsPublished {
+            job.IsPublished = true
+            job.PublishedAt = &now
+        } else {
+            job.IsPublished = false
+            job.PublishedAt = nil
+        }
+    }
+
+    if err := h.db.Save(&job).Error; err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update publish state: " + err.Error()})
+    }
+
+    // Metrics: increment when transitioning to published
+    if !wasPublished && job.IsPublished {
+        // Lightweight in-memory counter
+        metrics.IncrementPublishedJobs()
+    }
+
+    // Audit log
+    state := "UNPUBLISHED"
+    if job.IsPublished { state = "PUBLISHED" }
+    LogUserAction(h.db, actorUserID, "INST_JOB_"+state, job.ID, "Job", "Job publish state changed", c)
+
+    return c.JSON(job)
+}
+
+// UpdateJob allows an institution or training center to update an existing job.
 // @Summary Update a job posting
-// @Description Updates an existing job posting
+// @Description Updates an existing job posting for an institution or training center
 // @Tags institution,jobs
 // @Accept json
 // @Produce json

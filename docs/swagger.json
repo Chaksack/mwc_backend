@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.2.0"
+        "version": "3.1.2"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -75,6 +75,175 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/discount-codes": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create a discount code (admin)",
+                "description": "Create a new discount code with optional start/end dates. Only Admin and SuperAdmin are allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "discount-codes"
+                ],
+                "parameters": [
+                    {
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Discount code created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List discount codes (admin)",
+                "description": "Returns paginated discount codes with optional filters.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "discount-codes"
+                ],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "type": "integer"
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "type": "integer"
+                    },
+                    {
+                        "name": "active",
+                        "in": "query",
+                        "type": "boolean"
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "type": "string",
+                        "description": "valid|upcoming|expired"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of discount codes",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/discount-codes/{id}/send-email": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Send discount code to all users by email (admin)",
+                "description": "Broadcasts the specified discount code to all users via email in batches.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "discount-codes"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Broadcast result",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Discount code not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2456,7 +2625,7 @@
                         }
                     },
                     "404": {
-                        "description": "Institution profile not found",
+                        "description": "Institution/training center profile not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2530,7 +2699,7 @@
                         }
                     },
                     "404": {
-                        "description": "Institution profile not found",
+                        "description": "Institution/training center profile not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -6421,7 +6590,6 @@
             "type": "object",
             "required": [
                 "content",
-                "slug",
                 "title"
             ],
             "properties": {

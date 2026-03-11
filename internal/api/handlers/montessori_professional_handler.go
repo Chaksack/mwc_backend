@@ -556,13 +556,13 @@ func (h *MontessoriProfessionalHandler) ApplyForJob(c *fiber.Ctx) error {
 		// In a real implementation, you'd save the file and return the actual URL
 	}
 
-	application := models.JobApplication{
-		JobID:                           uint(jobID),
-		MontessoriProfessionalProfileID: professionalProfile.ID,
-		CoverLetter:                     coverLetter,
-		ResumeURL:                       resumeURL,
-		Status:                          "pending",
-	}
+ application := models.JobApplication{
+        JobID:                           uint(jobID),
+        MontessoriProfessionalProfileID: &professionalProfile.ID,
+        CoverLetter:                     coverLetter,
+        ResumeURL:                       resumeURL,
+        Status:                          "pending",
+    }
 
 	if err := h.db.Create(&application).Error; err != nil {
 		LogUserAction(h.db, actorUserID, "MONT_PROF_JOB_APPLY_FAIL_CREATE", uint(jobID), "JobApplication", err.Error(), c)

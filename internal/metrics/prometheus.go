@@ -24,7 +24,7 @@ func PrometheusMetricsHandler(metricsService *MetricsService) fiber.Handler {
 
 // buildPrometheusResponse converts the metrics to Prometheus format
 func buildPrometheusResponse(metrics fiber.Map) string {
-	var response string
+    var response string
 
 	// Add uptime metric
 	uptime := metrics["uptime"].(fiber.Map)
@@ -99,7 +99,17 @@ func buildPrometheusResponse(metrics fiber.Map) string {
 		}
 	}
 
-	return response
+    // Recruiting counters (simple, in-memory)
+    rec := GetRecruitingMetrics()
+    response += "# HELP recruiting_published_jobs_total Total number of jobs published (since process start)\n"
+    response += "# TYPE recruiting_published_jobs_total counter\n"
+    response += "recruiting_published_jobs_total " + strconv.FormatUint(rec["published_jobs_total"], 10) + "\n\n"
+
+    response += "# HELP recruiting_applications_total Total number of job applications received (since process start)\n"
+    response += "# TYPE recruiting_applications_total counter\n"
+    response += "recruiting_applications_total " + strconv.FormatUint(rec["applications_total"], 10) + "\n\n"
+
+    return response
 }
 
 // SetupPrometheusMetricsRoute adds a route for Prometheus metrics

@@ -1,15 +1,16 @@
 package handlers
 
 import (
-	"encoding/json"
-	"log"
-	"mwc_backend/internal/models"
-	"strconv"
-	"strings"
-	"time"
+    "encoding/json"
+    "log"
+    "mwc_backend/internal/models"
+    "strconv"
+    "strings"
+    "time"
+    "unicode"
 
-	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
+    "github.com/gofiber/fiber/v2"
+    "gorm.io/gorm"
 )
 
 type BlogHandler struct {
@@ -22,14 +23,15 @@ func NewBlogHandler(db *gorm.DB) *BlogHandler {
 
 // Request/Response structs
 type CreateBlogRequest struct {
-	Title         string   `json:"title" validate:"required"`
-	Slug          string   `json:"slug" validate:"required"`
-	Content       string   `json:"content" validate:"required"`
-	Summary       string   `json:"summary"`
-	FeaturedImage string   `json:"featured_image"`
-	Tags          []string `json:"tags"`
-	IsPublished   bool     `json:"is_published"`
-	IsFeatured    bool     `json:"is_featured"`
+    Title         string   `json:"title" validate:"required"`
+    // Slug is optional; if not provided, it will be auto-generated from the title
+    Slug          string   `json:"slug"`
+    Content       string   `json:"content" validate:"required"`
+    Summary       string   `json:"summary"`
+    FeaturedImage string   `json:"featured_image"`
+    Tags          []string `json:"tags"`
+    IsPublished   bool     `json:"is_published"`
+    IsFeatured    bool     `json:"is_featured"`
 }
 
 type UpdateBlogRequest struct {
@@ -97,24 +99,42 @@ func (h *BlogHandler) CreateBlog(c *fiber.Ctx) error {
 		tagsJSON = string(tagsBytes)
 	}
 
-	// Create blog
-	blog := models.Blog{
-		Title:         req.Title,
-		Slug:          req.Slug,
-		Content:       req.Content,
-		Summary:       req.Summary,
-		FeaturedImage: req.FeaturedImage,
-		Tags:          tagsJSON,
-		AuthorID:      userID,
-		IsPublished:   req.IsPublished,
-		IsFeatured:    req.IsFeatured,
-	}
+ // Create blog
+ blog := models.Blog{
+     Title:         req.Title,
+     Slug:          req.Slug,
+     Content:       req.Content,
+     Summary:       req.Summary,
+     FeaturedImage: req.FeaturedImage,
+     Tags:          tagsJSON,
+     AuthorID:      userID,
+     IsPublished:   req.IsPublished,
+     IsFeatured:    req.IsFeatured,
+ }
 
-	// Set published date if publishing
-	if req.IsPublished {
-		now := time.Now()
-		blog.PublishedAt = &now
-	}
+ // If slug is not provided, generate it from title and ensure uniqueness
+ if strings.TrimSpace(blog.Slug) == "" {
+     generated, err := h.generateUniqueSlug(req.Title)
+     if err != nil {
+         log.Printf("Error generating slug: %v", err)
+         return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate slug"})
+     }
+     blog.Slug = generated
+ } else {
+     // Ensure provided slug is unique; if not, append a suffix to avoid DB unique constraint error
+     unique, err := h.ensureUniqueSlug(blog.Slug)
+     if err != nil {
+         log.Printf("Error ensuring slug uniqueness: %v", err)
+         return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to ensure slug uniqueness"})
+     }
+     blog.Slug = unique
+ }
+
+ // Set published date if publishing
+ if req.IsPublished {
+     now := time.Now()
+     blog.PublishedAt = &now
+ }
 
 	if err := h.DB.Create(&blog).Error; err != nil {
 		log.Printf("Error creating blog: %v", err)
@@ -286,12 +306,26 @@ func (h *BlogHandler) UpdateBlog(c *fiber.Ctx) error {
 	// Update fields
 	updates := make(map[string]interface{})
 	
-	if req.Title != "" {
-		updates["title"] = req.Title
-	}
-	if req.Slug != "" {
-		updates["slug"] = req.Slug
-	}
+ if req.Title != "" {
+        updates["title"] = req.Title
+        // If slug not explicitly provided but title changed, regenerate slug based on new title (keeping uniqueness)
+        if strings.TrimSpace(req.Slug) == "" {
+            if newSlug, err := h.generateUniqueSlug(req.Title); err == nil {
+                updates["slug"] = newSlug
+            } else {
+                log.Printf("Error generating slug on update: %v", err)
+            }
+        }
+    }
+    if req.Slug != "" {
+        // Ensure uniqueness for provided slug
+        if unique, err := h.ensureUniqueSlug(req.Slug); err == nil {
+            updates["slug"] = unique
+        } else {
+            log.Printf("Error ensuring slug uniqueness on update: %v", err)
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to ensure slug uniqueness"})
+        }
+    }
 	if req.Content != "" {
 		updates["content"] = req.Content
 	}
@@ -400,4 +434,95 @@ func (h *BlogHandler) toBlogResponse(blog models.Blog) BlogResponse {
 		CreatedAt:     blog.CreatedAt,
 		UpdatedAt:     blog.UpdatedAt,
 	}
+}
+
+// generateUniqueSlug creates a URL-friendly slug from the given title and ensures uniqueness in the database.
+func (h *BlogHandler) generateUniqueSlug(title string) (string, error) {
+    base := slugify(title)
+    if base == "" {
+        base = "post"
+    }
+    // Try base, then base-2, base-3, ... until unique
+    slug := base
+    i := 2
+    for {
+        var count int64
+        if err := h.DB.Model(&models.Blog{}).Where("slug = ?", slug).Count(&count).Error; err != nil {
+            return "", err
+        }
+        if count == 0 {
+            return slug, nil
+        }
+        slug = base + "-" + strconv.Itoa(i)
+        i++
+        // safety cap
+        if i > 10000 {
+            return "", fiber.NewError(fiber.StatusInternalServerError, "could not generate unique slug")
+        }
+    }
+}
+
+// ensureUniqueSlug ensures the provided slug is unique; if taken, appends numeric suffix.
+func (h *BlogHandler) ensureUniqueSlug(proposed string) (string, error) {
+    proposed = slugify(proposed)
+    if proposed == "" {
+        proposed = "post"
+    }
+    if unique, err := h.generateUniqueSlug(proposed); err == nil && unique == proposed {
+        return proposed, nil
+    }
+    // If proposed already exists, append suffixes
+    base := proposed
+    slug := base
+    i := 2
+    for {
+        var count int64
+        if err := h.DB.Model(&models.Blog{}).Where("slug = ?", slug).Count(&count).Error; err != nil {
+            return "", err
+        }
+        if count == 0 {
+            return slug, nil
+        }
+        slug = base + "-" + strconv.Itoa(i)
+        i++
+        if i > 10000 {
+            return "", fiber.NewError(fiber.StatusInternalServerError, "could not ensure unique slug")
+        }
+    }
+}
+
+// slugify converts a string into a URL-friendly slug.
+func slugify(s string) string {
+    s = strings.ToLower(strings.TrimSpace(s))
+    // Replace spaces and underscores with hyphens
+    s = strings.ReplaceAll(s, "_", "-")
+    s = strings.ReplaceAll(s, " ", "-")
+    // Remove invalid characters, keep alphanumerics and hyphens
+    var b strings.Builder
+    prevHyphen := false
+    for _, r := range s {
+        if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+            b.WriteRune(r)
+            prevHyphen = false
+        } else if r == '-' {
+            if !prevHyphen {
+                b.WriteRune('-')
+                prevHyphen = true
+            }
+        } else if unicode.IsLetter(r) || unicode.IsDigit(r) {
+            // For unicode letters/digits, skip or convert to ASCII if possible; here we skip to keep minimal
+        } else {
+            if !prevHyphen {
+                b.WriteRune('-')
+                prevHyphen = true
+            }
+        }
+    }
+    res := b.String()
+    res = strings.Trim(res, "-")
+    // Collapse multiple hyphens
+    for strings.Contains(res, "--") {
+        res = strings.ReplaceAll(res, "--", "-")
+    }
+    return res
 }

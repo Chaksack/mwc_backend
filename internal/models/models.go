@@ -166,18 +166,23 @@ type ParentProfile struct {
 // @Description Job posting information
 // @Schema models.Job
 type Job struct {
-	GormModel                               // Use GormModel for Swagger documentation
-	InstitutionProfileID uint               `gorm:"not null"` // Links to InstitutionProfile
-	InstitutionProfile   InstitutionProfile // Eager load institution profile
-	Title                string             `gorm:"not null"`
-	Description          string             `gorm:"type:text"`
-	Location             string
-	EmploymentType       string // e.g., Full-time, Part-time
-	SalaryRange          string
-	PostedAt             time.Time `gorm:"autoCreateTime"`
-	ExpiresAt            *time.Time
-	IsActive             bool             `gorm:"default:true"`
-	Applications         []JobApplication `gorm:"foreignKey:JobID"`
+    GormModel                               // Use GormModel for Swagger documentation
+    InstitutionProfileID uint               `gorm:"not null"` // Links to InstitutionProfile
+    InstitutionProfile   InstitutionProfile // Eager load institution profile
+    Title                string             `gorm:"not null"`
+    Description          string             `gorm:"type:text"`
+    Location             string
+    EmploymentType       string // e.g., Full-time, Part-time
+    SalaryRange          string
+    PostedAt             time.Time `gorm:"autoCreateTime"`
+    ExpiresAt            *time.Time
+    IsActive             bool             `gorm:"default:true"`
+    Applications         []JobApplication `gorm:"foreignKey:JobID"`
+    // Recruiting public fields
+    Slug        string     `gorm:"uniqueIndex"`   // URL-friendly identifier
+    Department  string     // Department or team
+    IsPublished bool       `gorm:"default:false;index"`
+    PublishedAt *time.Time `gorm:"index"`
 }
 
 // MontessoriJobPreference captures job alert filters for a Montessori Professional
@@ -197,15 +202,31 @@ type MontessoriJobPreference struct {
 // @Description Job application information
 // @Schema models.JobApplication
 type JobApplication struct {
-	GormModel
-	JobID                           uint `gorm:"not null"`
-	Job                             Job
-	MontessoriProfessionalProfileID uint   `gorm:"not null"` // Links to MontessoriProfessionalProfile
-	CoverLetter                     string `gorm:"type:text"`
-	ResumeURL                       string
-	AppliedAt                       time.Time                     `gorm:"autoCreateTime"`
-	Status                          string                        `gorm:"default:'pending'"` // e.g., pending, viewed, shortlisted, rejected
-	MontessoriProfessional          MontessoriProfessionalProfile `gorm:"foreignKey:MontessoriProfessionalProfileID"`
+    GormModel
+    JobID                           uint `gorm:"not null"`
+    Job                             Job
+    MontessoriProfessionalProfileID *uint                          `gorm:"index"` // Nullable for public applicants
+    MontessoriProfessional          *MontessoriProfessionalProfile `gorm:"foreignKey:MontessoriProfessionalProfileID"`
+    ApplicantName                   string                         `gorm:"index"`
+    ApplicantEmail                  string                         `gorm:"index"`
+    ApplicantPhone                  string
+    CoverLetter                     string    `gorm:"type:text"`
+    ResumeURL                       string
+    Source                          string    `gorm:"index"`                // e.g., website, referral, indeed
+    Consent                         bool      `gorm:"default:false;index"` // GDPR consent
+    AppliedAt                       time.Time `gorm:"autoCreateTime"`
+    Status                          string    `gorm:"default:'pending'"` // e.g., pending, viewed, shortlisted, rejected
+}
+
+// ApplicationEvent captures changes to an application (audit log)
+// @Description Application event information
+// @Schema models.ApplicationEvent
+type ApplicationEvent struct {
+    GormModel
+    ApplicationID uint   `gorm:"not null;index"`
+    ActorID       *uint  `gorm:"index"` // User who performed the action, nil for system
+    Action        string `gorm:"not null;index"` // e.g., created, status_changed, emailed
+    Notes         string `gorm:"type:text"`
 }
 
 // Message between Parents
@@ -343,6 +364,23 @@ type Review struct {
 	ModeratorNotes string `gorm:"type:text"` // Notes from the moderator
 }
 
+// DiscountCode represents a promotional discount code with a validity window
+// @Description Discount code that can be applied to purchases/subscriptions
+// @Schema models.DiscountCode
+type DiscountCode struct {
+    GormModel
+    Code           string     `gorm:"uniqueIndex;not null"` // Unique human-usable code
+    Description    string     `gorm:"type:text"`
+    PercentOff     *int       // 1-100; mutually exclusive with AmountOff
+    AmountOff      *float64   // fixed currency amount; mutually exclusive with PercentOff
+    StartsAt       *time.Time `gorm:"index"` // When it becomes valid (nil = immediately)
+    EndsAt         *time.Time `gorm:"index"` // When it expires (nil = never)
+    MaxRedemptions *int       // cap on redemptions (nil = unlimited)
+    RedeemedCount  int        `gorm:"default:0"`
+    IsActive       bool       `gorm:"default:true;index"`
+    CreatedByUserID *uint     `gorm:"index"`
+}
+
 // Blog represents a blog post
 // @Description Blog post information
 // @Schema models.Blog
@@ -364,23 +402,25 @@ type Blog struct {
 
 // AutoMigrate runs GORM's auto migration.
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&User{},
-		&School{},
-		&InstitutionProfile{},
-		&MontessoriProfessionalProfile{},
-		&ParentProfile{},
-		&UserProfilePicture{},
-		&Job{},
-		&JobApplication{},
-		&Message{},
-		&ActionLog{},
-		&Event{},
-		&DynamicSubscriptionPlan{},
-		&RoleSubscriptionMapping{},
-		&Subscription{},
-		&Review{},
-		&Blog{},
-		&MontessoriJobPreference{},
-	)
+    return db.AutoMigrate(
+        &User{},
+        &School{},
+        &InstitutionProfile{},
+        &MontessoriProfessionalProfile{},
+        &ParentProfile{},
+        &UserProfilePicture{},
+        &Job{},
+        &JobApplication{},
+        &ApplicationEvent{},
+        &Message{},
+        &ActionLog{},
+        &Event{},
+        &DynamicSubscriptionPlan{},
+        &RoleSubscriptionMapping{},
+        &Subscription{},
+        &Review{},
+        &Blog{},
+        &MontessoriJobPreference{},
+        &DiscountCode{},
+    )
 }

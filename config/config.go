@@ -54,7 +54,20 @@ type Config struct {
 	DefaultAdminLastName  string `mapstructure:"DEFAULT_ADMIN_LAST_NAME"`
 	// Environment configuration
 	Environment string `mapstructure:"ENVIRONMENT"`
-	BaseURL     string `mapstructure:"BASE_URL"`
+    BaseURL     string `mapstructure:"BASE_URL"`
+    // Storage (S3) configuration and resume upload constraints
+    S3Bucket           string `mapstructure:"S3_BUCKET"`
+    S3Region           string `mapstructure:"S3_REGION"`
+    S3AccessKey        string `mapstructure:"S3_ACCESS_KEY"`
+    S3SecretKey        string `mapstructure:"S3_SECRET_KEY"`
+    ResumeMaxSizeMB    int    `mapstructure:"RESUME_MAX_SIZE_MB"`
+    ResumeAllowedTypes string `mapstructure:"RESUME_ALLOWED_TYPES"`
+    // Captcha configuration
+    CaptchaProvider string `mapstructure:"CAPTCHA_PROVIDER"` // none|recaptcha|hcaptcha
+    CaptchaSecret   string `mapstructure:"CAPTCHA_SECRET"`
+    // Security toggles
+    // When true, allow returning unsigned S3 presign descriptors (DEV/TEST ONLY). Must be false in prod.
+    AllowUnsignedPresign bool `mapstructure:"ALLOW_UNSIGNED_PRESIGN"`
 }
 
 // LoadConfig reads configuration from file or environment variables.
@@ -96,12 +109,38 @@ func LoadConfig() (*Config, error) {
 	if config.RabbitMQCertPath == "" {
 		config.RabbitMQCertPath = os.Getenv("RABBITMQ_CERT_PATH")
 	}
-	if config.JWTSecret == "" {
-		config.JWTSecret = os.Getenv("JWT_SECRET")
-		if config.JWTSecret == "" {
-			return nil, fmt.Errorf("JWT_SECRET is not set")
-		}
-	}
+ if config.JWTSecret == "" {
+        config.JWTSecret = os.Getenv("JWT_SECRET")
+        if config.JWTSecret == "" {
+            return nil, fmt.Errorf("JWT_SECRET is not set")
+        }
+    }
+
+    // Storage (S3) and resume upload constraints
+    if config.S3Bucket == "" { config.S3Bucket = os.Getenv("S3_BUCKET") }
+    if config.S3Region == "" { config.S3Region = os.Getenv("S3_REGION") }
+    if config.S3AccessKey == "" { config.S3AccessKey = os.Getenv("S3_ACCESS_KEY") }
+    if config.S3SecretKey == "" { config.S3SecretKey = os.Getenv("S3_SECRET_KEY") }
+    if config.ResumeMaxSizeMB == 0 {
+        if v := os.Getenv("RESUME_MAX_SIZE_MB"); v != "" {
+            if iv, err := strconv.Atoi(v); err == nil { config.ResumeMaxSizeMB = iv }
+        }
+        if config.ResumeMaxSizeMB == 0 { config.ResumeMaxSizeMB = 10 }
+    }
+    if config.ResumeAllowedTypes == "" {
+        config.ResumeAllowedTypes = os.Getenv("RESUME_ALLOWED_TYPES")
+        if strings.TrimSpace(config.ResumeAllowedTypes) == "" {
+            config.ResumeAllowedTypes = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+    }
+
+    // Captcha configuration
+    if config.CaptchaProvider == "" { config.CaptchaProvider = os.Getenv("CAPTCHA_PROVIDER") }
+    if config.CaptchaSecret == "" { config.CaptchaSecret = os.Getenv("CAPTCHA_SECRET") }
+    // Security toggles
+    if v := os.Getenv("ALLOW_UNSIGNED_PRESIGN"); v != "" {
+        config.AllowUnsignedPresign = v == "true" || v == "1"
+    }
 
 	// SMTP Configuration with fallbacks and logging
 	if config.SMTPHost == "" {
@@ -269,14 +308,27 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
-	// Environment Configuration
-	if config.Environment == "" {
-		config.Environment = os.Getenv("ENVIRONMENT")
-		if config.Environment == "" {
-			config.Environment = "dev" // Default to development environment
-			log.Println("Warning: ENVIRONMENT not set. Using default value:", config.Environment)
-		}
-	}
+ // Environment Configuration
+ if config.Environment == "" {
+     config.Environment = os.Getenv("ENVIRONMENT")
+     if config.Environment == "" {
+         config.Environment = "dev" // Default to development environment
+         log.Println("Warning: ENVIRONMENT not set. Using default value:", config.Environment)
+     }
+ }
+ // Production hardening based on CODE_REVIEW recommendations
+ envLower := strings.ToLower(strings.TrimSpace(config.Environment))
+ if envLower == "prod" || envLower == "production" {
+     // Disallow unsigned presign in prod unless explicitly allowed for tests (still discouraged)
+     if !config.AllowUnsignedPresign {
+         // keep as false; callers should enforce behavior
+     }
+     // Require captcha provider to be set to recaptcha or hcaptcha in prod
+     prov := strings.ToLower(strings.TrimSpace(config.CaptchaProvider))
+     if prov == "" || prov == "none" || (prov != "recaptcha" && prov != "hcaptcha") {
+         return nil, fmt.Errorf("in production, CAPTCHA_PROVIDER must be one of {recaptcha,hcaptcha}")
+     }
+ }
 
 	// Base URL Configuration
 	if config.BaseURL == "" {

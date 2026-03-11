@@ -88,7 +88,6 @@ definitions:
         type: string
     required:
     - content
-    - slug
     - title
     type: object
   handlers.CreateEventRequest:
@@ -1166,6 +1165,559 @@ info:
   title: Montessori World Connect API
   version: "2.1.8"
 paths:
+  /careers/jobs:
+    get:
+      description: List published jobs with filters and pagination
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: q
+        type: string
+        description: Full-text search in title and description
+      - in: query
+        name: location
+        type: string
+      - in: query
+        name: type
+        type: string
+        description: Employment type (e.g., Full-time)
+      - in: query
+        name: department
+        type: string
+      - in: query
+        name: sort
+        type: string
+        enum: [recent, expiring_soon]
+        description: Sort order
+      - in: query
+        name: include_institution
+        type: boolean
+        description: Include basic institution profile in results
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: Paginated list of jobs
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/models.Job'
+              pagination:
+                type: object
+        "500":
+          description: Internal server error
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      summary: List published jobs (public)
+      tags:
+      - public
+      - careers
+  /careers/jobs/{slug}:
+    get:
+      description: Get a published job by slug
+      parameters:
+      - in: path
+        name: slug
+        required: true
+        type: string
+      - in: query
+        name: include_institution
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job
+          schema:
+            $ref: '#/definitions/models.Job'
+        "404":
+          description: Job not found
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      summary: Get job by slug (public)
+      tags:
+      - public
+      - careers
+  /careers/resume/presign:
+    post:
+      description: Get a presigned descriptor for uploading a resume
+      produces:
+      - application/json
+      parameters:
+      - in: body
+        name: request
+        required: true
+        schema:
+          type: object
+          properties:
+            file_name:
+              type: string
+            content_type:
+              type: string
+            size_bytes:
+              type: integer
+            captcha_token:
+              type: string
+      responses:
+        "200":
+          description: Presigned upload descriptor
+          schema:
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "403":
+          description: Captcha failed
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      summary: Presign resume upload (public)
+      tags:
+      - public
+      - careers
+  /admin/discount-codes:
+    post:
+      summary: Create a discount code (admin)
+      description: Create a new discount code with optional start/end dates. Only Admin and SuperAdmin are allowed.
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - in: body
+        name: data
+        required: true
+        schema:
+          type: object
+          properties:
+            code:
+              type: string
+            description:
+              type: string
+            percent_off:
+              type: integer
+            amount_off:
+              type: number
+              format: float
+            starts_at:
+              type: string
+              description: RFC3339 timestamp
+            ends_at:
+              type: string
+              description: RFC3339 timestamp
+            max_redemptions:
+              type: integer
+            is_active:
+              type: boolean
+      responses:
+        "201":
+          description: Discount code created
+          schema:
+            type: object
+            additionalProperties: true
+        "400":
+          description: Bad request
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      tags:
+      - authenticated
+      - admin
+      - discount-codes
+    get:
+      summary: List discount codes (admin)
+      description: Returns paginated discount codes with optional filters.
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: page_size
+        type: integer
+      - in: query
+        name: active
+        type: boolean
+      - in: query
+        name: state
+        type: string
+        description: valid|upcoming|expired
+      responses:
+        "200":
+          description: Paginated list of discount codes
+          schema:
+            type: object
+            additionalProperties: true
+        "500":
+          description: Internal server error
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      tags:
+      - authenticated
+      - admin
+      - discount-codes
+  /admin/discount-codes/{id}/send-email:
+    post:
+      summary: Send discount code to all users by email (admin)
+      description: Broadcasts the specified discount code to all users via email in batches.
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: Broadcast result
+          schema:
+            type: object
+            additionalProperties: true
+        "404":
+          description: Discount code not found
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      tags:
+      - authenticated
+      - admin
+      - discount-codes
+  /careers/jobs/{id}/apply:
+    post:
+      description: Submit a public application for a job
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: application
+        required: true
+        schema:
+          type: object
+          properties:
+            applicant_name:
+              type: string
+            applicant_email:
+              type: string
+            applicant_phone:
+              type: string
+            resume_url:
+              type: string
+            cover_letter:
+              type: string
+            consent:
+              type: boolean
+            captcha_token:
+              type: string
+            source:
+              type: string
+      responses:
+        "201":
+          description: Application created
+          schema:
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "403":
+          description: Captcha failed
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "404":
+          description: Job not available
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      summary: Apply to a job (public)
+      tags:
+      - public
+      - careers
+  /admin/recruiting/jobs:
+    get:
+      description: List jobs with filters (admin)
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: List of jobs
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      security:
+      - BearerAuth: []
+      summary: List recruiting jobs
+    post:
+      description: Create a job (admin)
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/models.Job'
+      responses:
+        "201":
+          description: Job created
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: Bad request
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create recruiting job
+      tags:
+      - recruiting
+  /admin/recruiting/jobs/{id}:
+    put:
+      description: Update a job (admin)
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/models.Job'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job updated
+          schema:
+            $ref: '#/definitions/models.Job'
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update recruiting job
+      tags:
+      - recruiting
+  /admin/recruiting/jobs/{id}/publish:
+    patch:
+      description: Publish/unpublish a job (admin)
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: payload
+        required: false
+        schema:
+          type: object
+          properties:
+            is_published:
+              type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Publish state updated
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Publish/unpublish job
+      tags:
+      - recruiting
+  /admin/recruiting/applications:
+    get:
+      description: List applications (admin)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of applications
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List applications
+      tags:
+      - recruiting
+  /admin/recruiting/applications/{id}:
+    get:
+      description: Get application detail (admin)
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Application + events
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get application
+      tags:
+      - recruiting
+  /admin/recruiting/applications/{id}/status:
+    patch:
+      description: Update application status (admin)
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: payload
+        required: true
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            notes:
+              type: string
+            notify:
+              type: boolean
+            subject:
+              type: string
+            body:
+              type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status updated
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update application status
+      tags:
+      - recruiting
+  /admin/recruiting/applications/{id}/email:
+    post:
+      description: Send email to applicant (admin)
+      parameters:
+      - in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: payload
+        required: true
+        schema:
+          type: object
+          properties:
+            subject:
+              type: string
+            body:
+              type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email sent
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Send application email
+      tags:
+      - recruiting
+  /admin/recruiting/reports/overview:
+    get:
+      description: Overview report (admin)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Overview metrics
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Recruiting overview report
+      tags:
+      - recruiting
+  /admin/recruiting/export.csv:
+    get:
+      description: Export applications CSV (admin)
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV stream
+      security:
+      - BearerAuth: []
+      summary: Export applications CSV
+      tags:
+      - recruiting
   /admin/action-logs:
     get:
       description: Retrieves a list of action logs with pagination and filtering
@@ -2750,12 +3302,12 @@ paths:
       - events
   /institution/jobs:
     get:
-      description: Retrieves all job postings created by the institution
+      description: Retrieves all job postings created by the institution or training center
       produces:
       - application/json
       responses:
         "200":
-          description: List of jobs posted by the institution
+          description: List of jobs posted by the institution or training center
           schema:
             items:
               $ref: '#/definitions/models.Job'
@@ -2767,7 +3319,7 @@ paths:
               type: string
             type: object
         "404":
-          description: Institution profile not found
+          description: Institution/training center profile not found
           schema:
             additionalProperties:
               type: string
@@ -2780,14 +3332,14 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Get institution's jobs
+      summary: Get institution/training center jobs
       tags:
       - institution
       - jobs
     post:
       consumes:
       - application/json
-      description: Creates a new job posting for an institution
+      description: Creates a new job posting for an institution or training center
       parameters:
       - description: Job information
         in: body
@@ -2815,7 +3367,7 @@ paths:
               type: string
             type: object
         "404":
-          description: Institution profile not found
+          description: Institution/training center profile not found
           schema:
             additionalProperties:
               type: string
@@ -2828,13 +3380,13 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Post a job opening
+      summary: Post a job opening (institution or training center)
       tags:
       - institution
       - jobs
   /institution/jobs/{job_id}:
     delete:
-      description: Deletes an existing job posting
+      description: Deletes an existing job posting for the institution or training center
       parameters:
       - description: Job ID
         in: path
@@ -2882,14 +3434,75 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Delete a job posting
+      summary: Delete a job posting (institution or training center)
+      tags:
+      - institution
+      - jobs
+  /institution/jobs/{job_id}/publish:
+    patch:
+      description: Toggles or sets the published state of a job belonging to the authenticated institution or training center
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      - description: Optional explicit publish state. If omitted, defaults to publish=true
+        in: body
+        name: payload
+        required: false
+        schema:
+          type: object
+          properties:
+            is_published:
+              type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job publish state updated
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: Bad request or invalid job ID
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "403":
+          description: Forbidden - can only publish own jobs
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "404":
+          description: Job not found
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+      security:
+      - BearerAuth: []
+      summary: Publish or unpublish a job posting
       tags:
       - institution
       - jobs
     put:
       consumes:
       - application/json
-      description: Updates an existing job posting
+      description: Updates an existing job posting for the institution or training center
       parameters:
       - description: Job ID
         in: path
@@ -2941,13 +3554,13 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Update a job posting
+      summary: Update a job posting (institution or training center)
       tags:
       - institution
       - jobs
   /institution/jobs/{job_id}/applicants:
     get:
-      description: Retrieves all applicants for a specific job posting
+      description: Retrieves all applicants for a specific job posting (institution or training center only)
       parameters:
       - description: Job ID
         in: path
@@ -2995,7 +3608,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Get job applicants
+      summary: Get job applicants (institution or training center)
       tags:
       - institution
       - jobs

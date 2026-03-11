@@ -1,23 +1,27 @@
 package main
 
 import (
-	"log"
-	"mwc_backend/config"
-	"mwc_backend/internal/api"
-	"mwc_backend/internal/email"
-	"mwc_backend/internal/models"
-	"mwc_backend/internal/queue"
-	"mwc_backend/internal/store"
-	"os"
+    "context"
+    "log"
+    "mwc_backend/config"
+    "mwc_backend/internal/api"
+    "mwc_backend/internal/email"
+    "mwc_backend/internal/models"
+    "mwc_backend/internal/queue"
+    "mwc_backend/internal/services"
+    "mwc_backend/internal/store"
+    "os"
+    "os/signal"
+    "syscall"
 
-	"github.com/MarceloPetrucio/go-scalar-api-reference"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/joho/godotenv"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
+    "github.com/MarceloPetrucio/go-scalar-api-reference"
+    "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/cors"
+    "github.com/gofiber/fiber/v2/middleware/logger"
+    "github.com/gofiber/fiber/v2/middleware/recover"
+    "github.com/joho/godotenv"
+    "golang.org/x/crypto/bcrypt"
+    "gorm.io/gorm"
 )
 
 // createDefaultSuperAdminIfNeeded checks if a super admin user exists and creates one if not
@@ -175,8 +179,17 @@ func main() {
 		return c.SendString(htmlContent)
 	})
 
-	// Setup API routes
-	api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)
+ // Initialize and start background scheduler (moved from routes per CODE_REVIEW)
+ notificationService := services.NewNotificationService(db, emailService)
+ schedulerService := services.NewSchedulerService(notificationService)
+ schedulerService.Start()
+ log.Println("Notification scheduler service started")
+
+ // Ensure scheduler stops on shutdown
+ defer schedulerService.Stop()
+
+ // Setup API routes
+ api.SetupRoutes(app, db, rabbitMQService, emailService, cfg)
 
 	// Setup static route for Swagger JSON files
 	app.Static("/docs", "./docs")
@@ -224,16 +237,32 @@ func main() {
 
 	log.Println("Metrics dashboard available at /metrics")
 
-	// Start server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080" // Default to port 8080 if PORT environment variable is not set
-		log.Printf("PORT environment variable not set. Defaulting to %s", port)
-	}
+    // Start server with graceful shutdown on SIGINT/SIGTERM
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080" // Default to port 8080 if PORT environment variable is not set
+        log.Printf("PORT environment variable not set. Defaulting to %s", port)
+    }
 
-	// Always start server with HTTP
-	log.Printf("Server starting with HTTP on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+    // Start server in a goroutine
+    go func() {
+        log.Printf("Server starting with HTTP on port %s", port)
+        if err := app.Listen(":" + port); err != nil {
+            log.Fatalf("Failed to start server: %v", err)
+        }
+    }()
+
+    // Wait for termination signal
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+    log.Println("Shutdown signal received, shutting down server...")
+
+    // Gracefully shutdown Fiber
+    if err := app.Shutdown(); err != nil {
+        log.Printf("Error during server shutdown: %v", err)
+    }
+
+    // Give background tasks a brief moment to finish if needed
+    _ = context.Background()
 }

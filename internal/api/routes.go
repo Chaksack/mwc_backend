@@ -1,28 +1,29 @@
 package api
 
 import (
-	"log"
+    "log"
+    "time"
 
-	"mwc_backend/config"
-	"mwc_backend/internal/api/handlers"
-	"mwc_backend/internal/api/middleware"
-	"mwc_backend/internal/email"
-	"mwc_backend/internal/models"
-	"mwc_backend/internal/queue"
-	"mwc_backend/internal/services"
+    "mwc_backend/config"
+    "mwc_backend/internal/api/handlers"
+    "mwc_backend/internal/api/middleware"
+    "mwc_backend/internal/email"
+    "mwc_backend/internal/models"
+    "mwc_backend/internal/queue"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
-	"gorm.io/gorm"
+    "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/limiter"
+    "github.com/gofiber/websocket/v2"
+    "gorm.io/gorm"
 )
 
 // SetupRoutes initializes all the API routes.
 func SetupRoutes(
-	app *fiber.App,
-	db *gorm.DB,
-	mqService queue.MessageQueueService,
-	emailService email.EmailService,
-	cfg *config.Config,
+    app *fiber.App,
+    db *gorm.DB,
+    mqService queue.MessageQueueService,
+    emailService email.EmailService,
+    cfg *config.Config,
 ) {
 	// Create instances of handlers, passing dependencies
 	authHandler := handlers.NewAuthHandler(db, cfg, emailService, mqService) // Pass full cfg
@@ -32,17 +33,18 @@ func SetupRoutes(
 	parentHandler := handlers.NewParentHandler(db, mqService, emailService)
 	subscriptionHandler := handlers.NewSubscriptionHandler(db, cfg, mqService, emailService)
 	websocketHandler := handlers.NewWebSocketHandler(db, cfg)
-	reviewHandler := handlers.NewReviewHandler(db, mqService)
-	eventHandler := handlers.NewEventHandler(db, cfg, mqService)
-	blogHandler := handlers.NewBlogHandler(db)
+ reviewHandler := handlers.NewReviewHandler(db, mqService)
+ eventHandler := handlers.NewEventHandler(db, cfg, mqService)
+ blogHandler := handlers.NewBlogHandler(db)
+ recruitingPublicHandler := handlers.NewRecruitingPublicHandler(db, cfg, emailService)
+ recruitingAdminHandler := handlers.NewRecruitingAdminHandler(db, cfg, emailService)
+ discountHandler := handlers.NewDiscountHandler(db, emailService)
 	savedSchoolHandler := handlers.NewSavedSchoolHandler(db)
 	healthHandler := handlers.NewHealthHandler(db, cfg, mqService)
 
-	// Initialize and start notification scheduler
-	notificationService := services.NewNotificationService(db, emailService)
-	schedulerService := services.NewSchedulerService(notificationService)
-	go schedulerService.Start()
-	log.Println("Notification scheduler service started")
+ // Background schedulers should be started from main() to avoid multiple instances
+ // when routes are re-initialized (e.g., in tests) and to ensure graceful shutdown.
+ // See CODE_REVIEW: move scheduler Start from routes.go to main.go.
 
 	// Root route handler
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -59,7 +61,7 @@ func SetupRoutes(
 	// For production: https://api.montessoriworldconnect.com/api/v1
 	// Health endpoints
 	app.Get("/health", healthHandler.GetHealth)
-	apiV1 := app.Group("/api/v1")
+ apiV1 := app.Group("/api/v1")
 	apiV1.Get("/health", healthHandler.GetHealth)
 	continentHandler := handlers.NewContinentHandler(db)
 	apiV1.Get("/schools/continent-counts", continentHandler.GetSchoolCountsByContinent)
@@ -87,13 +89,22 @@ func SetupRoutes(
 	// Public subscription plans
 	apiV1.Get("/subscription/plans", subscriptionHandler.ListPublicPlans)
 
-	// Public Blog Routes (no auth required)
-	apiV1.Get("/blogs", blogHandler.GetBlogs)            // Get all published blogs
-	apiV1.Get("/blogs/:slug", blogHandler.GetBlogBySlug) // Get blog by slug
+ // Public Blog Routes (no auth required)
+ apiV1.Get("/blogs", blogHandler.GetBlogs)            // Get all published blogs
+ apiV1.Get("/blogs/:slug", blogHandler.GetBlogBySlug) // Get blog by slug
 
-	// Auth Middleware
-	authMw := middleware.Protected(cfg.JWTSecret)
-	subscriptionMw := middleware.SubscriptionAuth(db)
+ // Public Careers Routes
+ careers := apiV1.Group("/careers")
+ careers.Get("/jobs", recruitingPublicHandler.ListPublishedJobs)
+ careers.Get("/jobs/:slug", recruitingPublicHandler.GetJobBySlug)
+ // Rate-limited subgroup for write endpoints
+ careersRL := careers.Group("", limiter.New(limiter.Config{ Max: 5, Expiration: 1 * time.Minute }))
+ careersRL.Post("/resume/presign", recruitingPublicHandler.PresignResumeUpload)
+ careersRL.Post("/jobs/:id/apply", recruitingPublicHandler.ApplyToJob)
+
+ // Auth Middleware
+ authMw := middleware.Protected(cfg.JWTSecret)
+ subscriptionMw := middleware.SubscriptionAuth(db)
 
 	// User Routes
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
@@ -102,13 +113,29 @@ func SetupRoutes(
 	apiV1.Delete("/me/schools/saved/:school_id", authMw, savedSchoolHandler.DeleteSavedSchool)
 	apiV1.Get("/me/schools/saved", authMw, savedSchoolHandler.GetSavedSchools)
 	// Profile picture management for authenticated users
-	apiV1.Post("/me/profile/pictures", authMw, authHandler.UploadProfilePicture)
+ apiV1.Post("/me/profile/pictures", authMw, authHandler.UploadProfilePicture)
 	apiV1.Get("/me/profile/pictures", authMw, authHandler.ListProfilePictures)
 	apiV1.Delete("/me/profile/pictures/:picture_id", authMw, authHandler.DeleteProfilePicture)
-	apiV1.Put("/me/profile/pictures/:picture_id/primary", authMw, authHandler.SetPrimaryProfilePicture)
+ apiV1.Put("/me/profile/pictures/:picture_id/primary", authMw, authHandler.SetPrimaryProfilePicture)
 
-	// Jobs endpoint - requires paid subscription
-	apiV1.Get("/jobs", authMw, subscriptionMw, institutionHandler.GetAllJobs)
+ // Admin Recruiting Routes (stubs for now) - must be defined after authMw
+ recruitingAdmin := apiV1.Group("/admin/recruiting", authMw, middleware.RoleAuth(models.AdminRole, models.SuperAdminRole))
+ // Jobs management
+ recruitingAdmin.Post("/jobs", recruitingAdminHandler.CreateJob)
+ recruitingAdmin.Get("/jobs", recruitingAdminHandler.ListJobs)
+ recruitingAdmin.Put("/jobs/:id", recruitingAdminHandler.UpdateJob)
+ recruitingAdmin.Patch("/jobs/:id/publish", recruitingAdminHandler.PublishJob)
+ // Applications management
+ recruitingAdmin.Get("/applications", recruitingAdminHandler.ListApplications)
+ recruitingAdmin.Get("/applications/:id", recruitingAdminHandler.GetApplication)
+ recruitingAdmin.Patch("/applications/:id/status", recruitingAdminHandler.UpdateApplicationStatus)
+ recruitingAdmin.Post("/applications/:id/email", recruitingAdminHandler.SendApplicationEmail)
+ // Reports & export
+ recruitingAdmin.Get("/reports/overview", recruitingAdminHandler.GetOverviewReport)
+ recruitingAdmin.Get("/export.csv", recruitingAdminHandler.ExportCSV)
+
+ // Deprecated: legacy jobs endpoint removed in favor of public careers listing
+ // Previously: apiV1.Get("/jobs", authMw, subscriptionMw, institutionHandler.GetAllJobs)
 
 	// Admin Routes (accessible by both Admin and SuperAdmin)
 	adminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.AdminRole, models.SuperAdminRole))
@@ -134,8 +161,13 @@ func SetupRoutes(
 	adminRoutes.Get("/subscription-plans", adminHandler.GetSubscriptionPlans)
 	adminRoutes.Put("/subscription-plans/:id", adminHandler.UpdateSubscriptionPlan)
 	adminRoutes.Delete("/subscription-plans/:id", adminHandler.DeleteSubscriptionPlan)
-	adminRoutes.Get("/role-subscriptions", adminHandler.GetRoleSubscriptionMappings) // ?role=parent
-	adminRoutes.Post("/assign-subscription", adminHandler.AssignUserSubscription)
+ adminRoutes.Get("/role-subscriptions", adminHandler.GetRoleSubscriptionMappings) // ?role=parent
+ adminRoutes.Post("/assign-subscription", adminHandler.AssignUserSubscription)
+
+ // Discount Codes Management (Admin/SuperAdmin)
+ adminRoutes.Post("/discount-codes", discountHandler.CreateDiscountCode)
+ adminRoutes.Get("/discount-codes", discountHandler.ListDiscountCodes)
+ adminRoutes.Post("/discount-codes/:id/send-email", discountHandler.SendDiscountCodeEmail)
 
 	// Super Admin only Routes (for admin user management)
 	superAdminRoutes := apiV1.Group("/admin", authMw, middleware.RoleAuth(models.SuperAdminRole))
@@ -147,11 +179,12 @@ func SetupRoutes(
 	instTcRoutes.Get("/schools/available", institutionHandler.GetAvailableSchools) // Get schools available for selection
 	instTcRoutes.Post("/schools", institutionHandler.CreateSchool)                 // If school not in admin list
 	instTcRoutes.Put("/schools/select/:school_id", institutionHandler.SelectSchool)
-	instTcRoutes.Post("/jobs", institutionHandler.PostJob)
-	instTcRoutes.Put("/jobs/:job_id", institutionHandler.UpdateJob)
-	instTcRoutes.Delete("/jobs/:job_id", institutionHandler.DeleteJob)
-	instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
-	instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
+ instTcRoutes.Post("/jobs", institutionHandler.PostJob)
+ instTcRoutes.Put("/jobs/:job_id", institutionHandler.UpdateJob)
+ instTcRoutes.Patch("/jobs/:job_id/publish", institutionHandler.PublishJob)
+ instTcRoutes.Delete("/jobs/:job_id", institutionHandler.DeleteJob)
+ instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
+ instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
 
 	// Allow anyone to discover montessori professionals actively looking for jobs (public)
 	apiV1.Get("/institution/montessori-professionals/looking-for-jobs", montessoriProfessionalHandler.ListLookingForJobs)
