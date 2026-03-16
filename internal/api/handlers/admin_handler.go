@@ -1359,55 +1359,127 @@ type UpdateSubscriptionPlanRequest struct {
 // @Security BearerAuth
 // @Router /admin/subscription-plans/{id} [put]
 func (h *AdminHandler) UpdateSubscriptionPlan(c *fiber.Ctx) error {
-	planID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid plan ID",
-		})
-	}
+    planID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+    if err != nil {
+        return c.Status(400).JSON(fiber.Map{
+            "success": false,
+            "message": "Invalid plan ID",
+        })
+    }
 
-	var req UpdateSubscriptionPlanRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"success": false,
-			"message": "Invalid request body",
-			"error":   err.Error(),
-		})
-	}
+    var req UpdateSubscriptionPlanRequest
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(400).JSON(fiber.Map{
+            "success": false,
+            "message": "Invalid request body",
+            "error":   err.Error(),
+        })
+    }
 
-	var plan models.DynamicSubscriptionPlan
-	if err := h.db.First(&plan, planID).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{
-			"success": false,
-			"message": "Subscription plan not found",
-		})
-	}
+    var plan models.DynamicSubscriptionPlan
+    if err := h.db.First(&plan, planID).Error; err != nil {
+        return c.Status(404).JSON(fiber.Map{
+            "success": false,
+            "message": "Subscription plan not found",
+        })
+    }
+
+    // Preserve old values for Stripe reconciliation
+    oldName := plan.Name
+    oldDescription := plan.Description
+    oldPrice := plan.Price
+    oldCurrency := strings.ToUpper(plan.Currency)
+    oldBilling := strings.ToLower(plan.BillingCycle)
+    oldStripePriceID := plan.StripePriceID
 
 	// Convert features and roles to JSON strings
 	featuresJSON, _ := json.Marshal(req.Features)
 	rolesJSON, _ := json.Marshal(req.AllowedRoles)
 
-	// Update plan
-	plan.Name = req.Name
-	plan.Description = req.Description
-	plan.Price = req.Price
-	plan.Currency = req.Currency
-	plan.BillingCycle = req.BillingCycle
-	plan.Features = string(featuresJSON)
-	plan.AllowedRoles = string(rolesJSON)
-	plan.IsActive = req.IsActive
-	if req.StripePriceID != "" {
-		plan.StripePriceID = req.StripePriceID
-	}
+ // Update plan (in-memory for now; persist after Stripe ops)
+ plan.Name = req.Name
+ plan.Description = req.Description
+ plan.Price = req.Price
+ plan.Currency = req.Currency
+ plan.BillingCycle = req.BillingCycle
+ plan.Features = string(featuresJSON)
+ plan.AllowedRoles = string(rolesJSON)
+ plan.IsActive = req.IsActive
+ if req.StripePriceID != "" {
+     plan.StripePriceID = req.StripePriceID
+ }
 
-	if err := h.db.Save(&plan).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"success": false,
-			"message": "Error updating subscription plan",
-			"error":   err.Error(),
-		})
-	}
+ // Sync changes to Stripe when possible
+ var stripeProductID string
+ // Initialize Stripe key if needed
+ if stripe.Key == "" {
+     if h.cfg != nil && h.cfg.StripeSecretKey != "" {
+         stripe.Key = h.cfg.StripeSecretKey
+     } else {
+         stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+     }
+ }
+ if stripe.Key != "" && oldStripePriceID != "" && strings.HasPrefix(strings.ToLower(oldStripePriceID), "price_") {
+     // Attempt to fetch existing price to get product
+     pr, prErr := price.Get(oldStripePriceID, nil)
+     if prErr != nil {
+         log.Printf("Stripe price get failed for %s: %v", oldStripePriceID, prErr)
+     } else if pr != nil && pr.Product != nil {
+         // In stripe-go v72, pr.Product is *stripe.Product when expanded
+         p := pr.Product
+         if p != nil {
+             stripeProductID = p.ID
+         }
+     }
+
+     // If name/description changed and we have a product, update it
+     if stripeProductID != "" && (req.Name != oldName || req.Description != oldDescription) {
+         _, uErr := product.Update(stripeProductID, &stripe.ProductParams{
+             Name:        stripe.String(req.Name),
+             Description: stripe.String(req.Description),
+         })
+         if uErr != nil {
+             log.Printf("Stripe product update failed for %s: %v", stripeProductID, uErr)
+         }
+     }
+
+     // If pricing details changed, create a new price and deactivate the old one
+     newCurrency := strings.ToLower(req.Currency)
+     newBilling := strings.ToLower(req.BillingCycle)
+     priceChanged := req.Price != oldPrice || strings.ToUpper(req.Currency) != oldCurrency || newBilling != oldBilling
+     if priceChanged && stripeProductID != "" {
+         interval := "month"
+         if newBilling == "annual" || newBilling == "yearly" || newBilling == "year" {
+             interval = "year"
+         }
+         unitAmount := int64(req.Price * 100)
+         newPrice, npErr := price.New(&stripe.PriceParams{
+             Currency:   stripe.String(newCurrency),
+             UnitAmount: stripe.Int64(unitAmount),
+             Product:    stripe.String(stripeProductID),
+             Recurring: &stripe.PriceRecurringParams{
+                 Interval: stripe.String(interval),
+             },
+         })
+         if npErr != nil {
+             log.Printf("Stripe price create failed for product %s: %v", stripeProductID, npErr)
+         } else {
+             // Deactivate old price (best effort)
+             if _, deErr := price.Update(oldStripePriceID, &stripe.PriceParams{Active: stripe.Bool(false)}); deErr != nil {
+                 log.Printf("Stripe price deactivate failed for %s: %v", oldStripePriceID, deErr)
+             }
+             plan.StripePriceID = newPrice.ID
+         }
+     }
+ }
+
+ if err := h.db.Save(&plan).Error; err != nil {
+     return c.Status(500).JSON(fiber.Map{
+         "success": false,
+         "message": "Error updating subscription plan",
+         "error":   err.Error(),
+     })
+ }
 
 	// Update role mappings
 	h.db.Where("subscription_plan_id = ?", plan.ID).Delete(&models.RoleSubscriptionMapping{})
@@ -1466,17 +1538,49 @@ func (h *AdminHandler) DeleteSubscriptionPlan(c *fiber.Ctx) error {
 		})
 	}
 
-	// Delete role mappings first
-	h.db.Where("subscription_plan_id = ?", planID).Delete(&models.RoleSubscriptionMapping{})
+ // Delete role mappings first
+ h.db.Where("subscription_plan_id = ?", planID).Delete(&models.RoleSubscriptionMapping{})
 
-	// Delete plan
-	if err := h.db.Delete(&plan).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"success": false,
-			"message": "Error deleting subscription plan",
-			"error":   err.Error(),
-		})
-	}
+ // Attempt to deactivate Stripe objects before deleting the plan
+ if plan.StripePriceID != "" {
+     if stripe.Key == "" {
+         if h.cfg != nil && h.cfg.StripeSecretKey != "" {
+             stripe.Key = h.cfg.StripeSecretKey
+         } else {
+             stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+         }
+     }
+     if stripe.Key != "" {
+         // Best-effort: fetch price to obtain product, deactivate price, archive product
+         pr, prErr := price.Get(plan.StripePriceID, nil)
+         if prErr != nil {
+             log.Printf("Stripe price get failed for %s: %v", plan.StripePriceID, prErr)
+         } else {
+             // Deactivate price
+             if _, deErr := price.Update(plan.StripePriceID, &stripe.PriceParams{Active: stripe.Bool(false)}); deErr != nil {
+                 log.Printf("Stripe price deactivate failed for %s: %v", plan.StripePriceID, deErr)
+             }
+             // Archive the product if available
+             if pr != nil && pr.Product != nil {
+                 p := pr.Product
+                 if p != nil {
+                     if _, upErr := product.Update(p.ID, &stripe.ProductParams{Active: stripe.Bool(false)}); upErr != nil {
+                         log.Printf("Stripe product archive failed for %s: %v", p.ID, upErr)
+                     }
+                 }
+             }
+         }
+     }
+ }
+
+ // Delete plan
+ if err := h.db.Delete(&plan).Error; err != nil {
+     return c.Status(500).JSON(fiber.Map{
+         "success": false,
+         "message": "Error deleting subscription plan",
+         "error":   err.Error(),
+     })
+ }
 
 	return c.Status(200).JSON(fiber.Map{
 		"success": true,

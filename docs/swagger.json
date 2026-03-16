@@ -16,7 +16,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "3.1.2"
+        "version": "3.1.3"
     },
     "host": "api.montessoriworldconnect.com",
     "basePath": "/api/v1",
@@ -128,8 +128,7 @@
                     "201": {
                         "description": "Discount code created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.DiscountCode"
                         }
                     },
                     "400": {
@@ -208,6 +207,98 @@
                         }
                     }
                 }
+            }
+        },
+        "/careers/jobs": {
+            "get": {
+                "description": "List published jobs with filters and pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {"in": "query", "name": "q", "type": "string", "description": "Full-text search in title and description"},
+                    {"in": "query", "name": "location", "type": "string"},
+                    {"in": "query", "name": "type", "type": "string", "description": "Employment type (e.g., Full-time)"},
+                    {"in": "query", "name": "department", "type": "string"},
+                    {"in": "query", "name": "sort", "type": "string", "description": "Sort order"},
+                    {"in": "query", "name": "include_institution", "type": "boolean", "description": "Include basic institution profile in results"},
+                    {"in": "query", "name": "page", "type": "integer"},
+                    {"in": "query", "name": "page_size", "type": "integer"}
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of jobs",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "data": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/definitions/models.Job"}
+                                },
+                                "pagination": {"type": "object"}
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    }
+                },
+                "summary": "List published jobs (public)",
+                "tags": ["public", "careers"]
+            }
+        },
+        "/careers/jobs/{slug}": {
+            "get": {
+                "description": "Get a published job by slug",
+                "parameters": [
+                    {"in": "path", "name": "slug", "required": true, "type": "string"},
+                    {"in": "query", "name": "include_institution", "type": "boolean"}
+                ],
+                "produces": ["application/json"],
+                "responses": {
+                    "200": {"description": "Job", "schema": {"$ref": "#/definitions/models.Job"}},
+                    "404": {"description": "Job not found", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                },
+                "summary": "Get job by slug (public)",
+                "tags": ["public", "careers"]
+            }
+        },
+        "/careers/resume/presign": {
+            "post": {
+                "description": "Get a presigned descriptor for uploading a resume",
+                "produces": ["application/json"],
+                "parameters": [
+                    {"in": "body", "name": "request", "required": true, "schema": {"type": "object", "properties": {"file_name": {"type": "string"}, "content_type": {"type": "string"}, "size_bytes": {"type": "integer"}, "captcha_token": {"type": "string"}}}}
+                ],
+                "responses": {
+                    "200": {"description": "Presigned upload descriptor", "schema": {"$ref": "#/definitions/services.PresignedPost"}},
+                    "400": {"description": "Bad request", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "403": {"description": "Captcha failed", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                },
+                "summary": "Presign resume upload (public)",
+                "tags": ["public", "careers"]
+            }
+        },
+        "/careers/jobs/{id}/apply": {
+            "post": {
+                "security": [ { "BearerAuth": [] } ],
+                "description": "Apply to a published job. Only authenticated Montessori Professionals can apply.",
+                "produces": ["application/json"],
+                "parameters": [
+                    {"in": "path", "name": "id", "required": true, "type": "integer"},
+                    {"in": "body", "name": "data", "required": true, "schema": {"type": "object", "additionalProperties": true}}
+                ],
+                "responses": {
+                    "201": {"description": "Application created", "schema": {"type": "object", "additionalProperties": true}},
+                    "400": {"description": "Validation error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "401": {"description": "Unauthorized", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "403": {"description": "Forbidden (role or captcha failed)", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "404": {"description": "Job not available", "schema": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "500": {"description": "Internal server error", "schema": {"type": "object", "additionalProperties": {"type": "string"}}}
+                },
+                "tags": ["authenticated", "careers"],
+                "summary": "Apply to a job (Montessori Professional only)"
             }
         },
         "/admin/discount-codes/{id}/send-email": {
@@ -2591,45 +2682,22 @@
         },
         "/institution/jobs": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieves all job postings created by the institution",
+                "description": "Publicly lists all published job postings across institutions and training centers. Does not require authentication.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "institution",
+                    "public",
                     "jobs"
                 ],
-                "summary": "Get institution's jobs",
+                "summary": "List published jobs (public)",
                 "responses": {
                     "200": {
-                        "description": "List of jobs posted by the institution",
+                        "description": "List of published jobs",
                         "schema": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/models.Job"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Institution/training center profile not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
                             }
                         }
                     },
@@ -2686,6 +2754,62 @@
                             "type": "object",
                             "additionalProperties": {
                                 "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Institution/training center profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/institution/jobs/mine": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all job postings created by the authenticated institution or training center",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "jobs"
+                ],
+                "summary": "Get my institution/training center jobs (authenticated)",
+                "responses": {
+                    "200": {
+                        "description": "List of jobs posted by the institution or training center",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Job"
                             }
                         }
                     },
@@ -6487,6 +6611,35 @@
         }
     },
     "definitions": {
+        "services.PresignedPost": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "fields": {"type": "object", "additionalProperties": {"type": "string"}},
+                "key": {"type": "string"},
+                "expires_at": {"type": "string", "format": "date-time"},
+                "bucket": {"type": "string"},
+                "region": {"type": "string"},
+                "max_size": {"type": "integer", "format": "int64"},
+                "content_type": {"type": "string"}
+            }
+        },
+        "models.DiscountCode": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer"},
+                "code": {"type": "string"},
+                "description": {"type": "string"},
+                "percentOff": {"type": "integer", "description": "1-100; mutually exclusive with amountOff"},
+                "amountOff": {"type": "number", "format": "float", "description": "fixed amount; mutually exclusive with percentOff"},
+                "startsAt": {"type": "string", "format": "date-time"},
+                "endsAt": {"type": "string", "format": "date-time"},
+                "maxRedemptions": {"type": "integer"},
+                "redeemedCount": {"type": "integer"},
+                "isActive": {"type": "boolean"},
+                "createdByUserID": {"type": "integer"}
+            }
+        },
         "handlers.AssignUserSubscriptionRequest": {
             "type": "object",
             "properties": {

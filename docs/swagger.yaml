@@ -1,4 +1,57 @@
 definitions:
+  services.PresignedPost:
+    type: object
+    properties:
+      url:
+        type: string
+      fields:
+        type: object
+        additionalProperties:
+          type: string
+      key:
+        type: string
+      expires_at:
+        type: string
+        format: date-time
+      bucket:
+        type: string
+      region:
+        type: string
+      max_size:
+        type: integer
+        format: int64
+      content_type:
+        type: string
+  models.DiscountCode:
+    type: object
+    properties:
+      id:
+        type: integer
+      code:
+        type: string
+      description:
+        type: string
+      percentOff:
+        type: integer
+        description: 1-100; mutually exclusive with amountOff
+      amountOff:
+        type: number
+        format: float
+        description: fixed amount; mutually exclusive with percentOff
+      startsAt:
+        type: string
+        format: date-time
+      endsAt:
+        type: string
+        format: date-time
+      maxRedemptions:
+        type: integer
+      redeemedCount:
+        type: integer
+      isActive:
+        type: boolean
+      createdByUserID:
+        type: integer
   handlers.AssignUserSubscriptionRequest:
     properties:
       duration_months:
@@ -1323,6 +1376,8 @@ definitions:
     - TrainingCenterRole
     - ParentRole
 info:
+  title: Montessori World Connect API
+  version: 3.1.3
   contact: {}
 securityDefinitions:
   BearerAuth:
@@ -1440,7 +1495,7 @@ paths:
         "200":
           description: Presigned upload descriptor
           schema:
-            type: object
+            $ref: '#/definitions/services.PresignedPost'
         "400":
           description: Bad request
           schema:
@@ -1495,8 +1550,7 @@ paths:
         "201":
           description: Discount code created
           schema:
-            type: object
-            additionalProperties: true
+            $ref: '#/definitions/models.DiscountCode'
         "400":
           description: Bad request
           schema:
@@ -1583,7 +1637,7 @@ paths:
       - discount-codes
   /careers/jobs/{id}/apply:
     post:
-      description: Submit a public application for a job
+      description: Apply to a published job. Only authenticated Montessori Professionals can apply.
       consumes:
       - application/json
       produces:
@@ -1626,8 +1680,14 @@ paths:
             type: object
             additionalProperties:
               type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+            additionalProperties:
+              type: string
         "403":
-          description: Captcha failed
+          description: Forbidden (role or captcha failed)
           schema:
             type: object
             additionalProperties:
@@ -1638,9 +1698,11 @@ paths:
             type: object
             additionalProperties:
               type: string
-      summary: Apply to a job (public)
+      security:
+      - BearerAuth: []
+      summary: Apply to a job (Montessori Professional only)
       tags:
-      - public
+      - authenticated
       - careers
   /admin/recruiting/jobs:
     get:
@@ -3709,39 +3771,25 @@ paths:
       - events
   /institution/jobs:
     get:
-      description: Retrieves all job postings created by the institution or training center
+      description: Publicly lists all published job postings across institutions and training centers. Does not require authentication.
       produces:
       - application/json
       responses:
         "200":
-          description: List of jobs posted by the institution or training center
+          description: List of published jobs
           schema:
             items:
               $ref: '#/definitions/models.Job'
             type: array
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Institution/training center profile not found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
         "500":
           description: Internal server error
           schema:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
-      summary: Get institution/training center jobs
+      summary: List published jobs (public)
       tags:
-      - institution
+      - public
       - jobs
     post:
       consumes:
@@ -3788,6 +3836,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Post a job opening (institution or training center)
+      tags:
+      - institution
+      - jobs
+  /institution/jobs/mine:
+    get:
+      description: Retrieves all job postings created by the authenticated institution or training center
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of jobs posted by the institution or training center
+          schema:
+            items:
+              $ref: '#/definitions/models.Job'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Institution/training center profile not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get my institution/training center jobs (authenticated)
       tags:
       - institution
       - jobs

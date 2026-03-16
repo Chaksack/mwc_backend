@@ -4,14 +4,19 @@ go 1.24.0
 
 require (
 	github.com/MarceloPetrucio/go-scalar-api-reference v0.0.0-20240521013641-ce5d2efe0e06
+	github.com/aws/aws-sdk-go-v2 v1.41.3
+	github.com/aws/aws-sdk-go-v2/config v1.32.11
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.96.4
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/gofiber/fiber/v2 v2.52.12-0.20260206174030-5494de86f38e
 	github.com/gofiber/swagger v0.1.14
 	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/joho/godotenv v1.5.1
+	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/spf13/viper v1.20.1
+	github.com/stretchr/testify v1.10.0
 	github.com/stripe/stripe-go/v72 v72.122.0
 	github.com/swaggo/swag v1.16.2
 	golang.org/x/crypto v0.45.0
@@ -26,6 +31,24 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.6 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.11 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.19 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.19 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.19 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.5 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.20 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.0.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.12 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.16 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.41.8 // indirect
+	github.com/aws/smithy-go v1.24.2 // indirect
+	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fasthttp/websocket v1.5.3 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
@@ -37,6 +60,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/css v1.0.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgx/v5 v5.5.5 // indirect
@@ -53,6 +77,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
@@ -60,6 +85,7 @@ require (
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
 	github.com/tinylib/msgp v1.2.5 // indirect

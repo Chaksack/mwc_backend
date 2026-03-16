@@ -202,24 +202,31 @@ func (h *RecruitingPublicHandler) PresignResumeUpload(c *fiber.Ctx) error {
 	return c.JSON(presigned)
 }
 
-// ApplyToJob accepts a public application for a job
-// @Summary Apply to a job (public)
-// @Tags public, careers
+// ApplyToJob accepts an application for a job (restricted to Montessori Professionals)
+// @Summary Apply to a job (Montessori Professional only)
+// @Tags careers, authenticated
 // @Accept json
 // @Produce json
 // @Param id path int true "Job ID"
 // @Param data body struct{ApplicantName string `json:"applicant_name"`; ApplicantEmail string `json:"applicant_email"`; ApplicantPhone string `json:"applicant_phone"`; ResumeURL string `json:"resume_url"`; CoverLetter string `json:"cover_letter"`; Consent bool `json:"consent"`; Captcha string `json:"captcha_token"`; Source string `json:"source"`} true "Application payload"
 // @Success 201 {object} map[string]interface{} "Application created"
 // @Failure 400 {object} map[string]string "Validation error"
-// @Failure 403 {object} map[string]string "Captcha failed"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden (role or captcha failed)"
 // @Failure 404 {object} map[string]string "Job not available"
 // @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
 // @Router /careers/jobs/{id}/apply [post]
 func (h *RecruitingPublicHandler) ApplyToJob(c *fiber.Ctx) error {
-	jobID := c.Params("id")
-	if strings.TrimSpace(jobID) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "job id is required"})
-	}
+    // Enforce role at handler level as defense-in-depth (routes also restrict)
+    if role, ok := c.Locals("user_role").(models.UserRole); !ok || role != models.MontessoriProfessionalRole {
+        return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only Montessori Professionals can apply to jobs."})
+    }
+    userID, _ := c.Locals("user_id").(uint)
+    jobID := c.Params("id")
+    if strings.TrimSpace(jobID) == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "job id is required"})
+    }
 	type ApplyReq struct {
 		ApplicantName  string `json:"applicant_name"`
 		ApplicantEmail string `json:"applicant_email"`
@@ -264,14 +271,14 @@ func (h *RecruitingPublicHandler) ApplyToJob(c *fiber.Ctx) error {
     } else {
         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid resume_url"})
     }
-	// Captcha if enabled
-	if strings.ToLower(h.cfg.CaptchaProvider) != "" && strings.ToLower(h.cfg.CaptchaProvider) != "none" {
-		capSvc := services.NewCaptchaService(h.cfg)
-		ok, err := capSvc.Verify(c.Context(), req.Captcha)
-		if err != nil || !ok {
-			return c.Status(http.StatusForbidden).JSON(fiber.Map{"error": "captcha verification failed"})
-		}
-	}
+ // Captcha if enabled
+ if strings.ToLower(h.cfg.CaptchaProvider) != "" && strings.ToLower(h.cfg.CaptchaProvider) != "none" {
+     capSvc := services.NewCaptchaService(h.cfg)
+     ok, err := capSvc.Verify(c.Context(), req.Captcha)
+     if err != nil || !ok {
+         return c.Status(http.StatusForbidden).JSON(fiber.Map{"error": "captcha verification failed"})
+     }
+ }
  // Validate job is published and active; preload institution user for notifications
  var job models.Job
  now := time.Now()
@@ -283,13 +290,23 @@ func (h *RecruitingPublicHandler) ApplyToJob(c *fiber.Ctx) error {
      }
      return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error: " + err.Error()})
  }
-	app := models.JobApplication{
-		JobID:          job.ID,
-		ApplicantName:  req.ApplicantName,
-		ApplicantEmail: req.ApplicantEmail,
-		ApplicantPhone: req.ApplicantPhone,
-		ResumeURL:      req.ResumeURL,
-		CoverLetter:    req.CoverLetter,
+ // Resolve applicant Montessori Professional profile (required)
+    var prof models.MontessoriProfessionalProfile
+    if err := h.db.Where("user_id = ?", userID).First(&prof).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Please complete a Montessori Professional profile before applying."})
+        }
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load professional profile: " + err.Error()})
+    }
+
+    app := models.JobApplication{
+        JobID:          job.ID,
+        MontessoriProfessionalProfileID: &prof.ID,
+        ApplicantName:  req.ApplicantName,
+        ApplicantEmail: req.ApplicantEmail,
+        ApplicantPhone: req.ApplicantPhone,
+        ResumeURL:      req.ResumeURL,
+        CoverLetter:    req.CoverLetter,
 		Consent:        req.Consent,
 		Source:         defaultSource(req.Source),
 		AppliedAt:      time.Now(),

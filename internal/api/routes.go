@@ -50,12 +50,12 @@ func SetupRoutes(
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{
 			"message":       "Welcome to Montessori World Connect API",
-			"version":       "2.2.0",
+			"version":       "3.1.3",
 			"documentation": "/swagger/index.html",
 		})
 	})
 
-	// Public routes
+ // Public routes
 	// Base URL is configured in config.Config.BaseURL
 	// For development: http://localhost:8080/api/v1
 	// For production: https://api.montessoriworldconnect.com/api/v1
@@ -79,7 +79,7 @@ func SetupRoutes(
 		})
 	})
 
-	apiV1.Post("/register", authHandler.Register)
+ apiV1.Post("/register", authHandler.Register)
 	apiV1.Post("/login", authHandler.Login)
 	apiV1.Get("/verify-email", authHandler.VerifyEmail)                            // Email verification endpoint
 	apiV1.Post("/forgot-password", authHandler.ForgotPassword)                     // Forgot password endpoint
@@ -93,6 +93,10 @@ func SetupRoutes(
  apiV1.Get("/blogs", blogHandler.GetBlogs)            // Get all published blogs
  apiV1.Get("/blogs/:slug", blogHandler.GetBlogBySlug) // Get blog by slug
 
+ // Auth Middleware (defined early as it's needed by some public groups)
+ authMw := middleware.Protected(cfg.JWTSecret)
+ subscriptionMw := middleware.SubscriptionAuth(db)
+
  // Public Careers Routes
  careers := apiV1.Group("/careers")
  careers.Get("/jobs", recruitingPublicHandler.ListPublishedJobs)
@@ -100,11 +104,11 @@ func SetupRoutes(
  // Rate-limited subgroup for write endpoints
  careersRL := careers.Group("", limiter.New(limiter.Config{ Max: 5, Expiration: 1 * time.Minute }))
  careersRL.Post("/resume/presign", recruitingPublicHandler.PresignResumeUpload)
- careersRL.Post("/jobs/:id/apply", recruitingPublicHandler.ApplyToJob)
+ // Applying to jobs is restricted to authenticated Montessori Professionals only
+ careersRLAuth := careersRL.Group("", authMw, middleware.RoleAuth(models.MontessoriProfessionalRole))
+ careersRLAuth.Post("/jobs/:id/apply", recruitingPublicHandler.ApplyToJob)
 
- // Auth Middleware
- authMw := middleware.Protected(cfg.JWTSecret)
- subscriptionMw := middleware.SubscriptionAuth(db)
+ // Auth Middleware already initialized above
 
 	// User Routes
 	apiV1.Get("/me", authMw, authHandler.GetCurrentUser) // New endpoint to retrieve logged-in user
@@ -174,7 +178,12 @@ func SetupRoutes(
 	superAdminRoutes.Post("/admins", adminHandler.CreateAdmin) // Create new admin users
 
 	// Institution and Training Center Routes (shared logic)
-	instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
+ // Public institution jobs listing (alias to careers/jobs) for backward compatibility with clients
+ // This endpoint is PUBLIC and returns published jobs when no Authorization header is provided.
+ // Authenticated clients should use /institution/jobs/mine to fetch their own jobs.
+ apiV1.Get("/institution/jobs", recruitingPublicHandler.ListPublishedJobs)
+
+ instTcRoutes := apiV1.Group("/institution", authMw, middleware.RoleAuth(models.InstitutionRole, models.TrainingCenterRole))
 	instTcRoutes.Post("/profile", institutionHandler.CreateOrUpdateInstitutionProfile)
 	instTcRoutes.Get("/schools/available", institutionHandler.GetAvailableSchools) // Get schools available for selection
 	instTcRoutes.Post("/schools", institutionHandler.CreateSchool)                 // If school not in admin list
@@ -184,7 +193,8 @@ func SetupRoutes(
  instTcRoutes.Patch("/jobs/:job_id/publish", institutionHandler.PublishJob)
  instTcRoutes.Delete("/jobs/:job_id", institutionHandler.DeleteJob)
  instTcRoutes.Get("/jobs/:job_id/applicants", institutionHandler.GetJobApplicants)
- instTcRoutes.Get("/jobs", institutionHandler.GetMyJobs)
+ // Authenticated only: list jobs created by the current institution/training center
+ instTcRoutes.Get("/jobs/mine", institutionHandler.GetMyJobs)
 
 	// Allow anyone to discover montessori professionals actively looking for jobs (public)
 	apiV1.Get("/institution/montessori-professionals/looking-for-jobs", montessoriProfessionalHandler.ListLookingForJobs)

@@ -176,16 +176,20 @@ func (h *BlogHandler) GetBlogs(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	query := h.DB.Preload("Author")
+ query := h.DB.Preload("Author")
 
-	// Filters
-	if published := c.Query("published"); published != "" {
-		if published == "true" {
-			query = query.Where("is_published = ?", true)
-		} else if published == "false" {
-			query = query.Where("is_published = ?", false)
-		}
-	}
+ // Filters
+ // By default, only show published blogs on the public endpoint unless explicitly requested.
+ if published := c.Query("published"); published != "" {
+     if published == "true" {
+         query = query.Where("is_published = ?", true)
+     } else if published == "false" {
+         query = query.Where("is_published = ?", false)
+     }
+ } else {
+     // Default: published only
+     query = query.Where("is_published = ?", true)
+ }
 
 	if featured := c.Query("featured"); featured != "" {
 		if featured == "true" {
@@ -250,15 +254,16 @@ func (h *BlogHandler) GetBlogs(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{}
 // @Router /blogs/{slug} [get]
 func (h *BlogHandler) GetBlogBySlug(c *fiber.Ctx) error {
-	slug := c.Params("slug")
+    slug := c.Params("slug")
 
-	var blog models.Blog
-	if err := h.DB.Preload("Author").Where("slug = ?", slug).First(&blog).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Blog not found"})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve blog"})
-	}
+    var blog models.Blog
+    // Public endpoint should only return published blogs
+    if err := h.DB.Preload("Author").Where("slug = ? AND is_published = ?", slug, true).First(&blog).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Blog not found"})
+        }
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve blog"})
+    }
 
 	// Increment view count
 	h.DB.Model(&blog).Update("view_count", gorm.Expr("view_count + 1"))

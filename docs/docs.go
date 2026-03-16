@@ -2775,45 +2775,22 @@ const docTemplate = `{
         },
         "/institution/jobs": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieves all job postings created by the institution",
+                "description": "Publicly lists all published job postings across institutions and training centers. Does not require authentication.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "institution",
+                    "public",
                     "jobs"
                 ],
-                "summary": "Get institution's jobs",
+                "summary": "List published jobs (public)",
                 "responses": {
                     "200": {
-                        "description": "List of jobs posted by the institution",
+                        "description": "List of published jobs",
                         "schema": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/models.Job"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Institution profile not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
                             }
                         }
                     },
@@ -2883,7 +2860,63 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Institution profile not found",
+                        "description": "Institution/training center profile not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/institution/jobs/mine": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all job postings created by the authenticated institution or training center",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institution",
+                    "jobs"
+                ],
+                "summary": "Get my institution/training center jobs (authenticated)",
+                "responses": {
+                    "200": {
+                        "description": "List of jobs posted by the institution or training center",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Job"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Institution/training center profile not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
