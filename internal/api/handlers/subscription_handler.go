@@ -682,7 +682,13 @@ func (h *SubscriptionHandler) GetUserSubscription(c *fiber.Ctx) error {
 
 // CancelRequest is the request body for canceling a subscription
 type CancelRequest struct {
-	Reason string `json:"reason"`
+    Reason string `json:"reason"`
+}
+
+// DeleteSubscriptionRequest represents optional request body for delete API
+type DeleteSubscriptionRequest struct {
+    Reason          string `json:"reason"`            // optional deletion/cancellation reason
+    CancelAtPeriodEnd bool   `json:"cancel_at_period_end"` // if true, cancel at period end; default false = immediate cancel
 }
 
 // CancelSubscription cancels the current user's subscription
@@ -743,6 +749,96 @@ func (h *SubscriptionHandler) CancelSubscription(c *fiber.Ctx) error {
 	LogUserAction(h.db, userID, "SUBSCRIPTION_CANCELED_BY_USER", userID, "User", fmt.Sprintf("Subscription canceled by user. Reason: %s", subscription.CancellationReason), c)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Subscription canceled successfully"})
+}
+
+// DeleteSubscription permanently deletes the user's subscription record and cancels it in Stripe
+// @Summary Delete user subscription
+// @Description Deletes the specified subscription: first cancels it in Stripe, then removes it from the database (soft delete)
+// @Tags subscription
+// @Accept json
+// @Produce json
+// @Param id path int true "Subscription ID"
+// @Param request body DeleteSubscriptionRequest false "Optional delete settings and reason"
+// @Success 200 {object} map[string]string "Subscription deleted successfully"
+// @Failure 400 {object} map[string]string "Invalid subscription ID"
+// @Failure 401 {object} map[string]string "User not authenticated"
+// @Failure 403 {object} map[string]string "Not allowed to delete this subscription"
+// @Failure 404 {object} map[string]string "Subscription not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuth
+// @Router /subscription/{id} [delete]
+func (h *SubscriptionHandler) DeleteSubscription(c *fiber.Ctx) error {
+    userID, ok := c.Locals("user_id").(uint)
+    if !ok {
+        return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+    }
+
+    // Parse subscription ID from path
+    idParam := c.Params("id")
+    subID64, err := strconv.ParseUint(idParam, 10, 64)
+    if err != nil || subID64 == 0 {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid subscription ID"})
+    }
+
+    // Fetch subscription and ensure ownership
+    var subscription models.Subscription
+    if err := h.db.Where("id = ?", uint(subID64)).First(&subscription).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Subscription not found"})
+        }
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve subscription"})
+    }
+
+    if subscription.UserID != userID {
+        return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not allowed to delete this subscription"})
+    }
+
+    // Parse optional body
+    var req DeleteSubscriptionRequest
+    _ = c.BodyParser(&req)
+
+    // If we have a Stripe subscription id, attempt to cancel it first
+    if subscription.StripeSubscriptionID != "" {
+        cancelParams := &stripe.SubscriptionCancelParams{}
+        if req.CancelAtPeriodEnd {
+            // Stripe supports cancel_at_period_end via update, not cancel API
+            // So if requested, perform an update to set cancel_at_period_end=true
+            updParams := &stripe.SubscriptionParams{
+                CancelAtPeriodEnd: stripe.Bool(true),
+            }
+            // We attempt update first; if it fails fallback to immediate cancel to avoid stale Stripe state
+            if _, err := sub.Update(subscription.StripeSubscriptionID, updParams); err != nil {
+                log.Printf("Failed to set cancel_at_period_end on Stripe subscription %s: %v; falling back to immediate cancel", subscription.StripeSubscriptionID, err)
+                if _, err := sub.Cancel(subscription.StripeSubscriptionID, cancelParams); err != nil {
+                    log.Printf("Error canceling Stripe subscription: %v", err)
+                    return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update subscription in Stripe"})
+                }
+            }
+        } else {
+            // Immediate cancel
+            if _, err := sub.Cancel(subscription.StripeSubscriptionID, cancelParams); err != nil {
+                log.Printf("Error canceling Stripe subscription: %v", err)
+                return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to cancel subscription in Stripe"})
+            }
+        }
+    }
+
+    // Store reason prior to deletion (and log it)
+    if req.Reason != "" {
+        subscription.CancellationReason = req.Reason
+    }
+
+    // Soft-delete the subscription from DB
+    if err := h.db.Delete(&subscription).Error; err != nil {
+        log.Printf("Error deleting subscription record: %v", err)
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete subscription record"})
+    }
+
+    // Notify and log
+    h.notificationService.CreateNotification(userID, "Subscription Deleted", "Your subscription was deleted. If this was a mistake, you can subscribe again at any time.")
+    LogUserAction(h.db, userID, "SUBSCRIPTION_DELETED_BY_USER", subscription.ID, "Subscription", fmt.Sprintf("Subscription deleted by user. Reason: %s", subscription.CancellationReason), c)
+
+    return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Subscription deleted successfully"})
 }
 
 // CreateBillingPortalSession creates a Stripe Billing Portal session for the current user

@@ -146,6 +146,13 @@ definitions:
       reason:
         type: string
     type: object
+  handlers.DeleteSubscriptionRequest:
+    properties:
+      reason:
+        type: string
+      cancel_at_period_end:
+        type: boolean
+    type: object
   handlers.ContactProfessionalRequest:
     properties:
       message:
@@ -6542,6 +6549,67 @@ paths:
       security:
       - BearerAuth: []
       summary: Cancel user subscription
+      tags:
+      - subscription
+  /subscription/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: "Deletes the specified subscription: first cancels it in Stripe, then removes it from the database (soft delete)"
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Optional delete settings and reason
+        in: body
+        name: request
+        required: false
+        schema:
+          $ref: '#/definitions/handlers.DeleteSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid subscription ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: User not authenticated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Not allowed to delete this subscription
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Subscription not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete user subscription
       tags:
       - subscription
   /subscription/checkout:

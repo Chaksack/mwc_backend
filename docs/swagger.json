@@ -5924,6 +5924,60 @@
                 }
             }
         },
+        "/subscription/{id}": {
+            "delete": {
+                "security": [
+                    { "BearerAuth": [] }
+                ],
+                "description": "Deletes the specified subscription: first cancels it in Stripe, then removes it from the database (soft delete)",
+                "consumes": ["application/json"],
+                "produces": ["application/json"],
+                "tags": ["subscription"],
+                "summary": "Delete user subscription",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Subscription ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional delete settings and reason",
+                        "name": "request",
+                        "in": "body",
+                        "required": false,
+                        "schema": {"$ref": "#/definitions/handlers.DeleteSubscriptionRequest"}
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Subscription deleted successfully",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "400": {
+                        "description": "Invalid subscription ID",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "401": {
+                        "description": "User not authenticated",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "403": {
+                        "description": "Not allowed to delete this subscription",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "404": {
+                        "description": "Subscription not found",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {"type": "object", "additionalProperties": {"type": "string"}}
+                    }
+                }
+            }
+        },
         "/subscription/checkout": {
             "post": {
                 "security": [
@@ -6713,6 +6767,13 @@
                 "reason": {
                     "type": "string"
                 }
+            }
+        },
+        "handlers.DeleteSubscriptionRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {"type": "string"},
+                "cancel_at_period_end": {"type": "boolean"}
             }
         },
         "handlers.CreateAdminRequest": {

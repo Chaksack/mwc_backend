@@ -230,10 +230,11 @@ func SetupRoutes(
 
 	// Subscription Routes
 	subscriptionRoutes := apiV1.Group("/subscription", authMw)
-	subscriptionRoutes.Post("/checkout", subscriptionHandler.CreateCheckoutSession)
-	subscriptionRoutes.Get("/status", subscriptionHandler.GetUserSubscription)
-	subscriptionRoutes.Post("/cancel", subscriptionHandler.CancelSubscription)
-	subscriptionRoutes.Post("/portal", subscriptionHandler.CreateBillingPortalSession)
+ subscriptionRoutes.Post("/checkout", subscriptionHandler.CreateCheckoutSession)
+ subscriptionRoutes.Get("/status", subscriptionHandler.GetUserSubscription)
+ subscriptionRoutes.Post("/cancel", subscriptionHandler.CancelSubscription)
+ subscriptionRoutes.Delete("/:id", subscriptionHandler.DeleteSubscription)
+ subscriptionRoutes.Post("/portal", subscriptionHandler.CreateBillingPortalSession)
 
 	// Protected routes that require authentication
 	apiV1.Get("/institutions/:id/details", authMw, subscriptionMw, institutionHandler.GetInstitutionDetails) // Detailed institution info (requires active subscription)
